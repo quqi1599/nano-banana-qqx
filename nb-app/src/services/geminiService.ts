@@ -4,7 +4,7 @@ import { AppSettings, Part } from '../types';
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
   const userParts: SDKPart[] = [];
-  
+
   images.forEach((img) => {
     userParts.push({
       inlineData: {
@@ -50,8 +50,8 @@ const formatGeminiError = (error: any): Error => {
   } else if (errorMsg.includes("500")) {
     message = "Gemini 服务器内部错误，请稍后重试 (500 Internal Server Error)。";
   } else {
-      // 保留原始错误信息以便调试，但在前面加上中文提示
-      message = `请求出错: ${errorMsg}`;
+    // 保留原始错误信息以便调试，但在前面加上中文提示
+    message = `请求出错: ${errorMsg}`;
   }
 
   const newError = new Error(message);
@@ -74,37 +74,37 @@ const processSdkParts = (sdkParts: SDKPart[]): Part[] => {
       // Check if we should append to the last part or start a new one.
       // Append if: Last part exists AND is text AND matches thought type.
       if (
-        lastPart && 
-        lastPart.text !== undefined && 
+        lastPart &&
+        lastPart.text !== undefined &&
         !!lastPart.thought === isThought
       ) {
         lastPart.text += part.text;
         if (signature) {
-            lastPart.thoughtSignature = signature;
+          lastPart.thoughtSignature = signature;
         }
       } else {
         // New text block
-        const newPart: Part = { 
-          text: part.text, 
-          thought: isThought 
+        const newPart: Part = {
+          text: part.text,
+          thought: isThought
         };
         if (signature) {
-            newPart.thoughtSignature = signature;
+          newPart.thoughtSignature = signature;
         }
         appParts.push(newPart);
       }
-    } 
+    }
     // Handle Images
     else if (part.inlineData) {
-      const newPart: Part = { 
+      const newPart: Part = {
         inlineData: {
-            mimeType: part.inlineData.mimeType || 'image/png',
-            data: part.inlineData.data || ''
-        }, 
-        thought: isThought 
+          mimeType: part.inlineData.mimeType || 'image/png',
+          data: part.inlineData.data || ''
+        },
+        thought: isThought
       };
       if (signature) {
-          newPart.thoughtSignature = signature;
+        newPart.thoughtSignature = signature;
       }
       appParts.push(newPart);
     }
@@ -122,7 +122,7 @@ export const streamGeminiResponse = async function* (
 ) {
   const { GoogleGenAI } = await import("@google/genai");
   const ai = new GoogleGenAI(
-    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.kuai.host' } }
+    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://banana2.peacedejiai.cc' } }
   );
 
   // Filter out thought parts from history to avoid sending thought chains back to the model
@@ -151,9 +151,9 @@ export const streamGeminiResponse = async function* (
         tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
         responseModalities: ["TEXT", "IMAGE"],
         ...(settings.enableThinking ? {
-            thinkingConfig: {
-                includeThoughts: true,
-            }
+          thinkingConfig: {
+            includeThoughts: true,
+          }
         } : {}),
       },
     });
@@ -166,7 +166,7 @@ export const streamGeminiResponse = async function* (
       }
       const candidates = chunk.candidates;
       if (!candidates || candidates.length === 0) continue;
-      
+
       const newParts = candidates[0].content?.parts || [];
 
       // Use the helper logic but incrementally
@@ -181,35 +181,35 @@ export const streamGeminiResponse = async function* (
           const lastPart = currentParts[currentParts.length - 1];
 
           if (
-            lastPart && 
-            lastPart.text !== undefined && 
+            lastPart &&
+            lastPart.text !== undefined &&
             !!lastPart.thought === isThought
           ) {
             lastPart.text += part.text;
             if (signature) {
-                lastPart.thoughtSignature = signature;
+              lastPart.thoughtSignature = signature;
             }
           } else {
-            const newPart: Part = { 
-              text: part.text, 
-              thought: isThought 
+            const newPart: Part = {
+              text: part.text,
+              thought: isThought
             };
             if (signature) {
-                newPart.thoughtSignature = signature;
+              newPart.thoughtSignature = signature;
             }
             currentParts.push(newPart);
           }
-        } 
+        }
         else if (part.inlineData) {
-          const newPart: Part = { 
+          const newPart: Part = {
             inlineData: {
-                mimeType: part.inlineData.mimeType || 'image/png',
-                data: part.inlineData.data || ''
-            }, 
-            thought: isThought 
+              mimeType: part.inlineData.mimeType || 'image/png',
+              data: part.inlineData.data || ''
+            },
+            thought: isThought
           };
           if (signature) {
-              newPart.thoughtSignature = signature;
+            newPart.thoughtSignature = signature;
           }
           currentParts.push(newPart);
         }
@@ -236,7 +236,7 @@ export const generateContent = async (
 ) => {
   const { GoogleGenAI } = await import("@google/genai");
   const ai = new GoogleGenAI(
-    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://api.kuai.host' } }
+    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://banana2.peacedejiai.cc' } }
   );
 
   // Filter out thought parts from history
@@ -256,7 +256,7 @@ export const generateContent = async (
   try {
     // If signal is aborted before we start, throw immediately
     if (signal?.aborted) {
-        throw new DOMException('Aborted', 'AbortError');
+      throw new DOMException('Aborted', 'AbortError');
     }
 
     const response = await ai.models.generateContent({
@@ -270,15 +270,15 @@ export const generateContent = async (
         tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
         responseModalities: ["TEXT", "IMAGE"],
         ...(settings.enableThinking ? {
-            thinkingConfig: {
-                includeThoughts: true,
-            }
+          thinkingConfig: {
+            includeThoughts: true,
+          }
         } : {}),
       },
     });
 
     if (signal?.aborted) {
-        throw new DOMException('Aborted', 'AbortError');
+      throw new DOMException('Aborted', 'AbortError');
     }
 
     const candidate = response.candidates?.[0];

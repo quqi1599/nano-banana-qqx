@@ -15,7 +15,7 @@ export const fetchBalance = async (
   apiKey: string,
   settings: AppSettings
 ): Promise<BalanceInfo> => {
-  const baseUrl = settings.customEndpoint || 'https://api.kuai.host';
+  const baseUrl = settings.customEndpoint || 'https://banana2.peacedejiai.cc';
 
   try {
     // 1. 查询订阅信息(总额度)
@@ -36,7 +36,7 @@ export const fetchBalance = async (
     const now = new Date();
     const startDate = new Date(now.getTime() - 99 * 24 * 3600 * 1000);
     const endDate = new Date(now.getTime() + 1 * 24 * 3600 * 1000);
-    
+
     const pad = (n: number) => n.toString().padStart(2, '0');
     const startDateStr = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
     const endDateStr = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`;
