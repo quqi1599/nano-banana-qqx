@@ -40,31 +40,31 @@ export const ChatInterface: React.FC = () => {
 
   useEffect(() => {
     if (isLoading) {
-        setShowArcade(true);
-        setIsExiting(false);
+      setShowArcade(true);
+      setIsExiting(false);
     } else if (!isLoading && showArcade) {
-        // 当生成完成时，延迟 2.5 秒自动关闭小游戏
-        const timer = setTimeout(() => {
-            handleCloseArcade();
-        }, 2500);
-        return () => clearTimeout(timer);
+      // 当生成完成时，延迟 2.5 秒自动关闭小游戏
+      const timer = setTimeout(() => {
+        handleCloseArcade();
+      }, 2500);
+      return () => clearTimeout(timer);
     }
   }, [isLoading, showArcade]);
 
   const handleCloseArcade = () => {
     setIsExiting(true);
     setTimeout(() => {
-        setShowArcade(false);
-        setIsExiting(false);
+      setShowArcade(false);
+      setIsExiting(false);
     }, 200); // Match animation duration
   };
 
   const handleToggleArcade = () => {
-      if (showArcade && !isExiting) {
-          handleCloseArcade();
-      } else if (!showArcade) {
-          setShowArcade(true);
-      }
+    if (showArcade && !isExiting) {
+      handleCloseArcade();
+    } else if (!showArcade) {
+      setShowArcade(true);
+    }
   };
 
   useEffect(() => {
@@ -130,12 +130,12 @@ export const ChatInterface: React.FC = () => {
     // Construct User UI Message
     const userParts: Part[] = [];
     attachments.forEach(att => {
-        userParts.push({
-            inlineData: {
-                mimeType: att.mimeType,
-                data: att.base64Data
-            }
-        });
+      userParts.push({
+        inlineData: {
+          mimeType: att.mimeType,
+          data: att.base64Data
+        }
+      });
     });
     if (text) userParts.push({ text });
 
@@ -145,7 +145,7 @@ export const ChatInterface: React.FC = () => {
       parts: userParts,
       timestamp: Date.now()
     };
-    
+
     // Add User Message
     addMessage(userMessage);
 
@@ -157,15 +157,15 @@ export const ChatInterface: React.FC = () => {
       parts: [], // Start empty
       timestamp: Date.now()
     };
-    
+
     // Add Placeholder Model Message to Store
     addMessage(modelMessage);
 
     try {
       // Prepare images for service
       const imagesPayload = attachments.map(a => ({
-          base64Data: a.base64Data,
-          mimeType: a.mimeType
+        base64Data: a.base64Data,
+        mimeType: a.mimeType
       }));
 
       abortControllerRef.current = new AbortController();
@@ -175,56 +175,56 @@ export const ChatInterface: React.FC = () => {
       let isThinking = false;
 
       if (settings.streamResponse) {
-          const stream = streamGeminiResponse(
-            apiKey,
-            history, 
-            text,
-            imagesPayload,
-            settings,
-            abortControllerRef.current.signal
-          );
+        const stream = streamGeminiResponse(
+          apiKey,
+          history,
+          text,
+          imagesPayload,
+          settings,
+          abortControllerRef.current.signal
+        );
 
-          for await (const chunk of stream) {
-              // Check if currently generating thought
-              const lastPart = chunk.modelParts[chunk.modelParts.length - 1];
-              if (lastPart && lastPart.thought) {
-                  isThinking = true;
-                  thinkingDuration = (Date.now() - startTime) / 1000;
-              } else if (isThinking && lastPart && !lastPart.thought) {
-                // Just finished thinking
-                isThinking = false;
-              }
+        for await (const chunk of stream) {
+          // Check if currently generating thought
+          const lastPart = chunk.modelParts[chunk.modelParts.length - 1];
+          if (lastPart && lastPart.thought) {
+            isThinking = true;
+            thinkingDuration = (Date.now() - startTime) / 1000;
+          } else if (isThinking && lastPart && !lastPart.thought) {
+            // Just finished thinking
+            isThinking = false;
+          }
 
-              updateLastMessage(chunk.modelParts, false, isThinking ? thinkingDuration : undefined);
-          }
-          
-          // Final update to ensure duration is set if ended while thinking (unlikely but possible)
-          // or to set the final duration if the whole response was a thought
-          if (isThinking) {
-              thinkingDuration = (Date.now() - startTime) / 1000;
-              updateLastMessage(useAppStore.getState().messages.slice(-1)[0].parts, false, thinkingDuration);
-          }
+          updateLastMessage(chunk.modelParts, false, isThinking ? thinkingDuration : undefined);
+        }
+
+        // Final update to ensure duration is set if ended while thinking (unlikely but possible)
+        // or to set the final duration if the whole response was a thought
+        if (isThinking) {
+          thinkingDuration = (Date.now() - startTime) / 1000;
+          updateLastMessage(useAppStore.getState().messages.slice(-1)[0].parts, false, thinkingDuration);
+        }
       } else {
-          const result = await generateContent(
-            apiKey,
-            history, 
-            text,
-            imagesPayload,
-            settings,
-            abortControllerRef.current.signal
-          );
+        const result = await generateContent(
+          apiKey,
+          history,
+          text,
+          imagesPayload,
+          settings,
+          abortControllerRef.current.signal
+        );
 
-          // Calculate thinking duration for non-streaming response
-          let totalDuration = (Date.now() - startTime) / 1000;
-          // In non-streaming, we can't easily separate thinking time from generation time precisely
-          // unless the model metadata provides it (which it currently doesn't in a standardized way exposed here).
-          // But we can check if there are thinking parts and attribute some time or just show total time?
-          // The UI expects thinkingDuration to show beside the "Thinking Process" block.
-          // If we have thought parts, we can pass the total duration as a fallback, or 0 if we don't want to guess.
-          // However, existing UI logic in MessageBubble uses `thinkingDuration` prop on the message.
-          
-          const hasThought = result.modelParts.some(p => p.thought);
-          updateLastMessage(result.modelParts, false, hasThought ? totalDuration : undefined);
+        // Calculate thinking duration for non-streaming response
+        let totalDuration = (Date.now() - startTime) / 1000;
+        // In non-streaming, we can't easily separate thinking time from generation time precisely
+        // unless the model metadata provides it (which it currently doesn't in a standardized way exposed here).
+        // But we can check if there are thinking parts and attribute some time or just show total time?
+        // The UI expects thinkingDuration to show beside the "Thinking Process" block.
+        // If we have thought parts, we can pass the total duration as a fallback, or 0 if we don't want to guess.
+        // However, existing UI logic in MessageBubble uses `thinkingDuration` prop on the message.
+
+        const hasThought = result.modelParts.some(p => p.thought);
+        updateLastMessage(result.modelParts, false, hasThought ? totalDuration : undefined);
       }
 
       // 收集生成的图片到历史记录
@@ -251,10 +251,10 @@ export const ChatInterface: React.FC = () => {
         return;
       }
       console.error("生成失败", error);
-      
+
       let errorText = "生成失败。请检查您的网络和 API Key。";
       if (error.message) {
-          errorText = `Error: ${error.message}`;
+        errorText = `Error: ${error.message}`;
       }
 
       // Update the placeholder message with error text and flag
@@ -289,14 +289,14 @@ export const ChatInterface: React.FC = () => {
     let sliceIndex = -1;
 
     if (message.role === 'user') {
-        targetUserMessage = message;
-        sliceIndex = index - 1;
+      targetUserMessage = message;
+      sliceIndex = index - 1;
     } else if (message.role === 'model') {
-        // Find preceding user message
-        if (index > 0 && messages[index-1].role === 'user') {
-            targetUserMessage = messages[index-1];
-            sliceIndex = index - 2;
-        }
+      // Find preceding user message
+      if (index > 0 && messages[index - 1].role === 'user') {
+        targetUserMessage = messages[index - 1];
+        sliceIndex = index - 2;
+      }
     }
 
     if (!targetUserMessage) return;
@@ -307,10 +307,10 @@ export const ChatInterface: React.FC = () => {
     const imageParts = targetUserMessage.parts.filter(p => p.inlineData);
 
     const attachments: Attachment[] = imageParts.map(p => ({
-        file: new File([], "placeholder"), // Dummy file object
-        preview: `data:${p.inlineData!.mimeType};base64,${p.inlineData!.data}`,
-        base64Data: p.inlineData!.data || '',
-        mimeType: p.inlineData!.mimeType || ''
+      file: new File([], "placeholder"), // Dummy file object
+      preview: `data:${p.inlineData!.mimeType};base64,${p.inlineData!.data}`,
+      base64Data: p.inlineData!.data || '',
+      mimeType: p.inlineData!.mimeType || ''
     }));
 
     // Slice history (delete target and future)
@@ -713,7 +713,7 @@ export const ChatInterface: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950 transition-colors duration-200">
-      <div 
+      <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 space-y-8 scroll-smooth overscroll-y-contain"
       >
@@ -740,11 +740,11 @@ export const ChatInterface: React.FC = () => {
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center opacity-40 select-none">
             <div className="mb-6 rounded-3xl bg-gray-50 dark:bg-gray-900 p-8 shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800 transition-colors duration-200">
-               <Sparkles className="h-16 w-16 text-amber-500 mb-4 mx-auto animate-pulse-fast" />
-               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">NB Nano Banana</h3>
-               <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400">
-                 开始输入以创建图像，通过对话编辑它们，或询问复杂的问题。
-               </p>
+              <Sparkles className="h-16 w-16 text-amber-500 mb-4 mx-auto animate-pulse-fast" />
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">DEAI</h3>
+              <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400">
+                开始输入以创建图像，通过对话编辑它们，或询问复杂的问题。
+              </p>
             </div>
           </div>
         )}
@@ -752,8 +752,8 @@ export const ChatInterface: React.FC = () => {
         {messages.map((msg, index) => (
           <ErrorBoundary key={msg.id}>
             <Suspense fallback={<div className="h-12 w-full animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mb-4"></div>}>
-              <MessageBubble 
-                message={msg} 
+              <MessageBubble
+                message={msg}
                 isLast={index === messages.length - 1}
                 isGenerating={isLoading}
                 onDelete={handleDelete}
@@ -764,17 +764,17 @@ export const ChatInterface: React.FC = () => {
         ))}
 
         {showArcade && (
-            <React.Suspense fallback={
-                <div className="flex w-full justify-center py-6 fade-in-up">
-                    <div className="w-full max-w-xl h-96 rounded-xl bg-gray-100 dark:bg-gray-900/50 animate-pulse border border-gray-200 dark:border-gray-800"></div>
-                </div>
-            }>
-                <ThinkingIndicator 
-                    isThinking={isLoading} 
-                    onClose={handleCloseArcade}
-                    isExiting={isExiting}
-                />
-            </React.Suspense>
+          <React.Suspense fallback={
+            <div className="flex w-full justify-center py-6 fade-in-up">
+              <div className="w-full max-w-xl h-96 rounded-xl bg-gray-100 dark:bg-gray-900/50 animate-pulse border border-gray-200 dark:border-gray-800"></div>
+            </div>
+          }>
+            <ThinkingIndicator
+              isThinking={isLoading}
+              onClose={handleCloseArcade}
+              isExiting={isExiting}
+            />
+          </React.Suspense>
         )}
       </div>
 

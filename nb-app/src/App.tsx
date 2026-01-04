@@ -129,7 +129,7 @@ const App: React.FC = () => {
       <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-950/50 px-6 py-4 backdrop-blur-md z-10 transition-colors duration-200">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400">NB Nano Banana</h1>
+            <h1 className="text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400">DEAI</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
               AI 图像生成平台
             </p>
@@ -206,8 +206,8 @@ const App: React.FC = () => {
               <button
                 onClick={togglePromptLibrary}
                 className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 ${isPromptLibraryOpen
-                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 title="提示词库"
               >
@@ -227,8 +227,8 @@ const App: React.FC = () => {
           <button
             onClick={toggleSettings}
             className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 ${isSettingsOpen
-                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
               }`}
             title="设置"
           >
