@@ -31,7 +31,7 @@ RUN echo 'server { \
     # API 反向代理 - 解决 CORS 问题 \
     location /gemini-api/ { \
     # 从请求头获取目标端点，默认使用环境变量或默认值 \
-    set $target_endpoint "https://nanobanana2.peacedejiai.cc"; \
+    set $target_endpoint "https://banana2.peacedejiai.cc"; \
     \
     # 移除 /gemini-api 前缀后转发 \
     rewrite ^/gemini-api/(.*) /$1 break; \
