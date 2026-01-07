@@ -1,58 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030712">
-    <meta name="description" content="DEAI - AI 图像生成平台">
-    <meta name="keywords" content="AI, Image Generation, Gemini, DEAI">
-    <title>DEAI | AI 图像生成平台</title>
-    <link rel="icon" href="/kuai.svg" type="image/svg+xml" />
-    <style>
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- 视口配置：支持刘海屏安全区域，禁止缩放防止输入框自动放大 -->
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <!-- 主题色 -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030712">
+
+  <!-- iOS Safari PWA 支持 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DEAI">
+  <link rel="apple-touch-icon" href="/logo.png">
+
+  <!-- 禁用 iOS 电话号码自动检测 -->
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- SEO -->
+  <meta name="description" content="DEAI - 从一句话开始的图像创作">
+  <meta name="keywords" content="AI, Image Generation, Gemini, DEAI">
+  <title>DEAI | 从一句话开始的图像创作</title>
+  <link rel="icon" href="/logo.png" type="image/svg+xml" />
+  <style>
+    .app-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #ffffff;
+      z-index: 9999;
+      transition: opacity 0.3s ease-out;
+      pointer-events: none;
+    }
+
+    .app-loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .app-loading-logo {
+      width: 64px;
+      height: 64px;
+      animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes loading-pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.8;
+        transform: scale(0.95);
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
       .app-loading {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #ffffff;
-        z-index: 9999;
-        transition: opacity 0.3s ease-out;
-        pointer-events: none;
+        background-color: #030712;
       }
-      .app-loading-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1.5rem;
-      }
-      .app-loading-logo {
-        width: 64px;
-        height: 64px;
-        animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      }
-      @keyframes loading-pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.8; transform: scale(0.95); }
-      }
-      @media (prefers-color-scheme: dark) {
-        .app-loading {
-          background-color: #030712;
-        }
-      }
-    </style>
+    }
+  </style>
 </head>
-  <body>
-    <div id="app-loading" class="app-loading">
-      <div class="app-loading-content">
-        <img src="/kuai.svg" class="app-loading-logo" alt="Loading" />
-      </div>
+
+<body>
+  <div id="app-loading" class="app-loading">
+    <div class="app-loading-content">
+      <img src="/logo.png" class="app-loading-logo" alt="Loading" />
     </div>
-    <div id="root"></div>
+  </div>
+  <div id="root"></div>
   <script type="module" src="/src/index.tsx"></script>
 </body>
+
 </html>

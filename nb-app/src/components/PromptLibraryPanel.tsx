@@ -88,9 +88,9 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
       <div className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col">
 
         {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-amber-50 to-amber-50 dark:from-gray-800 dark:to-gray-900 px-4 sm:px-6 py-3 sm:py-4">
+        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-cream-100 to-cream-100 dark:from-gray-800 dark:to-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400" />
+            <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-cream-600 dark:text-cream-400" />
             <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">提示词库</h2>
           </div>
           <button
@@ -108,11 +108,10 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition ${
-                  selectedCategory === cat
-                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
+                className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition ${selectedCategory === cat
+                    ? 'bg-cream-500 text-white shadow-lg shadow-cream-500/20'
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
+                  }`}
               >
                 {cat}
               </button>
@@ -125,7 +124,7 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
           {isLoading ? (
             // 加载状态
             <div className="flex flex-col items-center justify-center h-full gap-3">
-              <Loader2 className="h-10 w-10 text-amber-600 dark:text-amber-400 animate-spin" />
+              <Loader2 className="h-10 w-10 text-cream-600 dark:text-cream-400 animate-spin" />
               <p className="text-sm text-gray-500 dark:text-gray-400">加载提示词中...</p>
             </div>
           ) : error ? (
@@ -137,7 +136,7 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
               </div>
               <button
                 onClick={loadPrompts}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-500 transition"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cream-500 text-white hover:bg-cream-400 transition"
               >
                 <RefreshCw className="h-4 w-4" />
                 重试
@@ -171,7 +170,7 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
               href="https://github.com/glidea/banana-prompt-quicker"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-600 dark:text-amber-400 hover:underline ml-1"
+              className="text-cream-600 dark:text-cream-400 hover:underline ml-1"
             >
               banana-prompt-quicker
             </a>
@@ -195,7 +194,7 @@ const PromptCard: React.FC<PromptCardProps> = ({ prompt, onSelect }) => {
   return (
     <div
       onClick={() => onSelect(prompt)}
-      className="group cursor-pointer rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-lg transition-all duration-200 overflow-hidden"
+      className="group cursor-pointer rounded-lg sm:rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-cream-400 dark:hover:border-cream-600 hover:shadow-lg transition-all duration-200 overflow-hidden"
     >
       {/* 预览图 */}
       <div className="relative aspect-[16/10] sm:aspect-video bg-gray-100 dark:bg-gray-700 overflow-hidden">
@@ -210,11 +209,11 @@ const PromptCard: React.FC<PromptCardProps> = ({ prompt, onSelect }) => {
               src={prompt.preview}
               alt={prompt.title}
               loading="lazy"
+              referrerPolicy="no-referrer"
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
-              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
+              className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
             />
           </>
         ) : (
@@ -232,7 +231,7 @@ const PromptCard: React.FC<PromptCardProps> = ({ prompt, onSelect }) => {
 
         {/* 模式标签 */}
         <div className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2">
-          <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium bg-amber-600/90 text-white backdrop-blur-sm">
+          <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-medium bg-cream-500/90 text-white backdrop-blur-sm">
             {prompt.mode === 'edit' ? '编辑' : '生成'}
           </span>
         </div>
@@ -260,7 +259,7 @@ const PromptCard: React.FC<PromptCardProps> = ({ prompt, onSelect }) => {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-0.5 sm:gap-1 text-amber-600 dark:text-amber-400 hover:underline shrink-0 ml-2"
+              className="flex items-center gap-0.5 sm:gap-1 text-cream-600 dark:text-cream-400 hover:underline shrink-0 ml-2"
             >
               <span className="hidden sm:inline">查看详情</span>
               <span className="sm:hidden">详情</span>

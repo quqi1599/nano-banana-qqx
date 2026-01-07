@@ -168,15 +168,14 @@
 
 ### 2. URL 参数配置
 
-支持通过 URL 参数快速预设配置，方便分享或特定场景使用：
+支持通过 URL 参数快速预设配置（不支持通过 URL 传递 API Key）：
 
-- `apikey`: 预填 API Key
-- `endpoint`: 自定义 API 端点 (Base URL)
+- `endpoint`: 自定义 API 端点 (需 https 且域名在白名单内)
 - `model`: 自定义模型名称
 
 **示例：**
 ```
-http://localhost:3000/?endpoint=https://my-proxy.com&model=gemini-2.0-flash
+http://localhost:3000/?endpoint=https://banana2.peacedejiai.cc&model=gemini-3-pro-image-preview
 ```
 
 ### 3. 图片上传方式
@@ -216,7 +215,7 @@ http://localhost:3000/?endpoint=https://my-proxy.com&model=gemini-2.0-flash
 - **剩余**：剩余可用额度
 - **刷新**：点击右上角刷新按钮更新数据
 
-> 注意：余额查询功能仅支持 OpenAI 兼容的 API Endpoint（如 `https://api.kuai.host`）
+> 注意：余额查询功能仅支持 OpenAI 兼容的 API Endpoint（如 `https://banana2.peacedejiai.cc`），且仅允许 https 白名单域名
 
 ### 6. Pipeline Orchestration - 管道编排 ✨ (新增)
 

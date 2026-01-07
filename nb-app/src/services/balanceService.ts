@@ -1,4 +1,5 @@
 import { AppSettings } from '../types';
+import { getApiBaseUrl } from '../utils/endpointUtils';
 
 export interface BalanceInfo {
   hardLimitUsd: number;
@@ -15,14 +16,16 @@ export const fetchBalance = async (
   apiKey: string,
   settings: AppSettings
 ): Promise<BalanceInfo> => {
-  const baseUrl = settings.customEndpoint || 'https://banana2.peacedejiai.cc';
+  // 始终使用代理路径绕过 CORS（开发环境 Vite 代理，生产环境 nginx 代理）
+  const baseUrl = '/gemini-api';
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+  };
 
   try {
     // 1. 查询订阅信息(总额度)
     const subscriptionRes = await fetch(`${baseUrl}/v1/dashboard/billing/subscription`, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers,
     });
 
     if (!subscriptionRes.ok) {
@@ -43,11 +46,7 @@ export const fetchBalance = async (
 
     const usageRes = await fetch(
       `${baseUrl}/v1/dashboard/billing/usage?start_date=${startDateStr}&end_date=${endDateStr}`,
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-      }
+      { headers }
     );
 
     if (!usageRes.ok) {
@@ -89,4 +88,20 @@ export const formatBalance = (amount: number, isUnlimited: boolean): string => {
   }
 
   return amount.toFixed(1);
+};
+
+/**
+ * 格式化消耗金额显示
+ */
+export const formatCost = (cost: number): string => {
+  if (cost <= 0) {
+    return '$0.00';
+  }
+  if (cost < 0.01) {
+    return '< $0.01';
+  }
+  if (cost < 1) {
+    return `$${cost.toFixed(2)}`;
+  }
+  return `$${cost.toFixed(2)}`;
 };

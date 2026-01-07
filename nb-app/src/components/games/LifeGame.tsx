@@ -9,7 +9,7 @@ export const LifeGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isRunning, setIsRunning] = useState(true);
   const [generation, setGeneration] = useState(0);
-  
+
   const gridRef = useRef<boolean[][]>([]);
   const colsRef = useRef(0);
   const rowsRef = useRef(0);
@@ -24,14 +24,14 @@ export const LifeGame: React.FC = () => {
     rowsRef.current = rows;
 
     const newGrid = new Array(cols).fill(null).map(() => new Array(rows).fill(false));
-    
+
     // Randomize start
     for (let i = 0; i < cols; i++) {
       for (let j = 0; j < rows; j++) {
         newGrid[i][j] = Math.random() > 0.85; // 15% chance of life - Cleaner start
       }
     }
-    
+
     gridRef.current = newGrid;
     setGeneration(0);
   }, []);
@@ -47,7 +47,7 @@ export const LifeGame: React.FC = () => {
     for (let i = 0; i < cols; i++) {
       for (let j = 0; j < rows; j++) {
         const state = grid[i][j];
-        
+
         // Count neighbors
         let neighbors = 0;
         for (let x = -1; x < 2; x++) {
@@ -76,7 +76,7 @@ export const LifeGame: React.FC = () => {
     ctx.fillStyle = '#030712'; // gray-950
     ctx.fillRect(0, 0, width, height);
 
-    ctx.fillStyle = '#8b5cf6'; // purple-500
+    ctx.fillStyle = '#D4A373'; // cream-500
     ctx.shadowBlur = 5;
     ctx.shadowColor = '#8b5cf6';
 
@@ -100,11 +100,11 @@ export const LifeGame: React.FC = () => {
     if (!ctx) return;
 
     const resize = () => {
-        if (canvas.parentElement) {
-            canvas.width = canvas.parentElement.clientWidth;
-            canvas.height = 300;
-            initGrid(canvas.width, canvas.height);
-        }
+      if (canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = 300;
+        initGrid(canvas.width, canvas.height);
+      }
     };
     resize();
     window.addEventListener('resize', resize);
@@ -120,89 +120,89 @@ export const LifeGame: React.FC = () => {
     frameRef.current = requestAnimationFrame(loop);
 
     return () => {
-        cancelAnimationFrame(frameRef.current);
-        window.removeEventListener('resize', resize);
+      cancelAnimationFrame(frameRef.current);
+      window.removeEventListener('resize', resize);
     };
   }, [draw, initGrid, isRunning]);
 
   // Keyboard Controls
   useEffect(() => {
-      const handleKey = (e: KeyboardEvent) => {
-          if (e.code === 'Space') {
-              e.preventDefault();
-              setIsRunning(prev => !prev);
-          }
-          if (e.code === 'KeyR' || e.code === 'Enter') {
-              e.preventDefault();
-              initGrid(canvasRef.current?.width || 0, canvasRef.current?.height || 0);
-          }
-      };
-      window.addEventListener('keydown', handleKey);
-      return () => window.removeEventListener('keydown', handleKey);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsRunning(prev => !prev);
+      }
+      if (e.code === 'KeyR' || e.code === 'Enter') {
+        e.preventDefault();
+        initGrid(canvasRef.current?.width || 0, canvasRef.current?.height || 0);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
   }, [initGrid]);
 
   const handleInteract = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     let clientX, clientY;
 
     if ('touches' in e) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
     } else {
-        clientX = (e as React.MouseEvent).clientX;
-        clientY = (e as React.MouseEvent).clientY;
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
     }
 
     const x = Math.floor((clientX - rect.left) / CELL_SIZE);
     const y = Math.floor((clientY - rect.top) / CELL_SIZE);
 
     if (x >= 0 && x < colsRef.current && y >= 0 && y < rowsRef.current) {
-        gridRef.current[x][y] = !gridRef.current[x][y];
-        
-        // Play sound with throttle
-        const now = Date.now();
-        if (now - lastSoundRef.current > 50) {
-            playPopSound();
-            lastSoundRef.current = now;
-        }
+      gridRef.current[x][y] = !gridRef.current[x][y];
+
+      // Play sound with throttle
+      const now = Date.now();
+      if (now - lastSoundRef.current > 50) {
+        playPopSound();
+        lastSoundRef.current = now;
+      }
     }
   };
 
   return (
     <div className="relative flex flex-col items-center w-full">
-      <div className="absolute top-2 left-4 text-xs font-mono text-purple-400 z-10 pointer-events-none">
+      <div className="absolute top-2 left-4 text-xs font-mono text-cream-400 z-10 pointer-events-none">
         代数: {generation}
       </div>
-      
+
       <div className="absolute top-2 right-4 flex gap-2 z-10">
-        <button 
-            onClick={() => setIsRunning(!isRunning)}
-            className="p-1 bg-gray-800/50 rounded hover:bg-gray-700 text-white backdrop-blur-sm transition"
+        <button
+          onClick={() => setIsRunning(!isRunning)}
+          className="p-1 bg-gray-800/50 rounded hover:bg-gray-700 text-white backdrop-blur-sm transition"
         >
-            {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
         </button>
-        <button 
-            onClick={() => initGrid(canvasRef.current?.width || 0, canvasRef.current?.height || 0)}
-            className="p-1 bg-gray-800/50 rounded hover:bg-gray-700 text-white backdrop-blur-sm transition"
+        <button
+          onClick={() => initGrid(canvasRef.current?.width || 0, canvasRef.current?.height || 0)}
+          className="p-1 bg-gray-800/50 rounded hover:bg-gray-700 text-white backdrop-blur-sm transition"
         >
-            <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="h-4 w-4" />
         </button>
       </div>
 
       <canvas
         ref={canvasRef}
-        className="rounded-lg border border-gray-800 bg-gray-950 shadow-2xl shadow-purple-900/20 w-full touch-none cursor-crosshair"
+        className="rounded-lg border border-gray-800 bg-gray-950 shadow-2xl shadow-cream-900/20 w-full touch-none cursor-crosshair"
         onMouseDown={handleInteract}
         onTouchMove={handleInteract} // Allow drawing
         onTouchStart={handleInteract}
         onMouseMove={(e) => {
-            if (e.buttons === 1) handleInteract(e);
+          if (e.buttons === 1) handleInteract(e);
         }}
       />
-      
+
       <div className="mt-2 text-[10px] text-gray-500 dark:text-gray-400 font-mono">
         在屏幕上绘制以创造生命
       </div>

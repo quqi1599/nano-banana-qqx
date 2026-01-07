@@ -24,9 +24,9 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
-            p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
-            ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+            ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
           }}
         >
           {part.text}
@@ -60,11 +60,11 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
           title="点击查看大图"
         />
 
-        {/* Action Buttons */}
-        <div className={`absolute top-2 right-2 flex gap-2 transition-all ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Action Buttons - touch-show-actions makes them visible on touch devices */}
+        <div className={`absolute top-2 right-2 flex gap-2 transition-all touch-show-actions ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
           <button
             onClick={handleReEdit}
-            className="p-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-lg backdrop-blur-sm transition-all"
+            className="p-2 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all"
             title="再次编辑"
           >
             <Edit className="h-4 w-4" />
@@ -118,11 +118,11 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
         title="点击查看大图"
       />
 
-      {/* Action Buttons */}
-      <div className={`absolute top-3 right-3 flex gap-2 transition-all ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Action Buttons - touch-show-actions makes them visible on touch devices */}
+      <div className={`absolute top-3 right-3 flex gap-2 transition-all touch-show-actions ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
         <button
           onClick={handleReEdit}
-          className="p-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-lg backdrop-blur-sm transition-all"
+          className="p-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all"
           title="再次编辑"
         >
           <Edit className="h-5 w-5" />
@@ -161,10 +161,10 @@ const ThinkingBlock: React.FC<{ parts: Part[], duration?: number, isFinished: bo
         <BrainCircuit className="h-3 w-3" />
         <span>思考过程</span>
         {duration !== undefined && duration > 0 && (
-           <span className="ml-auto opacity-70">({duration.toFixed(1)}s)</span>
+          <span className="ml-auto opacity-70">({duration.toFixed(1)}s)</span>
         )}
       </button>
-      
+
       {isExpanded && (
         <div className="border-t border-gray-200 dark:border-gray-700/30 px-3 py-3 text-sm text-gray-600 dark:text-gray-400 italic">
           {parts.map((part, i) => <ThinkingContentItem key={i} part={part} />)}
@@ -182,11 +182,11 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
 
   const handleDelete = () => {
     showDialog({
-        type: 'confirm',
-        title: '删除消息',
-        message: "您确定要删除这条消息吗？",
-        confirmLabel: "删除",
-        onConfirm: () => onDelete(message.id)
+      type: 'confirm',
+      title: '删除消息',
+      message: "您确定要删除这条消息吗？",
+      confirmLabel: "删除",
+      onConfirm: () => onDelete(message.id)
     });
   };
 
@@ -212,10 +212,10 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
 
   // Group parts: consecutive thinking parts should be grouped together
   const groupedParts: (Part | Part[])[] = [];
-  
+
   message.parts.forEach((part) => {
     const lastGroup = groupedParts[groupedParts.length - 1];
-    
+
     if (part.thought) {
       if (Array.isArray(lastGroup)) {
         // Append to existing thinking group
@@ -235,53 +235,53 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
     if (Array.isArray(item)) {
       return <ThinkingBlock key={`think-${index}`} parts={item} duration={message.thinkingDuration} isFinished={!isLast || !isGenerating} />;
     }
-    
+
     const part = item;
 
     // 2. Handle Text (Markdown)
     if (part.text) {
       return (
         <div key={index} className="markdown-content leading-relaxed wrap-break-word overflow-hidden">
-          <ReactMarkdown 
+          <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
               // Custom components to ensure styles match the theme
-              p: ({children}) => <p className="mb-3 last:mb-0">{children}</p>,
-              a: ({href, children}) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">
+              p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-cream-500 hover:underline">
                   {children}
                 </a>
               ),
-              ul: ({children}) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
-              ol: ({children}) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-              li: ({children}) => <li className="pl-1">{children}</li>,
-              code: ({children}) => (
-                <code className="rounded bg-gray-200 dark:bg-gray-800/50 px-1 py-0.5 font-mono text-sm text-amber-600 dark:text-amber-200">
+              ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+              li: ({ children }) => <li className="pl-1">{children}</li>,
+              code: ({ children }) => (
+                <code className="rounded bg-gray-200 dark:bg-gray-800/50 px-1 py-0.5 font-mono text-sm text-cream-700 dark:text-cream-300">
                   {children}
                 </code>
               ),
-              pre: ({children}) => (
+              pre: ({ children }) => (
                 <pre className="mb-3 overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-900 p-3 text-sm border border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
                   {children}
                 </pre>
               ),
-              blockquote: ({children}) => (
+              blockquote: ({ children }) => (
                 <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-1 my-3 text-gray-500 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-900/30 rounded-r">
                   {children}
                 </blockquote>
               ),
-              table: ({children}) => (
+              table: ({ children }) => (
                 <div className="overflow-x-auto mb-3 rounded-lg border border-gray-200 dark:border-gray-700">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">{children}</table>
                 </div>
               ),
-              thead: ({children}) => <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">{children}</thead>,
-              tbody: ({children}) => <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900/50">{children}</tbody>,
-              tr: ({children}) => <tr>{children}</tr>,
-              th: ({children}) => (
+              thead: ({ children }) => <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">{children}</thead>,
+              tbody: ({ children }) => <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900/50">{children}</tbody>,
+              tr: ({ children }) => <tr>{children}</tr>,
+              th: ({ children }) => (
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{children}</th>
               ),
-              td: ({children}) => <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{children}</td>,
+              td: ({ children }) => <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{children}</td>,
             }}
           >
             {part.text}
@@ -289,7 +289,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
         </div>
       );
     }
-    
+
     // 3. Handle Images
     if (part.inlineData) {
       return <ImageWithDownload key={index} part={part} index={index} />;
@@ -298,32 +298,31 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
   };
 
   return (
-    <div 
+    <div
       className={`flex w-full gap-4 ${isUser ? 'justify-end' : 'justify-start'} group`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      
+
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-600 to-amber-500 shadow-lg shadow-amber-500/20 mt-1">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cream-500 to-cream-400 shadow-cream-500/20 mt-1">
           <Sparkles className="h-4 w-4 text-white" />
         </div>
       )}
 
       <div className={`flex max-w-[85%] md:max-w-[75%] flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
         <div
-          className={`relative rounded-2xl px-5 py-3.5 shadow-sm w-full transition-colors duration-200 ${
-            isUser
-              ? 'bg-amber-600 text-white rounded-tr-sm'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200 dark:border-gray-700'
-          }`}
+          className={`relative rounded-2xl px-5 py-3.5 shadow-sm w-full transition-colors duration-200 ${isUser
+            ? 'bg-cream-500 text-white rounded-tr-sm'
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200 dark:border-gray-700'
+            }`}
         >
           {groupedParts.map((item, i) => renderContent(item, i))}
 
           {message.isError && (
-             <div className="mt-2 text-xs text-red-300 font-medium">
-                生成响应失败。请检查您的 API Key 或网络连接。
-             </div>
+            <div className="mt-2 text-xs text-red-300 font-medium">
+              生成响应失败。请检查您的 API Key 或网络连接。
+            </div>
           )}
 
           {/* 数据集下载按钮 */}
@@ -331,7 +330,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
             <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={handleDownloadDataset}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-cream-400 to-cream-500 hover:from-cream-500 hover:to-cream-600 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all"
               >
                 <PackageOpen className="h-4 w-4" />
                 下载 AI-Toolkit 数据集 (ZIP)
@@ -343,31 +342,31 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
             </div>
           )}
         </div>
-        
+
         <div className="flex items-center gap-2 px-1">
-           <span className="text-[10px] text-gray-500 font-medium">
-             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-           </span>
-           
-           {/* Actions */}
-           {!actionsDisabled && (
-             <div className={`flex items-center gap-1 transition-opacity duration-200 ${showActions ? 'opacity-100' : 'opacity-0'}`}>
-                <button
-                  onClick={() => onRegenerate(message.id)}
-                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400"
-                  title="从此重新生成"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                </button>
-                <button 
-                  onClick={handleDelete}
-                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                  title="删除消息"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-             </div>
-           )}
+          <span className="text-[10px] text-gray-500 font-medium">
+            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+
+          {/* Actions */}
+          {!actionsDisabled && (
+            <div className={`flex items-center gap-1 transition-opacity duration-200 ${showActions ? 'opacity-100' : 'opacity-0'}`}>
+              <button
+                onClick={() => onRegenerate(message.id)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-cream-600 dark:hover:text-cream-400"
+                title="从此重新生成"
+              >
+                <RotateCcw className="h-3 w-3" />
+              </button>
+              <button
+                onClick={handleDelete}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                title="删除消息"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

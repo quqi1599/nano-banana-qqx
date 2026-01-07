@@ -147,8 +147,8 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden">
 
           {/* 搜索框 */}
-          <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 px-4 py-3 bg-gradient-to-r from-amber-50 to-amber-50 dark:from-gray-800 dark:to-gray-900">
-            <Search className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 px-4 py-3 bg-gradient-to-r from-cream-100 to-cream-100 dark:from-gray-800 dark:to-gray-900">
+            <Search className="h-5 w-5 text-cream-600 dark:text-cream-400 shrink-0" />
             <input
               ref={searchInputRef}
               type="text"
@@ -173,11 +173,10 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition ${
-                    selectedCategory === cat
-                      ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition ${selectedCategory === cat
+                    ? 'bg-cream-500 text-white shadow-lg shadow-cream-500/20'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                    }`}
                 >
                   {cat}
                 </button>
@@ -214,19 +213,17 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
                       key={`${prompt.title}-${prompt.category}`}
                       onClick={() => handleSelect(prompt)}
                       onMouseEnter={() => setHoveredPrompt(prompt)}
-                      className={`px-4 py-3 cursor-pointer transition border-b border-gray-100 dark:border-gray-700/50 last:border-0 ${
-                        index === selectedIndex
-                          ? 'bg-amber-50 dark:bg-amber-900/20'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
+                      className={`px-4 py-3 cursor-pointer transition border-b border-gray-100 dark:border-gray-700/50 last:border-0 ${index === selectedIndex
+                        ? 'bg-cream-50 dark:bg-cream-900/20'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         {/* 序号 */}
-                        <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-medium ${
-                          index === selectedIndex
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                        }`}>
+                        <div className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-medium ${index === selectedIndex
+                          ? 'bg-cream-500 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
                           {index + 1}
                         </div>
 
@@ -236,7 +233,7 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
                             <h3 className="font-medium text-gray-900 dark:text-white text-sm truncate">
                               {prompt.title}
                             </h3>
-                            <span className="shrink-0 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                            <span className="shrink-0 px-2 py-0.5 rounded-md text-xs font-medium bg-cream-100 dark:bg-cream-900/30 text-cream-700 dark:text-cream-400">
                               {prompt.category}
                             </span>
                           </div>
@@ -266,7 +263,7 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
                       href="https://github.com/glidea/banana-prompt-quicker"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline hover:text-amber-600 dark:hover:text-amber-400"
+                      className="underline hover:text-cream-600 dark:hover:text-cream-400"
                     >
                       Banana Prompt Quicker
                     </a>
@@ -322,9 +319,8 @@ const PromptDetailPreview: React.FC<PromptDetailPreviewProps> = ({ prompt }) => 
               loading="lazy"
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
-              className={`w-full h-full object-cover transition-opacity duration-300 ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
             />
           </>
         ) : (
@@ -340,10 +336,10 @@ const PromptDetailPreview: React.FC<PromptDetailPreviewProps> = ({ prompt }) => 
           {prompt.title}
         </h3>
         <div className="flex items-center gap-2">
-          <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+          <span className="px-2 py-1 rounded-md text-xs font-medium bg-cream-100 dark:bg-cream-900/30 text-cream-700 dark:text-cream-400">
             {prompt.category}
           </span>
-          <span className="px-2 py-1 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+          <span className="px-2 py-1 rounded-md text-xs font-medium bg-cream-100 dark:bg-cream-900/30 text-cream-700 dark:text-cream-400">
             {prompt.mode === 'edit' ? '编辑' : '生成'}
           </span>
         </div>
@@ -375,7 +371,7 @@ const PromptDetailPreview: React.FC<PromptDetailPreviewProps> = ({ prompt }) => 
           href={prompt.link}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium transition"
+          className="flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg bg-cream-500 hover:bg-cream-600 text-white text-sm font-medium transition"
         >
           <ExternalLink className="h-4 w-4" />
           查看详情

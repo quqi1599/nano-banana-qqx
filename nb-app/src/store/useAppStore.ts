@@ -4,6 +4,7 @@ import { get as getVal, set as setVal, del as delVal } from 'idb-keyval';
 import { fetchBalance, BalanceInfo } from '../services/balanceService';
 import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
+import { DEFAULT_API_ENDPOINT } from '../config/api';
 
 // Custom IndexedDB storage
 const storage: StateStorage = {
@@ -27,11 +28,14 @@ interface AppState {
   isSettingsOpen: boolean;
   inputText: string; // Global input text state
   balance: BalanceInfo | null;
+  usageCount: number; // 使用次数（当余额API不可用时使用）
   installPrompt: any | null; // PWA Install Prompt Event
 
   setInstallPrompt: (prompt: any) => void;
   setApiKey: (key: string) => void;
   fetchBalance: () => Promise<void>;
+  incrementUsageCount: () => void;
+  resetUsageCount: () => void;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   addMessage: (message: ChatMessage) => void;
   updateLastMessage: (parts: Part[], isError?: boolean, thinkingDuration?: number) => void;
@@ -58,7 +62,7 @@ export const useAppStore = create<AppState>()(
         useGrounding: false,
         enableThinking: false,
         streamResponse: true,
-        customEndpoint: 'https://banana2.peacedejiai.cc',
+        customEndpoint: DEFAULT_API_ENDPOINT,
         modelName: 'gemini-3-pro-image-preview',
         theme: 'system',
       },
@@ -68,6 +72,7 @@ export const useAppStore = create<AppState>()(
       isSettingsOpen: window.innerWidth > 640, // Open by default only on desktop (sm breakpoint)
       inputText: '',
       balance: null,
+      usageCount: 0,
       installPrompt: null,
 
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
@@ -83,6 +88,10 @@ export const useAppStore = create<AppState>()(
           console.error('Failed to update balance:', error);
         }
       },
+
+      incrementUsageCount: () => set((state) => ({ usageCount: state.usageCount + 1 })),
+
+      resetUsageCount: () => set({ usageCount: 0 }),
 
       updateSettings: (newSettings) =>
         set((state) => ({ settings: { ...state.settings, ...newSettings } })),

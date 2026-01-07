@@ -7,13 +7,20 @@
   --color-gray-900: #111827;
   --color-gray-950: #030712;
 
-  /* Gold/Amber color palette for black-gold theme */
-  --color-gold-50: #fffbeb;
-  --color-gold-100: #fef3c7;
-  --color-gold-400: #fbbf24;
-  --color-gold-500: #f59e0b;
-  --color-gold-600: #d97706;
-  --color-gold-700: #b45309;
+  /* Cream Style Palette */
+  --color-cream-50: #FFEFC3;
+  --color-cream-100: #F6E0B3;
+  --color-cream-200: #EDD1A3;
+  --color-cream-300: #E4C293;
+  --color-cream-400: #DBB383;
+  --color-cream-500: #D4A373;
+  /* Main Brand Color (Caramel/Latte) */
+  --color-cream-600: #BC8A5F;
+  --color-cream-700: #9C714D;
+  --color-cream-800: #7D5A3E;
+  --color-cream-900: #4A4238;
+  /* Warm Dark Text */
+  --color-cream-950: #2D2620;
 
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-heartbeat: heartbeat 2s ease-in-out infinite;
@@ -28,18 +35,41 @@
 }
 
 @keyframes attract {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(245, 158, 11, 0)); }
-  50% { transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)); }
+
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(245, 158, 11, 0));
+  }
+
+  50% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6));
+  }
 }
 
 @keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
 }
 
 @keyframes heartbeat-slow {
-  0%, 100% { fill: transparent; }
-  50% { fill: currentColor; }
+
+  0%,
+  100% {
+    fill: transparent;
+  }
+
+  50% {
+    fill: currentColor;
+  }
 }
 
 @keyframes fadeInUp {
@@ -47,6 +77,7 @@
     opacity: 0;
     transform: translate3d(0, 20px, 0);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -58,6 +89,7 @@
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
+
   to {
     opacity: 0;
     transform: translate3d(0, 30px, 0);
@@ -73,26 +105,155 @@
 }
 
 html {
-  overscroll-behavior-y: none; /* 禁用下拉刷新 (全局) */
+  overscroll-behavior-y: none;
+  /* 禁用下拉刷新 (全局) */
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-white transition-colors duration-200;
-  overscroll-behavior-y: none; /* 禁用下拉刷新 */
+  @apply bg-cream-50 text-cream-900 dark:bg-cream-950 dark:text-cream-50 transition-colors duration-200;
+  overscroll-behavior-y: none;
+  /* 禁用下拉刷新 */
   touch-action: manipulation;
+  /* 防止 iOS 中长按弹出菜单干扰 */
+  -webkit-touch-callout: none;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+/* ===== 安全区域工具类 ===== */
+/* 用于刘海屏和底部手势条适配 */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }
-::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-900;
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
 }
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-600;
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* 组合安全区域 */
+.px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.py-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.p-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+/* 底部栏安全高度（常用于固定底部的输入区域） */
+.min-h-safe-bottom {
+  min-height: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== 触摸交互优化 ===== */
+/* 触摸反馈 - 按下时轻微缩小 */
+.touch-feedback {
+  transition: transform 0.1s ease;
+}
+
+.touch-feedback:active {
+  transform: scale(0.97);
+}
+
+/* 禁止文字选择（用于按钮等元素） */
+.select-none-touch {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 触摸高亮效果（移动端按钮） */
+.touch-highlight {
+  -webkit-tap-highlight-color: rgba(212, 163, 115, 0.2);
+}
+
+/* ===== 移动端图片操作可见性 ===== */
+/* 在触摸设备上始终显示操作按钮 */
+@media (hover: none) and (pointer: coarse) {
+  .touch-show-actions {
+    opacity: 1 !important;
+  }
+}
+
+/* ===== 滚动优化 ===== */
+/* 流畅滚动 */
+.scroll-smooth-touch {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* 隐藏滚动条但保持滚动功能（移动端） */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== iOS 输入框优化 ===== */
+/* 防止 iOS 输入框获得焦点时页面自动放大 */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+@media screen and (min-width: 640px) {
+
+  input,
+  textarea,
+  select {
+    font-size: inherit !important;
+  }
+}
+
+/* ===== 键盘弹出适配 ===== */
+/* 当虚拟键盘弹出时，确保输入区域可见 */
+@supports (height: 100dvh) {
+  .h-dvh-keyboard {
+    height: 100dvh;
+  }
+}
+
+/* Custom scrollbar (仅桌面端) */
+@media (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-cream-100 dark:bg-cream-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-600;
+  }
+}
+
+/* 隐藏移动端滚动条 */
+@media (hover: none) and (pointer: coarse) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -1,5 +1,7 @@
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
+import { DEFAULT_API_ENDPOINT } from '../config/api';
+import { getApiBaseUrl } from '../utils/endpointUtils';
 
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
@@ -121,8 +123,10 @@ export const streamGeminiResponse = async function* (
   signal?: AbortSignal
 ) {
   const { GoogleGenAI } = await import("@google/genai");
+  // 始终使用代理路径绕过 CORS（开发环境 Vite 代理，生产环境 nginx 代理）
+  const baseUrl = '/gemini-api';
   const ai = new GoogleGenAI(
-    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://banana2.peacedejiai.cc' } }
+    { apiKey, httpOptions: { baseUrl } }
   );
 
   // Filter out thought parts from history to avoid sending thought chains back to the model
@@ -235,8 +239,10 @@ export const generateContent = async (
   signal?: AbortSignal
 ) => {
   const { GoogleGenAI } = await import("@google/genai");
+  // 始终使用代理路径绕过 CORS（开发环境 Vite 代理，生产环境 nginx 代理）
+  const baseUrl = '/gemini-api';
   const ai = new GoogleGenAI(
-    { apiKey, httpOptions: { baseUrl: settings.customEndpoint || 'https://banana2.peacedejiai.cc' } }
+    { apiKey, httpOptions: { baseUrl } }
   );
 
   // Filter out thought parts from history

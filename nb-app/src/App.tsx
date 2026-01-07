@@ -6,8 +6,10 @@ import { ToastContainer } from './components/ui/ToastContainer';
 import { GlobalDialog } from './components/ui/GlobalDialog';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
-import { Settings, Sun, Moon, Github, ImageIcon, DollarSign, Download, Sparkles, Key, BookOpen } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
+import { getAllowedEndpointHosts, validateEndpoint } from './utils/endpointUtils';
+import { DEFAULT_API_ENDPOINT } from './config/api';
 
 // Lazy load components
 const ApiKeyModal = lazyWithRetry(() => import('./components/ApiKeyModal').then(module => ({ default: module.ApiKeyModal })));
@@ -16,8 +18,8 @@ const ImageHistoryPanel = lazyWithRetry(() => import('./components/ImageHistoryP
 const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibraryPanel').then(module => ({ default: module.PromptLibraryPanel })));
 
 const App: React.FC = () => {
-  const { apiKey, setApiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt } = useAppStore();
-  const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal } = useUiStore();
+  const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt } = useAppStore();
+  const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -80,21 +82,56 @@ const App: React.FC = () => {
     setMounted(true);
 
     const params = new URLSearchParams(window.location.search);
-    const urlApiKey = params.get('apikey');
-    const urlEndpoint = params.get('endpoint');
+    const urlEndpoint = params.get('endpoint')?.trim();
     const urlModel = params.get('model');
 
-    if (urlEndpoint || urlModel) {
-      updateSettings({
-        ...(urlEndpoint ? { customEndpoint: urlEndpoint } : {}),
-        ...(urlModel ? { modelName: urlModel } : {}),
-      });
+    if (urlModel) {
+      updateSettings({ modelName: urlModel });
     }
 
-    if (urlApiKey) {
-      setApiKey(urlApiKey);
+    if (urlEndpoint) {
+      const result = validateEndpoint(urlEndpoint);
+
+      if (!result.ok) {
+        showDialog({
+          type: 'alert',
+          title: '无效接口地址',
+          message: `${result.reason}\n允许的域名：${getAllowedEndpointHosts().join(', ')}`,
+          onConfirm: () => { }
+        });
+      } else {
+        const normalizedEndpoint = result.normalized || urlEndpoint;
+        showDialog({
+          type: 'confirm',
+          title: '应用自定义接口地址？',
+          message: `检测到 URL 中的接口地址：${normalizedEndpoint}\n仅在信任该地址时应用。`,
+          confirmLabel: '应用',
+          cancelLabel: '忽略',
+          onConfirm: () => updateSettings({ customEndpoint: normalizedEndpoint })
+        });
+      }
     }
-  }, []);
+
+    if (params.has('apikey')) {
+      addToast('已忽略 URL 中的 apikey 参数，请通过弹窗输入 API Key（更安全）', 'info');
+      const sanitizedUrl = new URL(window.location.href);
+      sanitizedUrl.searchParams.delete('apikey');
+      window.history.replaceState({}, '', sanitizedUrl.toString());
+    }
+  }, [addToast, showDialog, updateSettings]);
+
+  useEffect(() => {
+    if (!settings.customEndpoint) return;
+    const result = validateEndpoint(settings.customEndpoint);
+    if (!result.ok) {
+      updateSettings({ customEndpoint: DEFAULT_API_ENDPOINT });
+      addToast('接口地址已重置为默认值（仅支持 https 且白名单域名）', 'info');
+      return;
+    }
+    if (result.normalized && result.normalized !== settings.customEndpoint) {
+      updateSettings({ customEndpoint: result.normalized });
+    }
+  }, [addToast, settings.customEndpoint, updateSettings]);
 
   // Theme handling
   useEffect(() => {
@@ -126,12 +163,13 @@ const App: React.FC = () => {
   return (
     <div className="flex h-dvh w-full flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden relative transition-colors duration-200">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-950/50 px-6 py-4 backdrop-blur-md z-10 transition-colors duration-200">
-        <div className="flex items-center gap-3">
+      <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-950/50 px-3 sm:px-6 py-3 sm:py-4 backdrop-blur-md z-10 transition-colors duration-200 pt-safe">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <img src="/logo.png" alt="Logo" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400">DEAI</h1>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400">DEAI</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-              AI 图像生成平台
+              从一句话开始的图像创作
             </p>
           </div>
         </div>
@@ -154,48 +192,30 @@ const App: React.FC = () => {
           {installPrompt && (
             <button
               onClick={handleInstallClick}
-              className="flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title="安装应用"
             >
-              <Download className="h-6 w-6 animate-attract" />
+              <Download className="h-5 w-5 sm:h-6 sm:w-6 animate-attract" />
             </button>
           )}
-          <a
-            href="https://www.kuai.host/7798503m0"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-            title="使用教程"
-          >
-            <BookOpen className="h-6 w-6 group-hover:scale-110 transition-transform" />
-          </a>
-          <a
-            href="https://github.com/aigem/nbnb"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-            title="GitHub 仓库"
-          >
-            <Github className="h-6 w-6 animate-heartbeat-mixed group-hover:animate-none" />
-          </a>
 
           {/* API Key button - Always visible for setting/changing key */}
           <button
             onClick={() => setShowApiKeyModal(true)}
-            className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
             title={apiKey ? "更换 API Key" : "设置 API Key"}
           >
-            <Key className="h-6 w-6" />
+            <Key className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
 
           {apiKey && (
             <>
               <button
                 onClick={() => setIsImageHistoryOpen(true)}
-                className="relative rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="relative rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title="图片历史"
               >
-                <ImageIcon className="h-6 w-6" />
+                <ImageIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                 {imageHistory.length > 0 && (
                   <span className="absolute top-1 right-1 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -205,34 +225,34 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={togglePromptLibrary}
-                className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 ${isPromptLibraryOpen
+                className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
                   ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 title="提示词库"
               >
-                <Sparkles className="h-6 w-6" />
+                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </>
           )}
 
           <button
             onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
             title="切换主题"
           >
-            {settings.theme === 'dark' ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+            {settings.theme === 'dark' ? <Sun className="h-5 w-5 sm:h-6 sm:w-6" /> : <Moon className="h-5 w-5 sm:h-6 sm:w-6" />}
           </button>
 
           <button
             onClick={toggleSettings}
-            className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 ${isSettingsOpen
+            className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isSettingsOpen
               ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
               : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
               }`}
             title="设置"
           >
-            <Settings className="h-6 w-6" />
+            <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         </div>
       </header>

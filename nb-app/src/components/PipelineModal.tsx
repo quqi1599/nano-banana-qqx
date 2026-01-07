@@ -2,6 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X, Plus, Trash2, ImagePlus, ChevronUp, ChevronDown, Layers, GitBranch, Camera, Grid3x3 } from 'lucide-react';
 import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
+import { useUiStore } from '../store/useUiStore';
+import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateImageFile } from '../utils/imageValidation';
 
 interface Props {
   isOpen: boolean;
@@ -25,7 +27,29 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+const formatMegabytes = (bytes: number) => Math.round(bytes / (1024 * 1024));
+
+const getImageValidationMessage = (error?: ImageValidationError) => {
+  switch (error) {
+    case 'not_image':
+      return '仅支持图片文件';
+    case 'file_too_large':
+      return `单张图片大小不得超过 ${formatMegabytes(MAX_IMAGE_BYTES)}MB`;
+    case 'total_too_large':
+      return `图片总大小不得超过 ${formatMegabytes(MAX_TOTAL_IMAGE_BYTES)}MB`;
+    case 'invalid_dimensions':
+      return '无法读取图片尺寸';
+    case 'dimension_too_large':
+      return `图片尺寸过大，最长边不得超过 ${MAX_IMAGE_DIMENSION}px`;
+    case 'pixels_too_large':
+      return `图片像素过大，建议小于 ${Math.round(MAX_IMAGE_PIXELS / 1_000_000)}MP`;
+    default:
+      return '图片不符合上传要求';
+  }
+};
+
 export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) => {
+  const { addToast } = useUiStore();
   const [mode, setMode] = useState<'serial' | 'parallel' | 'combination'>('serial');
   const [steps, setSteps] = useState<PipelineStep[]>([{
     id: Date.now().toString(),
@@ -93,10 +117,21 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
 
   const processFiles = useCallback(async (files: File[]) => {
     const newAttachments: Attachment[] = [];
+    if (attachments.length >= 14) {
+      addToast('最多只能上传 14 张图片', 'info');
+      return;
+    }
+    let totalBytes = attachments.reduce((sum, att) => sum + att.file.size, 0);
 
     for (const file of files) {
       if (file.type.startsWith('image/')) {
         try {
+          const validation = await validateImageFile(file, totalBytes);
+          if (!validation.ok) {
+            addToast(`${file.name}: ${getImageValidationMessage(validation.error)}`, 'error');
+            continue;
+          }
+
           const base64 = await fileToBase64(file);
           const base64Data = base64.split(',')[1];
 
@@ -106,14 +141,16 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
             base64Data,
             mimeType: file.type
           });
+          totalBytes += file.size;
         } catch (err) {
           console.error('Error reading file', err);
+          addToast(`${file.name}: 读取失败`, 'error');
         }
       }
     }
 
     setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, []);
+  }, [attachments, addToast]);
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
@@ -162,15 +199,14 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-              mode === 'combination' ? 'bg-amber-500/10' : 'bg-purple-500/10'
-            }`}>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${mode === 'combination' ? 'bg-cream-500/10' : 'bg-cream-500/10'
+              }`}>
               {mode === 'serial' ? (
-                <Layers className="h-5 w-5 text-purple-500" />
+                <Layers className="h-5 w-5 text-cream-500" />
               ) : mode === 'parallel' ? (
-                <GitBranch className="h-5 w-5 text-purple-500" />
+                <GitBranch className="h-5 w-5 text-cream-500" />
               ) : (
-                <Grid3x3 className="h-5 w-5 text-amber-500" />
+                <Grid3x3 className="h-5 w-5 text-cream-500" />
               )}
             </div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -196,14 +232,13 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => setMode('serial')}
-                className={`p-3 rounded-lg border transition ${
-                  mode === 'serial'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/10'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
-                }`}
+                className={`p-3 rounded-lg border transition ${mode === 'serial'
+                  ? 'border-cream-400 bg-cream-50 dark:bg-cream-500/10'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-cream-300 dark:hover:border-cream-700'
+                  }`}
               >
-                <Layers className={`h-5 w-5 mx-auto mb-1 ${mode === 'serial' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
-                <p className={`text-xs font-medium ${mode === 'serial' ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                <Layers className={`h-5 w-5 mx-auto mb-1 ${mode === 'serial' ? 'text-cream-600 dark:text-cream-400' : 'text-gray-400'}`} />
+                <p className={`text-xs font-medium ${mode === 'serial' ? 'text-cream-700 dark:text-cream-300' : 'text-gray-600 dark:text-gray-400'}`}>
                   串行模式
                 </p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-500 mt-1">
@@ -212,14 +247,13 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               </button>
               <button
                 onClick={() => setMode('parallel')}
-                className={`p-3 rounded-lg border transition ${
-                  mode === 'parallel'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/10'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
-                }`}
+                className={`p-3 rounded-lg border transition ${mode === 'parallel'
+                  ? 'border-cream-400 bg-cream-50 dark:bg-cream-500/10'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-cream-300 dark:hover:border-cream-700'
+                  }`}
               >
-                <GitBranch className={`h-5 w-5 mx-auto mb-1 ${mode === 'parallel' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
-                <p className={`text-xs font-medium ${mode === 'parallel' ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                <GitBranch className={`h-5 w-5 mx-auto mb-1 ${mode === 'parallel' ? 'text-cream-600 dark:text-cream-400' : 'text-gray-400'}`} />
+                <p className={`text-xs font-medium ${mode === 'parallel' ? 'text-cream-700 dark:text-cream-300' : 'text-gray-600 dark:text-gray-400'}`}>
                   并行模式
                 </p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-500 mt-1">
@@ -228,14 +262,13 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               </button>
               <button
                 onClick={() => setMode('combination')}
-                className={`p-3 rounded-lg border transition ${
-                  mode === 'combination'
-                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-500/10'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-700'
-                }`}
+                className={`p-3 rounded-lg border transition ${mode === 'combination'
+                  ? 'border-cream-400 bg-cream-50 dark:bg-cream-500/10'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-cream-300 dark:hover:border-cream-700'
+                  }`}
               >
-                <Grid3x3 className={`h-5 w-5 mx-auto mb-1 ${mode === 'combination' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`} />
-                <p className={`text-xs font-medium ${mode === 'combination' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                <Grid3x3 className={`h-5 w-5 mx-auto mb-1 ${mode === 'combination' ? 'text-cream-600 dark:text-cream-400' : 'text-gray-400'}`} />
+                <p className={`text-xs font-medium ${mode === 'combination' ? 'text-cream-700 dark:text-cream-300' : 'text-gray-600 dark:text-gray-400'}`}>
                   批量组合
                 </p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-500 mt-1">
@@ -266,7 +299,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                     e.target.value = '';
                   }}
                   disabled={templatesLoading}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-purple-500 dark:hover:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-cream-500 dark:hover:border-cream-500 focus:outline-none focus:ring-2 focus:ring-cream-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   defaultValue=""
                 >
                   <option value="" disabled>选择串行模板...</option>
@@ -290,7 +323,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                     e.target.value = '';
                   }}
                   disabled={templatesLoading}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-purple-500 dark:hover:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-cream-500 dark:hover:border-cream-500 focus:outline-none focus:ring-2 focus:ring-cream-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   defaultValue=""
                 >
                   <option value="" disabled>选择并行模板...</option>
@@ -314,7 +347,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                     e.target.value = '';
                   }}
                   disabled={templatesLoading}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-amber-500 dark:hover:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-cream-500 dark:hover:border-cream-500 focus:outline-none focus:ring-2 focus:ring-cream-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   defaultValue=""
                 >
                   <option value="" disabled>选择组合模板...</option>
@@ -333,7 +366,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               初始参考图 {mode === 'combination' ? '(必需，最多14张)' : '(可选，最多14张)'}
               {mode === 'combination' && (
-                <span className="block text-xs font-normal text-amber-600 dark:text-amber-400 mt-1">
+                <span className="block text-xs font-normal text-cream-600 dark:text-cream-400 mt-1">
                   💡 每张图片将与每条提示词组合生成，总共 {attachments.length} × {steps.length} = {attachments.length * steps.length} 张
                 </span>
               )}
@@ -387,7 +420,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={attachments.length >= 14}
-                className="flex-1 px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-cream-500 dark:hover:border-cream-500 hover:bg-cream-50 dark:hover:bg-cream-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ImagePlus className="h-5 w-5 text-gray-400 mx-auto mb-1" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -399,7 +432,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               <button
                 onClick={() => cameraInputRef.current?.click()}
                 disabled={attachments.length >= 14}
-                className="sm:hidden px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="sm:hidden px-4 py-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-cream-500 dark:hover:border-cream-500 hover:bg-cream-50 dark:hover:bg-cream-500/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Camera className="h-5 w-5 text-gray-400 mx-auto mb-1" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">拍照</span>
@@ -416,7 +449,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               <button
                 onClick={handleAddStep}
                 disabled={steps.length >= 10}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="px-3 py-1 rounded-lg text-xs font-medium bg-cream-500 text-white hover:bg-cream-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
                 <Plus className="h-3 w-3 inline mr-1" />
                 添加步骤
@@ -427,9 +460,8 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               {steps.map((step, index) => (
                 <div key={step.id} className="flex items-start gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                   <div className="flex-shrink-0 mt-2">
-                    <div className={`h-6 w-6 rounded-full text-white text-xs font-bold flex items-center justify-center ${
-                      mode === 'serial' ? 'bg-purple-500' : 'bg-blue-500'
-                    }`}>
+                    <div className={`h-6 w-6 rounded-full text-white text-xs font-bold flex items-center justify-center ${mode === 'serial' ? 'bg-cream-500' : 'bg-cream-600'
+                      }`}>
                       {index + 1}
                     </div>
                   </div>
@@ -439,7 +471,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                       value={step.prompt}
                       onChange={(e) => handleStepChange(index, 'prompt', e.target.value)}
                       placeholder={`步骤 ${index + 1} 的提示词...`}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm resize-y focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px]"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm resize-y focus:outline-none focus:ring-2 focus:ring-cream-500 min-h-[80px]"
                       rows={3}
                     />
 
@@ -451,7 +483,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                       <select
                         value={step.modelName || ''}
                         onChange={(e) => handleStepChange(index, 'modelName', e.target.value)}
-                        className="flex-1 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="flex-1 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cream-500"
                       >
                         <option value="">默认 (继承全局设置)</option>
                         {AVAILABLE_MODELS.map((model) => (
@@ -516,7 +548,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
             </button>
             <button
               onClick={handleExecute}
-              className="px-5 py-2 rounded-lg text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition"
+              className="px-5 py-2 rounded-lg text-sm font-medium bg-cream-500 text-white hover:bg-cream-600 transition"
             >
               开始执行
             </button>

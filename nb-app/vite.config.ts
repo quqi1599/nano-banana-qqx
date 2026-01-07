@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from 'vite';
 import preact from '@preact/preset-vite';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { DEFAULT_API_ENDPOINT } from './src/config/api';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -16,6 +17,28 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => '/gh/glidea/banana-prompt-quicker@main/prompts.json',
           secure: true,
+        },
+        // 动态代理所有 API 请求（开发环境绕过 CORS）
+        '/gemini-api': {
+          target: DEFAULT_API_ENDPOINT,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/gemini-api/, ''),
+          secure: true,
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              // 从请求头中获取目标端点
+              const targetEndpoint = req.headers['x-target-endpoint'] as string;
+              if (targetEndpoint) {
+                try {
+                  const url = new URL(targetEndpoint);
+                  // @ts-ignore - 动态修改目标
+                  options.target = url.origin;
+                } catch (e) {
+                  console.error('Invalid target endpoint:', targetEndpoint);
+                }
+              }
+            });
+          },
         },
       },
     },

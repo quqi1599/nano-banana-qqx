@@ -27,24 +27,24 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   // 加载大图数据
   useEffect(() => {
     if (selectedImage) {
-        setLoadingFullRes(true);
-        getItem(`image_data_${selectedImage.id}`)
-            .then((data) => {
-                if (data) {
-                    setFullResData(data as string);
-                } else {
-                    // 如果找不到原图，尝试使用缩略图显示（虽然很模糊）
-                    setFullResData(selectedImage.thumbnailData || null);
-                }
-            })
-            .catch(err => {
-                console.error("Failed to load full image", err);
-                setFullResData(selectedImage.thumbnailData || null);
-            })
-            .finally(() => setLoadingFullRes(false));
+      setLoadingFullRes(true);
+      getItem(`image_data_${selectedImage.id}`)
+        .then((data) => {
+          if (data) {
+            setFullResData(data as string);
+          } else {
+            // 如果找不到原图，尝试使用缩略图显示（虽然很模糊）
+            setFullResData(selectedImage.thumbnailData || null);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to load full image", err);
+          setFullResData(selectedImage.thumbnailData || null);
+        })
+        .finally(() => setLoadingFullRes(false));
     } else {
-        setFullResData(null);
-        setLoadingFullRes(false);
+      setFullResData(null);
+      setLoadingFullRes(false);
     }
   }, [selectedImage]);
 
@@ -52,11 +52,11 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const filteredHistory = useMemo(() => {
     // 基础过滤：必须包含缩略图数据才显示，避免破图
     let list = imageHistory.filter(item => !!item.thumbnailData);
-    
+
     if (searchTerm.trim()) {
-        list = list.filter((item) =>
-          item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+      list = list.filter((item) =>
+        item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
     return list;
   }, [imageHistory, searchTerm]);
@@ -92,21 +92,21 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
 
     // 优先使用当前已加载的大图
     if (selectedImage?.id === image.id && fullResData) {
-        data = fullResData;
+      data = fullResData;
     } else {
-        // 否则异步从 IDB 获取
-        try {
-            data = await getItem(`image_data_${image.id}`);
-        } catch (err) {
-            console.error(err);
-        }
+      // 否则异步从 IDB 获取
+      try {
+        data = await getItem(`image_data_${image.id}`);
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     if (data) {
-        downloadImage(image.mimeType, data, `image-${image.timestamp}.${image.mimeType.split('/')[1]}`);
-        addToast('图片已下载', 'success');
+      downloadImage(image.mimeType, data, `image-${image.timestamp}.${image.mimeType.split('/')[1]}`);
+      addToast('图片已下载', 'success');
     } else {
-        addToast('下载失败：找不到原图', 'error');
+      addToast('下载失败：找不到原图', 'error');
     }
   };
 
@@ -189,12 +189,12 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
       />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white dark:bg-gray-950 shadow-2xl z-50 flex flex-col transition-transform duration-300">
+      <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white dark:bg-gray-950 shadow-2xl z-50 flex flex-col transition-transform duration-300 pt-safe">
         {/* Header */}
         <div className="flex flex-col border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-10">
           <div className="flex items-center justify-between p-4 pb-2">
             <div className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <ImageIcon className="h-5 w-5 text-cream-600 dark:text-cream-400" />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">图片历史</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">({filteredHistory.length})</span>
             </div>
@@ -226,7 +226,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 placeholder="搜索提示词..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-amber-500 dark:text-white placeholder-gray-500"
+                className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-cream-500 dark:text-white placeholder-gray-500"
               />
               {searchTerm && (
                 <button
@@ -241,7 +241,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+        <div className="flex-1 overflow-y-auto p-4 scroll-smooth-touch pb-safe">
           {filteredHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 dark:text-gray-500">
               <ImageIcon className="h-16 w-16 mb-4 opacity-20" />
@@ -254,7 +254,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               {filteredHistory.map((image) => (
                 <div
                   key={image.id}
-                  className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:ring-2 hover:ring-amber-500 transition shadow-sm"
+                  className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 cursor-pointer hover:ring-2 hover:ring-cream-500 transition shadow-sm"
                   onClick={() => setSelectedImage(image)}
                 >
                   <img
@@ -267,11 +267,11 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     }}
                   />
 
-                  {/* Overlay Buttons */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Overlay Buttons - always visible on touch devices */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 touch-show-actions transition-opacity">
                     <button
                       onClick={(e) => handleReEdit(image, e)}
-                      className="p-1.5 rounded-md bg-amber-600/90 hover:bg-amber-500 text-white backdrop-blur-sm transition-colors"
+                      className="p-1.5 rounded-md bg-cream-500/90 hover:bg-cream-400 text-white backdrop-blur-sm transition-colors"
                       title="再次编辑"
                     >
                       <Edit className="h-3.5 w-3.5" />
@@ -320,7 +320,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           >
             <ArrowLeft className="h-6 w-6" />
           </button>
-          
+
           <button
             className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-900 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition disabled:opacity-30 disabled:cursor-not-allowed"
             onClick={(e) => {
@@ -332,23 +332,23 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             <ArrowRight className="h-6 w-6" />
           </button>
 
-          <div 
+          <div
             className="relative max-w-5xl w-full max-h-[90vh] flex flex-col gap-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Main Image */}
             <div className="relative flex-1 min-h-0 flex items-center justify-center">
               {loadingFullRes ? (
-                  <div className="flex flex-col items-center gap-2 text-white">
-                      <Loader2 className="h-8 w-8 animate-spin" />
-                      <span>加载原图中...</span>
-                  </div>
+                <div className="flex flex-col items-center gap-2 text-white">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span>加载原图中...</span>
+                </div>
               ) : (
-                  <img
-                    src={`data:${selectedImage.mimeType};base64,${fullResData || selectedImage.thumbnailData}`}
-                    alt={selectedImage.prompt}
-                    className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
-                  />
+                <img
+                  src={`data:${selectedImage.mimeType};base64,${fullResData || selectedImage.thumbnailData}`}
+                  alt={selectedImage.prompt}
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
+                />
               )}
             </div>
 
@@ -356,13 +356,13 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
             <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-xl p-4 text-gray-900 dark:text-white border border-gray-200 dark:border-white/10">
               <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-4">
                 <div className="flex-1">
-                   <p className="text-sm font-medium mb-1 line-clamp-2" title={selectedImage.prompt}>
-                     {selectedImage.prompt || '无描述'}
-                   </p>
-                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                     {new Date(selectedImage.timestamp).toLocaleString()} 
-                     {selectedImage.modelName && ` · ${selectedImage.modelName}`}
-                   </p>
+                  <p className="text-sm font-medium mb-1 line-clamp-2" title={selectedImage.prompt}>
+                    {selectedImage.prompt || '无描述'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(selectedImage.timestamp).toLocaleString()}
+                    {selectedImage.modelName && ` · ${selectedImage.modelName}`}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -380,8 +380,8 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                     <Trash2 className="h-4 w-4" />
                   </button>
                   <button
-                     onClick={() => setSelectedImage(null)}
-                     className="sm:hidden p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300"
+                    onClick={() => setSelectedImage(null)}
+                    className="sm:hidden p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -389,27 +389,27 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                 <button
+                <button
                   onClick={() => handleReEdit(selectedImage)}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition"
-                 >
-                   <Edit className="h-4 w-4" />
-                   <span>再次编辑</span>
-                 </button>
-                 <button
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 bg-cream-500 hover:bg-cream-400 text-white rounded-lg font-medium transition"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>再次编辑</span>
+                </button>
+                <button
                   onClick={() => handleReusePrompt(selectedImage.prompt)}
                   className="flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-100 rounded-lg font-medium transition"
-                 >
-                   <RefreshCw className="h-4 w-4" />
-                   <span>用提示词</span>
-                 </button>
-                 <button
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  <span>用提示词</span>
+                </button>
+                <button
                   onClick={() => handleDownload(selectedImage)}
                   className="flex items-center justify-center gap-2 px-3 py-2.5 bg-gray-700 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-500 rounded-lg font-medium transition"
-                 >
-                   <Download className="h-4 w-4" />
-                   <span>下载</span>
-                 </button>
+                >
+                  <Download className="h-4 w-4" />
+                  <span>下载</span>
+                </button>
               </div>
             </div>
           </div>

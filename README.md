@@ -154,7 +154,7 @@ docker run -p 3000:3000 nb-nano-banana
 
 ### 推荐渠道：Kuai API（国内友好）
 
-NB Nano Banana 默认使用 **Kuai API** 作为 Gemini 模型的接入点，提供更稳定的国内访问体验。
+NB Nano Banana 默认接口地址为 `https://banana2.peacedejiai.cc`（可在高级配置中修改，需 https 且在白名单内）。
 
 **注册链接**：[https://api.kuai.host/register?aff=z2C8](https://api.kuai.host/register?aff=z2C8)
 
@@ -190,15 +190,14 @@ NB Nano Banana 默认使用 **Kuai API** 作为 Gemini 模型的接入点，提�
 
 ### 2. 通过 URL 参数预配置（可选）
 
-支持通过 URL 参数快速设置，方便分享或特定场景：
+支持通过 URL 参数快速设置（不支持通过 URL 传递 API Key），方便分享或特定场景：
 
 ```
-https://your-domain.com/?apikey=YOUR_KEY&endpoint=https://api.kuai.host&model=gemini-3-pro-image-preview
+https://your-domain.com/?endpoint=https://banana2.peacedejiai.cc&model=gemini-3-pro-image-preview
 ```
 
 **参数说明**：
-- `apikey`：预填 API Key
-- `endpoint`：自定义 API 端点
+- `endpoint`：自定义 API 端点（仅支持 https 且域名需在白名单内）
 - `model`：自定义模型名称
 
 ### 3. 调整高级设置
