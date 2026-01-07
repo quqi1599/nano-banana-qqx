@@ -64,7 +64,7 @@ export const useAppStore = create<AppState>()(
         streamResponse: true,
         customEndpoint: DEFAULT_API_ENDPOINT,
         modelName: 'gemini-3-pro-image-preview',
-        theme: 'system',
+        theme: 'light',
       },
       messages: [],
       imageHistory: [], // 初始化图片历史记录
