@@ -1,7 +1,6 @@
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
-import { DEFAULT_API_ENDPOINT } from '../config/api';
-import { getApiBaseUrl } from '../utils/endpointUtils';
+import { resolveApiBaseUrl } from '../utils/endpointUtils';
 
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
@@ -124,9 +123,7 @@ export const streamGeminiResponse = async function* (
 ) {
   const { GoogleGenAI } = await import("@google/genai");
   // 如果用户设置了自定义 API 域名，使用完整 URL；否则使用本地代理路径
-  const baseUrl = settings.customEndpoint
-    ? getApiBaseUrl(settings.customEndpoint)
-    : '/gemini-api';
+  const baseUrl = resolveApiBaseUrl(settings.customEndpoint);
   const ai = new GoogleGenAI(
     { apiKey, httpOptions: { baseUrl } }
   );
@@ -242,9 +239,7 @@ export const generateContent = async (
 ) => {
   const { GoogleGenAI } = await import("@google/genai");
   // 如果用户设置了自定义 API 域名，使用完整 URL；否则使用本地代理路径
-  const baseUrl = settings.customEndpoint
-    ? getApiBaseUrl(settings.customEndpoint)
-    : '/gemini-api';
+  const baseUrl = resolveApiBaseUrl(settings.customEndpoint);
   const ai = new GoogleGenAI(
     { apiKey, httpOptions: { baseUrl } }
   );

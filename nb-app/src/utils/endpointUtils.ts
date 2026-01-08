@@ -62,3 +62,21 @@ export const getApiBaseUrl = (customEndpoint?: string): string => {
   }
   return result.normalized || DEFAULT_API_ENDPOINT;
 };
+
+const getProxyBaseUrl = (): string => {
+  if (typeof window === 'undefined') {
+    return '/gemini-api';
+  }
+  return new URL('/gemini-api', window.location.origin).toString();
+};
+
+export const resolveApiBaseUrl = (customEndpoint?: string): string => {
+  const trimmed = customEndpoint?.trim();
+  if (trimmed) {
+    return getApiBaseUrl(trimmed);
+  }
+  if (import.meta.env.DEV) {
+    return getProxyBaseUrl();
+  }
+  return DEFAULT_API_ENDPOINT;
+};

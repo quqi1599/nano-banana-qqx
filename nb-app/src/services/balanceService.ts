@@ -1,5 +1,5 @@
 import { AppSettings } from '../types';
-import { getApiBaseUrl } from '../utils/endpointUtils';
+import { resolveApiBaseUrl } from '../utils/endpointUtils';
 
 export interface BalanceInfo {
   hardLimitUsd: number;
@@ -119,9 +119,7 @@ export const fetchBalance = async (
   settings: AppSettings
 ): Promise<BalanceInfo> => {
   // 如果用户设置了自定义 API 域名，使用完整 URL；否则使用本地代理路径
-  const baseUrl = settings.customEndpoint
-    ? getApiBaseUrl(settings.customEndpoint)
-    : '/gemini-api';
+  const baseUrl = resolveApiBaseUrl(settings.customEndpoint);
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
   };
