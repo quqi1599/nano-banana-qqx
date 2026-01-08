@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
-import { Key, ExternalLink, ChevronDown, ChevronRight, Settings2, X } from 'lucide-react';
+import { Key, ExternalLink, ChevronDown, ChevronRight, Settings2, X, History, Trash2 } from 'lucide-react';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
 import { validateEndpoint } from '../utils/endpointUtils';
 
@@ -10,18 +10,33 @@ interface ApiKeyModalProps {
 }
 
 export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
-  const { setApiKey, updateSettings, settings, fetchBalance } = useAppStore();
+  const { setApiKey, updateSettings, settings, fetchBalance, endpointHistory, addEndpointToHistory } = useAppStore();
   const { showDialog } = useUiStore();
   const [inputKey, setInputKey] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [endpoint, setEndpoint] = useState(settings.customEndpoint || '');
   const [model, setModel] = useState(settings.modelName || 'gemini-3-pro-image-preview');
+  const [showHistory, setShowHistory] = useState(false);
+  const historyRef = useRef<HTMLDivElement>(null);
 
   // Sync local state with store settings (e.g. when updated via URL params)
   useEffect(() => {
     if (settings.customEndpoint) setEndpoint(settings.customEndpoint);
     if (settings.modelName) setModel(settings.modelName);
   }, [settings.customEndpoint, settings.modelName]);
+
+  // Close history dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(e.target as Node)) {
+        setShowHistory(false);
+      }
+    };
+    if (showHistory) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showHistory]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +59,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
       }
       nextEndpoint = result.normalized || trimmedEndpoint;
       setEndpoint(nextEndpoint);
+      // 保存到历史记录
+      addEndpointToHistory(nextEndpoint);
     }
 
     updateSettings({
@@ -58,6 +75,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
     if (onClose) {
       onClose();
     }
+  };
+
+  const handleSelectHistory = (historyEndpoint: string) => {
+    setEndpoint(historyEndpoint);
+    setShowHistory(false);
   };
 
   return (
@@ -88,18 +110,50 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* API 接口地址 - 显示在最前面 */}
-          <div>
+          <div className="relative" ref={historyRef}>
             <label htmlFor="endpoint" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               API 接口地址
             </label>
-            <input
-              type="text"
-              id="endpoint"
-              value={endpoint}
-              onChange={(e) => setEndpoint(e.currentTarget.value)}
-              className="w-full rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cream-500 focus:outline-none focus:ring-1 focus:ring-cream-500 transition"
-              placeholder={DEFAULT_API_ENDPOINT}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                id="endpoint"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.currentTarget.value)}
+                className="w-full rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 px-4 py-3 pr-10 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-cream-500 focus:outline-none focus:ring-1 focus:ring-cream-500 transition"
+                placeholder={DEFAULT_API_ENDPOINT}
+              />
+              {endpointHistory.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-400 hover:text-cream-600 hover:bg-cream-50 dark:hover:bg-cream-500/10 transition"
+                  title="历史记录"
+                >
+                  <History className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* History Dropdown */}
+            {showHistory && endpointHistory.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg max-h-48 overflow-y-auto">
+                <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                  最近使用
+                </div>
+                {endpointHistory.map((historyEndpoint, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleSelectHistory(historyEndpoint)}
+                    className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-cream-50 dark:hover:bg-cream-500/10 transition truncate"
+                  >
+                    {historyEndpoint}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
               默认: {DEFAULT_API_ENDPOINT}
             </p>

@@ -24,6 +24,7 @@ interface AppState {
   settings: AppSettings;
   messages: ChatMessage[]; // Single Source of Truth
   imageHistory: ImageHistoryItem[]; // 图片历史记录
+  endpointHistory: string[]; // API 接口地址历史记录
   isLoading: boolean;
   isSettingsOpen: boolean;
   inputText: string; // Global input text state
@@ -37,6 +38,7 @@ interface AppState {
   incrementUsageCount: () => void;
   resetUsageCount: () => void;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  addEndpointToHistory: (endpoint: string) => void; // 添加 API 地址到历史记录
   addMessage: (message: ChatMessage) => void;
   updateLastMessage: (parts: Part[], isError?: boolean, thinkingDuration?: number) => void;
   addImageToHistory: (image: ImageHistoryItem) => Promise<void>;
@@ -68,6 +70,7 @@ export const useAppStore = create<AppState>()(
       },
       messages: [],
       imageHistory: [], // 初始化图片历史记录
+      endpointHistory: [], // 初始化 API 接口地址历史记录
       isLoading: false,
       isSettingsOpen: window.innerWidth > 640, // Open by default only on desktop (sm breakpoint)
       inputText: '',
@@ -95,6 +98,15 @@ export const useAppStore = create<AppState>()(
 
       updateSettings: (newSettings) =>
         set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+
+      addEndpointToHistory: (endpoint) =>
+        set((state) => {
+          const trimmed = endpoint.trim();
+          if (!trimmed) return {};
+          // 移除重复项，将新地址放到最前面，最多保留 10 个
+          const filtered = state.endpointHistory.filter((e) => e !== trimmed);
+          return { endpointHistory: [trimmed, ...filtered].slice(0, 10) };
+        }),
 
       addMessage: (message) =>
         set((state) => ({
@@ -276,6 +288,7 @@ export const useAppStore = create<AppState>()(
         apiKey: state.apiKey,
         settings: state.settings,
         imageHistory: state.imageHistory, // 持久化图片历史记录
+        endpointHistory: state.endpointHistory, // 持久化 API 接口地址历史记录
       }),
     }
   )
