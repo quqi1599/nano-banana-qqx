@@ -20,6 +20,7 @@ const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibrar
 const App: React.FC = () => {
   const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
+  const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -78,15 +79,24 @@ const App: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isImageHistoryOpen, setIsImageHistoryOpen] = useState(false);
 
+  useEffect(() => {
+    if (useAppStore.persist.hasHydrated()) {
+      setHasHydrated(true);
+      return;
+    }
+    return useAppStore.persist.onFinishHydration(() => setHasHydrated(true));
+  }, []);
+
   // Auto-show API Key modal if no key is set
   useEffect(() => {
-    if (mounted && !apiKey) {
+    if (mounted && hasHydrated && !apiKey) {
       setShowApiKeyModal(true);
     }
-  }, [mounted, apiKey, setShowApiKeyModal]);
+  }, [mounted, hasHydrated, apiKey, setShowApiKeyModal]);
 
   useEffect(() => {
     setMounted(true);
+    if (!hasHydrated) return;
 
     const params = new URLSearchParams(window.location.search);
     const urlEndpoint = params.get('endpoint')?.trim();
@@ -125,10 +135,10 @@ const App: React.FC = () => {
       sanitizedUrl.searchParams.delete('apikey');
       window.history.replaceState({}, '', sanitizedUrl.toString());
     }
-  }, [addToast, showDialog, updateSettings]);
+  }, [addToast, showDialog, updateSettings, hasHydrated]);
 
   useEffect(() => {
-    if (!settings.customEndpoint) return;
+    if (!hasHydrated || !settings.customEndpoint) return;
     const result = validateEndpoint(settings.customEndpoint);
     if (!result.ok) {
       updateSettings({ customEndpoint: DEFAULT_API_ENDPOINT });
@@ -138,7 +148,7 @@ const App: React.FC = () => {
     if (result.normalized && result.normalized !== settings.customEndpoint) {
       updateSettings({ customEndpoint: result.normalized });
     }
-  }, [addToast, settings.customEndpoint, updateSettings]);
+  }, [addToast, settings.customEndpoint, updateSettings, hasHydrated]);
 
   // Theme handling
   useEffect(() => {

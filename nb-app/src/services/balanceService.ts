@@ -73,14 +73,14 @@ const fetchBalanceOpenAI = async (
 };
 
 /**
- * 使用 New API 平台的 /api/data/ 接口查询余额
+ * 使用 New API 平台的 /api/user/self 接口查询余额
  * 文档: https://docs.newapi.pro
  */
 const fetchBalanceNewApi = async (
   baseUrl: string,
   headers: Record<string, string>
 ): Promise<BalanceInfo> => {
-  const res = await fetch(`${baseUrl}/api/data/self`, {
+  const res = await fetch(`${baseUrl}/api/user/self`, {
     headers,
   });
 

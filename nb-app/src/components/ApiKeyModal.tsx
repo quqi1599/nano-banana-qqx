@@ -10,7 +10,7 @@ interface ApiKeyModalProps {
 }
 
 export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
-  const { setApiKey, updateSettings, settings, fetchBalance, endpointHistory, addEndpointToHistory } = useAppStore();
+  const { apiKey, setApiKey, updateSettings, settings, fetchBalance, endpointHistory, addEndpointToHistory } = useAppStore();
   const { showDialog } = useUiStore();
   const [inputKey, setInputKey] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -41,7 +41,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedKey = inputKey.trim();
-    if (!trimmedKey) return;
+    const effectiveKey = trimmedKey || apiKey?.trim() || '';
+    if (!effectiveKey) return;
 
     const trimmedEndpoint = endpoint.trim();
     let nextEndpoint = trimmedEndpoint;
@@ -67,7 +68,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
       customEndpoint: nextEndpoint,
       modelName: model
     });
-    setApiKey(trimmedKey);
+    setApiKey(effectiveKey);
     // 立即尝试刷新余额
     setTimeout(() => fetchBalance(), 0);
 
@@ -173,6 +174,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
               placeholder="sk-xxx..."
               autoFocus
             />
+            {apiKey && (
+              <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500">
+                已保存 API Key，留空可仅更新接口或模型。
+              </p>
+            )}
           </div>
 
           {/* Advanced Settings */}
@@ -261,7 +267,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
 
           <button
             type="submit"
-            disabled={!inputKey.trim()}
+            disabled={!inputKey.trim() && !apiKey?.trim()}
             className="w-full rounded-lg bg-cream-600 px-4 py-3 font-semibold text-white transition hover:bg-cream-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             开始创作
