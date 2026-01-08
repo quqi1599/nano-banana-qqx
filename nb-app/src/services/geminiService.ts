@@ -123,8 +123,10 @@ export const streamGeminiResponse = async function* (
   signal?: AbortSignal
 ) {
   const { GoogleGenAI } = await import("@google/genai");
-  // 始终使用代理路径绕过 CORS（开发环境 Vite 代理，生产环境 nginx 代理）
-  const baseUrl = '/gemini-api';
+  // 如果用户设置了自定义 API 域名，使用完整 URL；否则使用本地代理路径
+  const baseUrl = settings.customEndpoint
+    ? getApiBaseUrl(settings.customEndpoint)
+    : '/gemini-api';
   const ai = new GoogleGenAI(
     { apiKey, httpOptions: { baseUrl } }
   );
@@ -239,8 +241,10 @@ export const generateContent = async (
   signal?: AbortSignal
 ) => {
   const { GoogleGenAI } = await import("@google/genai");
-  // 始终使用代理路径绕过 CORS（开发环境 Vite 代理，生产环境 nginx 代理）
-  const baseUrl = '/gemini-api';
+  // 如果用户设置了自定义 API 域名，使用完整 URL；否则使用本地代理路径
+  const baseUrl = settings.customEndpoint
+    ? getApiBaseUrl(settings.customEndpoint)
+    : '/gemini-api';
   const ai = new GoogleGenAI(
     { apiKey, httpOptions: { baseUrl } }
   );
