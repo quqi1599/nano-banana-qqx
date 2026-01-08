@@ -4,11 +4,13 @@ import { useUiStore } from './store/useUiStore';
 import { ChatInterface } from './components/ChatInterface';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { GlobalDialog } from './components/ui/GlobalDialog';
+import { WeChatQRModal } from './components/WeChatQRModal';
+import { WelcomeModal } from './components/WelcomeModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
-import { getAllowedEndpointHosts, validateEndpoint } from './utils/endpointUtils';
+import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
 
 // Lazy load components
@@ -78,6 +80,18 @@ const App: React.FC = () => {
   }, []);
   const [mounted, setMounted] = useState(false);
   const [isImageHistoryOpen, setIsImageHistoryOpen] = useState(false);
+  const [showFloatingWeChatQR, setShowFloatingWeChatQR] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // 首次访问检测
+  useEffect(() => {
+    if (!hasHydrated) return;
+    const hasVisited = localStorage.getItem('deai_has_visited');
+    if (!hasVisited) {
+      setShowWelcome(true);
+      localStorage.setItem('deai_has_visited', 'true');
+    }
+  }, [hasHydrated]);
 
   useEffect(() => {
     if (useAppStore.persist.hasHydrated()) {
@@ -87,12 +101,12 @@ const App: React.FC = () => {
     return useAppStore.persist.onFinishHydration(() => setHasHydrated(true));
   }, []);
 
-  // Auto-show API Key modal if no key is set
+  // Auto-show API Key modal if no key is set AND welcome modal is closed
   useEffect(() => {
-    if (mounted && hasHydrated && !apiKey) {
+    if (mounted && hasHydrated && !apiKey && !showWelcome) {
       setShowApiKeyModal(true);
     }
-  }, [mounted, hasHydrated, apiKey, setShowApiKeyModal]);
+  }, [mounted, hasHydrated, apiKey, showWelcome, setShowApiKeyModal]);
 
   useEffect(() => {
     setMounted(true);
@@ -113,7 +127,7 @@ const App: React.FC = () => {
         showDialog({
           type: 'alert',
           title: '无效接口地址',
-          message: `${result.reason}\n允许的域名：${getAllowedEndpointHosts().join(', ')}`,
+          message: result.reason || '接口地址格式不正确。',
           onConfirm: () => { }
         });
       } else {
@@ -142,7 +156,7 @@ const App: React.FC = () => {
     const result = validateEndpoint(settings.customEndpoint);
     if (!result.ok) {
       updateSettings({ customEndpoint: DEFAULT_API_ENDPOINT });
-      addToast('接口地址已重置为默认值（仅支持 https 且白名单域名）', 'info');
+      addToast('接口地址已重置为默认值（仅支持 https 且不允许用户名/密码或参数）', 'info');
       return;
     }
     if (result.normalized && result.normalized !== settings.customEndpoint) {
@@ -336,6 +350,22 @@ const App: React.FC = () => {
       </Suspense>
       <ToastContainer />
       <GlobalDialog />
+
+      {/* 悬浮微信群按钮 */}
+      <button
+        onClick={() => setShowFloatingWeChatQR(true)}
+        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
+        title="加入交流群"
+      >
+        <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />
+        <span className="absolute right-full mr-3 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
+          加入交流群
+        </span>
+      </button>
+      <WeChatQRModal isOpen={showFloatingWeChatQR} onClose={() => setShowFloatingWeChatQR(false)} />
+
+      {/* 首次访问欢迎弹窗 */}
+      <WelcomeModal isOpen={showWelcome} onClose={() => setShowWelcome(false)} />
     </div>
   );
 };

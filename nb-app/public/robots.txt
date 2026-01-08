@@ -1,0 +1,18 @@
+# DEAI - AI 图像生成平台 Robots.txt
+# https://banana2.peacedejiai.cc
+
+User-agent: *
+Allow: /
+
+# 允许搜索引擎爬虫
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+# 站点地图
+Sitemap: https://banana2.peacedejiai.cc/sitemap.xml

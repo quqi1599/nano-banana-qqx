@@ -175,6 +175,7 @@ export const ChatInterface: React.FC = () => {
     // Add Placeholder Model Message to Store
     addMessage(modelMessage);
 
+    let generationSucceeded = false;
     try {
       // Prepare images for service
       const imagesPayload = attachments.map(a => ({
@@ -241,6 +242,10 @@ export const ChatInterface: React.FC = () => {
         updateLastMessage(result.modelParts, false, hasThought ? totalDuration : undefined);
       }
 
+      if (abortControllerRef.current?.signal.aborted) {
+        return;
+      }
+
       // 收集生成的图片到历史记录
       const finalMessage = useAppStore.getState().messages.slice(-1)[0];
       if (finalMessage && finalMessage.role === 'model') {
@@ -258,6 +263,8 @@ export const ChatInterface: React.FC = () => {
           }
         });
       }
+
+      generationSucceeded = true;
 
     } catch (error: any) {
       if (error.name === 'AbortError' || abortControllerRef.current?.signal.aborted) {
@@ -278,29 +285,31 @@ export const ChatInterface: React.FC = () => {
       setLoading(false);
       abortControllerRef.current = null;
 
-      // 增加使用次数
-      incrementUsageCount();
-      const currentUsageCount = useAppStore.getState().usageCount;
+      if (generationSucceeded) {
+        // 增加使用次数
+        incrementUsageCount();
+        const currentUsageCount = useAppStore.getState().usageCount;
 
-      // 刷新余额并计算本次消耗
-      try {
-        await fetchBalance();
-        const balanceAfter = useAppStore.getState().balance?.usage;
-        if (balanceBefore !== undefined && balanceAfter !== undefined) {
-          const cost = balanceAfter - balanceBefore;
-          if (cost > 0) {
-            addToast(`本次消耗: ${formatCost(cost)} (第 ${currentUsageCount} 次)`, 'info');
+        // 刷新余额并计算本次消耗
+        try {
+          await fetchBalance();
+          const balanceAfter = useAppStore.getState().balance?.usage;
+          if (balanceBefore !== undefined && balanceAfter !== undefined) {
+            const cost = balanceAfter - balanceBefore;
+            if (cost > 0) {
+              addToast(`本次消耗: ${formatCost(cost)} (第 ${currentUsageCount} 次)`, 'info');
+            } else {
+              // 余额没变化，可能是第三方API，显示次数
+              addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
+            }
           } else {
-            // 余额没变化，可能是第三方API，显示次数
+            // 余额不可用，显示次数
             addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
           }
-        } else {
-          // 余额不可用，显示次数
+        } catch (e) {
+          // 余额查询失败，显示使用次数
           addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
         }
-      } catch (e) {
-        // 余额查询失败，显示使用次数
-        addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
       }
     }
   };

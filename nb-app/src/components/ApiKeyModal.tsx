@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
-import { Key, ExternalLink, ChevronDown, ChevronRight, Settings2, X, History, Trash2 } from 'lucide-react';
+import { Key, ExternalLink, ChevronDown, ChevronRight, Settings2, X, History, Trash2, MessageCircle } from 'lucide-react';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
 import { validateEndpoint } from '../utils/endpointUtils';
+import { WeChatQRModal } from './WeChatQRModal';
 
 interface ApiKeyModalProps {
   onClose?: () => void;
@@ -17,6 +18,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
   const [endpoint, setEndpoint] = useState(settings.customEndpoint || '');
   const [model, setModel] = useState(settings.modelName || 'gemini-3-pro-image-preview');
   const [showHistory, setShowHistory] = useState(false);
+  const [showWeChatQR, setShowWeChatQR] = useState(false);
   const historyRef = useRef<HTMLDivElement>(null);
 
   // Sync local state with store settings (e.g. when updated via URL params)
@@ -272,8 +274,20 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
           >
             开始创作
           </button>
+
+          {/* 加入交流群链接 */}
+          <button
+            type="button"
+            onClick={() => setShowWeChatQR(true)}
+            className="w-full mt-3 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-green-500 dark:hover:text-green-400 transition"
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>加入交流群 🍌</span>
+          </button>
         </form>
 
+        {/* 微信二维码弹窗 */}
+        <WeChatQRModal isOpen={showWeChatQR} onClose={() => setShowWeChatQR(false)} />
 
       </div>
     </div>

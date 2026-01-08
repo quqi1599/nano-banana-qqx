@@ -284,6 +284,17 @@ export const useAppStore = create<AppState>()(
     {
       name: 'gemini-pro-storage',
       storage: createJSONStorage(() => storage),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState as Partial<AppState>) || {};
+        return {
+          ...currentState,
+          ...persisted,
+          settings: {
+            ...currentState.settings,
+            ...persisted.settings,
+          },
+        };
+      },
       partialize: (state) => ({
         apiKey: state.apiKey,
         settings: state.settings,

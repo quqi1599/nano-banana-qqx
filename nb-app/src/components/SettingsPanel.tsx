@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
-import { X, LogOut, Trash2, Share2, Bookmark, DollarSign, RefreshCw, Download } from 'lucide-react';
+import { X, LogOut, Trash2, Share2, Bookmark, DollarSign, RefreshCw, Download, MessageCircle } from 'lucide-react';
 import { formatBalance } from '../services/balanceService';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
-
+import { WeChatQRModal } from './WeChatQRModal';
 export const SettingsPanel: React.FC = () => {
   const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt } = useAppStore();
   const { addToast, showDialog } = useUiStore();
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [showWeChatQR, setShowWeChatQR] = useState(false);
 
   const handleInstallClick = async () => {
     if (!installPrompt) return;
@@ -359,11 +360,25 @@ export const SettingsPanel: React.FC = () => {
           )}
         </section>
 
+        {/* 加入用户群 */}
+        <section className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-800">
+          <button
+            onClick={() => setShowWeChatQR(true)}
+            className="w-full flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 p-2.5 sm:p-3 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-500/20 transition"
+          >
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="text-xs sm:text-sm">加入用户交流群 🍌</span>
+          </button>
+        </section>
+
         {/* Info */}
         <div className="mt-1 pb-2 sm:pb-4 text-center text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-600 space-y-0.5 sm:space-y-1">
           <p>模型: {settings.modelName || 'gemini-3-pro-image-preview'}</p>
           <p className="truncate px-4">接口地址: {settings.customEndpoint || DEFAULT_API_ENDPOINT}</p>
         </div>
+
+        {/* 微信二维码弹窗 */}
+        <WeChatQRModal isOpen={showWeChatQR} onClose={() => setShowWeChatQR(false)} />
       </div>
     </div>
   );

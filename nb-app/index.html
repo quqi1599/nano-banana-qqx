@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8" />
@@ -12,6 +12,7 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#030712">
 
   <!-- iOS Safari PWA 支持 -->
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="DEAI">
@@ -20,11 +21,58 @@
   <!-- 禁用 iOS 电话号码自动检测 -->
   <meta name="format-detection" content="telephone=no">
 
-  <!-- SEO -->
-  <meta name="description" content="DEAI - 从一句话开始的图像创作">
-  <meta name="keywords" content="AI, Image Generation, Gemini, DEAI">
-  <title>DEAI | 从一句话开始的图像创作</title>
-  <link rel="icon" href="/logo.png" type="image/svg+xml" />
+  <!-- SEO 基础 -->
+  <title>DEAI Banana - 免费AI画图工具 | Google Gemini 图像生成镜像</title>
+  <meta name="description"
+    content="DEAI Banana 是免费的 AI 画图工具镜像站，基于 Google Gemini 的智能图像生成。只需一句话描述，即可在线生成高质量图像。支持 1K/2K/4K 分辨率，无需翻墙，快速稳定。">
+  <meta name="keywords"
+    content="Banana画图工具,AI画图镜像,Google画图镜像,免费在线绘图镜像,AI绘图工具,Gemini图像生成,AI作图,文生图,DEAI,免费AI绘画,在线AI画图,Google Drawings镜像,Banana Google画图在线使用,免费Google绘图工具镜像,AI图像生成器,一键AI作图">
+  <meta name="author" content="DEAI">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://banana2.peacedejiai.cc/">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://banana2.peacedejiai.cc/">
+  <meta property="og:title" content="DEAI Banana - 免费AI画图工具 | Gemini 图像生成镜像">
+  <meta property="og:description" content="免费的 AI 画图工具镜像站，基于 Google Gemini 智能图像生成。一句话描述即可在线生成高质量图像，无需翻墙。">
+  <meta property="og:image" content="https://banana2.peacedejiai.cc/og-image.png">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:site_name" content="DEAI Banana">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://banana2.peacedejiai.cc/">
+  <meta name="twitter:title" content="DEAI Banana - 免费AI画图工具 | Gemini 镜像">
+  <meta name="twitter:description" content="免费的 AI 画图工具镜像站，基于 Google Gemini。一句话生成高质量图像，无需翻墙。">
+  <meta name="twitter:image" content="https://banana2.peacedejiai.cc/og-image.png">
+
+  <!-- 结构化数据 JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "DEAI",
+    "description": "基于 Gemini AI 的智能图像生成工具，只需输入一句话描述，即可快速生成高质量图像。",
+    "url": "https://banana2.peacedejiai.cc/",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "CNY"
+    },
+    "featureList": [
+      "AI 图像生成",
+      "多种分辨率支持 (1K/2K/4K)",
+      "多种长宽比选择",
+      "流式响应",
+      "深色模式"
+    ]
+  }
+  </script>
+
+  <link rel="icon" href="/logo.png" type="image/png" />
   <style>
     .app-loading {
       position: fixed;
@@ -77,9 +125,12 @@
 </head>
 
 <body>
+  <!-- SEO: 无障碍跳过链接 -->
+  <a href="#root" class="sr-only" style="position:absolute;left:-9999px;">跳到主要内容</a>
+
   <div id="app-loading" class="app-loading">
     <div class="app-loading-content">
-      <img src="/logo.png" class="app-loading-logo" alt="Loading" />
+      <img src="/logo.png" class="app-loading-logo" alt="DEAI 加载中" />
     </div>
   </div>
   <div id="root"></div>
