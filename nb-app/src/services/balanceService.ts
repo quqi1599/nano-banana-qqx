@@ -155,13 +155,13 @@ export const formatBalance = (amount: number, isUnlimited: boolean): string => {
   }
 
   if (amount >= 1000000) {
-    return `${(amount / 1000000).toFixed(1)}M`;
+    return `${(amount / 1000000).toFixed(2)}M`;
   }
   if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(1)}K`;
+    return `${(amount / 1000).toFixed(2)}K`;
   }
 
-  return amount.toFixed(1);
+  return amount.toFixed(2);
 };
 
 /**

@@ -42,10 +42,7 @@ export const validateEndpoint = (raw: string): { ok: boolean; reason?: string; n
     return { ok: false, reason: '仅允许 https 接口地址。' };
   }
 
-  const allowedHosts = getAllowedEndpointHosts();
-  if (!allowedHosts.includes(url.hostname)) {
-    return { ok: false, reason: '接口域名不在允许列表。' };
-  }
+  // 不再强制域名白名单，允许用户自定义任意 https 域名
 
   if (url.search || url.hash) {
     return { ok: false, reason: '接口地址不允许包含查询参数或片段。' };

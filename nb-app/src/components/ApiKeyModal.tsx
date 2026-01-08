@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { Key, ExternalLink, ChevronDown, ChevronRight, Settings2, X } from 'lucide-react';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
-import { getAllowedEndpointHosts, validateEndpoint } from '../utils/endpointUtils';
+import { validateEndpoint } from '../utils/endpointUtils';
 
 interface ApiKeyModalProps {
   onClose?: () => void;
@@ -37,7 +37,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
         showDialog({
           type: 'alert',
           title: '接口地址无效',
-          message: `${result.reason}\n允许的域名：${getAllowedEndpointHosts().join(', ')}`,
+          message: result.reason || '请检查地址格式',
           onConfirm: () => { }
         });
         return;

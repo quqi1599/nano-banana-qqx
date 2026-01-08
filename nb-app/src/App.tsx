@@ -78,6 +78,13 @@ const App: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [isImageHistoryOpen, setIsImageHistoryOpen] = useState(false);
 
+  // Auto-show API Key modal if no key is set
+  useEffect(() => {
+    if (mounted && !apiKey) {
+      setShowApiKeyModal(true);
+    }
+  }, [mounted, apiKey, setShowApiKeyModal]);
+
   useEffect(() => {
     setMounted(true);
 
