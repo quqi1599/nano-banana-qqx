@@ -13,7 +13,7 @@ interface Props {
 
 const AVAILABLE_MODELS = [
   { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro --- 2代' },
-  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash --- 1代' }
+  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image --- 1代' }
 ] as const;
 
 const fileToBase64 = (file: File): Promise<string> => {

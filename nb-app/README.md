@@ -123,9 +123,79 @@
 
 ### 前置要求
 
-- Node.js (建议 v18 或更高版本)
+- Node.js (建议 v20.19+ 或 v22.12+)
 - **Bun** (>= 1.2.1) - 本项目强制使用 Bun 作为包管理器
-- Google Gemini API Key ([在此获取](https://api.kuai.host/register?aff=z2C8)
+- Google Gemini API Key ([在此获取](https://api.kuai.host/register?aff=z2C8))
+
+---
+
+## 🔗 New-API 集成说明
+
+本项目通过 New-API 作为 Gemini API 的中转服务。
+
+### 域名配置
+
+| 用途 | 域名 | 说明 |
+|------|------|------|
+| **应用前端** | `https://banana2.peacedejiai.cc` | 用户访问的网站地址 |
+| **API 中转** | `https://nanobanana2.peacedejiai.cc` | New-API 服务地址 |
+
+> ⚠️ **重要**：用户在设置 API 接口地址时，必须填写 `https://nanobanana2.peacedejiai.cc`，而不是应用域名！
+
+### 支持的模型
+
+| 模型名称 | 显示名称 | 特性 |
+|----------|----------|------|
+| `gemini-3-pro-image-preview` | Gemini 3 Pro --- 2代 | 支持 1K/2K/4K 分辨率、思维过程、Google Search |
+| `gemini-2.5-flash-image` | Gemini 2.5 Flash Image --- 1代 | 仅支持 1K 分辨率，速度快、成本低 |
+
+### API 调用方式
+
+- **SDK**: `@google/genai` (Google 官方 JavaScript SDK)
+- **端点格式**: `{baseUrl}/v1beta/models/{modelName}:generateContent`
+- **示例**: `https://nanobanana2.peacedejiai.cc/v1beta/models/gemini-3-pro-image-preview:generateContent`
+
+### 关键代码位置
+
+| 文件 | 说明 |
+|------|------|
+| `src/config/api.ts` | 默认 API 地址和域名白名单配置 |
+| `src/services/geminiService.ts` | Gemini API 调用逻辑 |
+| `src/services/balanceService.ts` | 余额查询服务 |
+| `src/store/useAppStore.ts` | 状态管理（含 API Key 持久化） |
+
+### 常见错误排查
+
+| 错误码 | 原因 | 解决方法 |
+|--------|------|----------|
+| 400 Bad Request | 模型名称错误 / 参数不支持 | 检查模型名称，2.5 Flash 不支持分辨率选择 |
+| 403 Forbidden / quota | API 额度不足 | 在 New-API 后台充值 |
+| 413 Entity Too Large | 图片太大 | Nginx 配置 `client_max_body_size` |
+| 500 Internal Error | 服务器错误 | 检查 New-API 后端日志 |
+| Invalid URL | API 地址配置错误 | 确保填写完整的 https 地址 |
+
+---
+
+## 🐳 Docker 部署
+
+### VPS 部署命令
+
+```bash
+# 拉取最新代码并重新构建
+cd ~/nano-banana-qqx && git pull && cd nb-app && \
+sudo docker build -t nbnb-app . && \
+sudo docker stop nbnb-app && \
+sudo docker rm nbnb-app && \
+sudo docker run -d --name nbnb-app -p 80:80 nbnb-app
+```
+
+### Dockerfile 说明
+
+- 使用 Node.js 22 构建，Nginx 1.25 运行
+- 内置 Nginx 反向代理配置，支持 `/gemini-api` 路径
+- 监听端口 80
+
+---
 
 ### 安装与运行
 

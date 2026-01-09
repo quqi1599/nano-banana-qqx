@@ -46,6 +46,17 @@ const formatGeminiError = (error: any): Error => {
     message = "网络请求失败。可能是网络连接问题，或者请求内容过多（如图片太大、历史记录过长）。";
   } else if (errorMsg.includes("SAFETY")) {
     message = "生成的内容因安全策略被拦截。请尝试修改您的提示词。";
+  } else if (errorMsg.includes("quota") || errorMsg.includes("pre_consume_token_quota_failed")) {
+    // 提取额度信息
+    const remainMatch = errorMsg.match(/remain quota:\s*\$?([\d.]+)/);
+    const needMatch = errorMsg.match(/need quota:\s*\$?([\d.]+)/);
+    if (remainMatch && needMatch) {
+      message = `额度不足：当前余额 $${remainMatch[1]}，本次需要 $${needMatch[1]}。请充值后重试。`;
+    } else {
+      message = "API 额度不足，请充值后重试。";
+    }
+  } else if (errorMsg.includes("403")) {
+    message = "访问被拒绝 (403 Forbidden)。可能是额度不足或权限问题。";
   } else if (errorMsg.includes("404")) {
     message = "请求的模型不存在或路径错误 (404 Not Found)。";
   } else if (errorMsg.includes("500")) {
@@ -148,7 +159,8 @@ export const streamGeminiResponse = async function* (
       contents: contentsPayload,
       config: {
         imageConfig: {
-          imageSize: settings.resolution,
+          // imageSize 只有 Gemini 3 Pro 才支持
+          ...((settings.modelName || '').includes('gemini-3') ? { imageSize: settings.resolution } : {}),
           ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
         },
         tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
@@ -269,7 +281,8 @@ export const generateContent = async (
       contents: contentsPayload,
       config: {
         imageConfig: {
-          imageSize: settings.resolution,
+          // imageSize 只有 Gemini 3 Pro 才支持
+          ...((settings.modelName || '').includes('gemini-3') ? { imageSize: settings.resolution } : {}),
           ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
         },
         tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
