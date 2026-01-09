@@ -188,8 +188,8 @@ export const SettingsPanel: React.FC = () => {
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">模型选择</label>
           <div className="space-y-2">
             {([
-              { name: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro --- 2代' },
-              { name: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image --- 1代' }
+              { name: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview (第2代)' },
+              { name: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (第1代)' }
             ] as const).map((model) => {
               const isActive = (settings.modelName || 'gemini-3-pro-image-preview') === model.name;
               return (
