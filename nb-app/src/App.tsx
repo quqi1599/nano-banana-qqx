@@ -8,7 +8,7 @@ import { WeChatQRModal } from './components/WeChatQRModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -20,7 +20,7 @@ const ImageHistoryPanel = lazyWithRetry(() => import('./components/ImageHistoryP
 const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibraryPanel').then(module => ({ default: module.PromptLibraryPanel })));
 
 const App: React.FC = () => {
-  const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt } = useAppStore();
+  const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
 
@@ -218,6 +218,29 @@ const App: React.FC = () => {
                 {formatBalance(balance.remaining, balance.isUnlimited)}
               </span>
             </div>
+          )}
+
+          {/* New Chat Button */}
+          {apiKey && (
+            <button
+              onClick={() => {
+                showDialog({
+                  title: '开始新对话',
+                  message: '确定要清空当前对话吗？这将开始一个全新的对话。',
+                  confirmLabel: '新对话',
+                  cancelLabel: '取消',
+                  onConfirm: () => {
+                    clearHistory();
+                    addToast('已开始新对话', 'success');
+                  }
+                });
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
+              title="开始新对话"
+            >
+              <Plus className="h-4 w-4" />
+              <span>新对话</span>
+            </button>
           )}
 
           {installPrompt && (
