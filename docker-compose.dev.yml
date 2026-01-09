@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  # 后端开发模式：挂载代码并开启热重载
+  backend:
+    volumes:
+      - ./nb-backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # 前端开发模式：使用 bun 运行 vite 开发服务器，而非 Nginx
+  frontend:
+    build:
+      context: ./nb-app
+      target: builder # 使用构建阶段的镜像 (包含 bun 环境)
+    volumes:
+      - ./nb-app:/app
+      - /app/node_modules # 使用容器内的 node_modules，避免兼容性问题
+    command: bun run dev --host
+    ports:
+      - "80:3000" # 将主机的 80 端口映射到 Vite 的 3000 端口
+    environment:
+      - VITE_API_TARGET=http://backend:8000

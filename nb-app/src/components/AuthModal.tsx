@@ -1,9 +1,9 @@
 /**
  * 登录/注册弹窗组件
  */
-import React, { useState } from 'react';
-import { X, Mail, Lock, User, Loader2, Gift } from 'lucide-react';
-import { login, register, redeemCode } from '../services/authService';
+import React, { useEffect, useState } from 'react';
+import { X, Mail, Lock, User, Loader2, Gift, AlertCircle } from 'lucide-react';
+import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
 
 interface AuthModalProps {
@@ -11,13 +11,22 @@ interface AuthModalProps {
     onClose: () => void;
 }
 
-type TabType = 'login' | 'register' | 'redeem';
+type TabType = 'login' | 'register' | 'redeem' | 'reset';
 
 export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [activeTab, setActiveTab] = useState<TabType>('login');
+    const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [redeemCodeInput, setRedeemCodeInput] = useState('');
+    const [registerCode, setRegisterCode] = useState('');
+    const [registerCodeSending, setRegisterCodeSending] = useState(false);
+    const [registerCodeCooldown, setRegisterCodeCooldown] = useState(0);
+    const [resetEmail, setResetEmail] = useState('');
+    const [resetCode, setResetCode] = useState('');
+    const [resetNewPassword, setResetNewPassword] = useState('');
+    const [codeSending, setCodeSending] = useState(false);
+    const [codeCooldown, setCodeCooldown] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -29,6 +38,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         setIsLoading(true);
 
         try {
@@ -45,10 +55,15 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
+        if (!registerCode.trim()) {
+            setError('请输入验证码');
+            return;
+        }
         setIsLoading(true);
 
         try {
-            const { access_token, user } = await register(email, password);
+            const { access_token, user } = await register(email, password, undefined, registerCode.trim());
             storeLogin(access_token, user);
             onClose();
         } catch (err) {
@@ -76,13 +91,99 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         }
     };
 
+    useEffect(() => {
+        if (codeCooldown <= 0) return;
+        const timer = window.setInterval(() => {
+            setCodeCooldown((current) => (current > 1 ? current - 1 : 0));
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [codeCooldown]);
+
+    useEffect(() => {
+        if (registerCodeCooldown <= 0) return;
+        const timer = window.setInterval(() => {
+            setRegisterCodeCooldown((current) => (current > 1 ? current - 1 : 0));
+        }, 1000);
+        return () => window.clearInterval(timer);
+    }, [registerCodeCooldown]);
+
+    const handleSendRegisterCode = async () => {
+        if (!email.trim()) {
+            setError('请输入邮箱地址');
+            return;
+        }
+        if (registerCodeCooldown > 0 || registerCodeSending) return;
+        setError('');
+        setSuccess('');
+        setRegisterCodeSending(true);
+
+        try {
+            await sendCode(email.trim(), 'register');
+            setSuccess('验证码已发送，请查收邮箱');
+            setRegisterCodeCooldown(60);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setRegisterCodeSending(false);
+        }
+    };
+
+    const handleSendResetCode = async () => {
+        if (!resetEmail.trim()) {
+            setError('请输入邮箱地址');
+            return;
+        }
+        if (codeCooldown > 0 || codeSending) return;
+        setError('');
+        setSuccess('');
+        setCodeSending(true);
+
+        try {
+            await sendCode(resetEmail.trim(), 'reset');
+            setSuccess('验证码已发送，请查收邮箱');
+            setCodeCooldown(60);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setCodeSending(false);
+        }
+    };
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setSuccess('');
+        setIsLoading(true);
+
+        try {
+            await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword);
+            setSuccess('密码重置成功，请使用新密码登录');
+            setResetCode('');
+            setResetNewPassword('');
+            setEmail(resetEmail.trim());
+            setActiveTab('login');
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        {isAuthenticated ? '账户中心' : activeTab === 'login' ? '登录' : activeTab === 'register' ? '注册' : '兑换码'}
+                        {isAuthenticated
+                            ? '账户中心'
+                            : activeTab === 'login'
+                                ? '登录'
+                                : activeTab === 'register'
+                                    ? '注册'
+                                    : activeTab === 'reset'
+                                        ? '重置密码'
+                                        : '兑换码'}
                     </h2>
                     <button
                         onClick={onClose}
@@ -148,7 +249,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                             {/* Tabs */}
                             <div className="flex gap-2 mb-6">
                                 <button
-                                    onClick={() => { setActiveTab('login'); setError(''); }}
+                                    onClick={() => setShowMaintenanceModal(true)}
                                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${activeTab === 'login'
                                         ? 'bg-blue-500 text-white'
                                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -157,7 +258,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     登录
                                 </button>
                                 <button
-                                    onClick={() => { setActiveTab('register'); setError(''); }}
+                                    onClick={() => setShowMaintenanceModal(true)}
                                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${activeTab === 'register'
                                         ? 'bg-blue-500 text-white'
                                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -168,49 +269,199 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                             </div>
 
                             {/* Form */}
-                            <form onSubmit={activeTab === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)}
-                                        placeholder="邮箱地址"
-                                        required
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                    />
-                                </div>
+                            {activeTab === 'reset' ? (
+                                <form onSubmit={handleResetPassword} className="space-y-4">
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <input
+                                            type="email"
+                                            value={resetEmail}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.currentTarget.value)}
+                                            placeholder="邮箱地址"
+                                            required
+                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
 
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
-                                        placeholder="密码"
-                                        required
-                                        minLength={6}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                    />
-                                </div>
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                value={resetCode}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetCode(e.currentTarget.value)}
+                                                placeholder="验证码"
+                                                required
+                                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleSendResetCode}
+                                            disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
+                                            className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {codeSending
+                                                ? '发送中...'
+                                                : codeCooldown > 0
+                                                    ? `${codeCooldown}s`
+                                                    : '发送验证码'}
+                                        </button>
+                                    </div>
 
-                                {error && (
-                                    <p className="text-sm text-red-500 text-center">{error}</p>
-                                )}
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <input
+                                            type="password"
+                                            value={resetNewPassword}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetNewPassword(e.currentTarget.value)}
+                                            placeholder="新密码"
+                                            required
+                                            minLength={6}
+                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={isLoading}
-                                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-                                    {activeTab === 'login' ? '登录' : '注册'}
-                                </button>
-                            </form>
+                                    {error && (
+                                        <p className="text-sm text-red-500 text-center">{error}</p>
+                                    )}
+                                    {success && (
+                                        <p className="text-sm text-green-500 text-center">{success}</p>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+                                        重置密码
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => { setActiveTab('login'); setError(''); setSuccess(''); }}
+                                        className="w-full text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                                    >
+                                        返回登录
+                                    </button>
+                                </form>
+                            ) : (
+                                <form onSubmit={activeTab === 'login' ? handleLogin : handleRegister} className="space-y-4">
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)}
+                                            placeholder="邮箱地址"
+                                            required
+                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
+                                            placeholder="密码"
+                                            required
+                                            minLength={6}
+                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+
+                                    {activeTab === 'login' && (
+                                        <div className="flex justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setResetEmail(email);
+                                                    setActiveTab('reset');
+                                                    setError('');
+                                                    setSuccess('');
+                                                }}
+                                                className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
+                                            >
+                                                忘记密码？
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {activeTab === 'register' && (
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                                <input
+                                                    type="text"
+                                                    value={registerCode}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegisterCode(e.currentTarget.value)}
+                                                    placeholder="验证码"
+                                                    required
+                                                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleSendRegisterCode}
+                                                disabled={registerCodeSending || registerCodeCooldown > 0 || !email.trim()}
+                                                className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {registerCodeSending
+                                                    ? '发送中...'
+                                                    : registerCodeCooldown > 0
+                                                        ? `${registerCodeCooldown}s`
+                                                        : '发送验证码'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {error && (
+                                        <p className="text-sm text-red-500 text-center">{error}</p>
+                                    )}
+                                    {success && (
+                                        <p className="text-sm text-green-500 text-center">{success}</p>
+                                    )}
+
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
+                                        {activeTab === 'login' ? '登录' : '注册'}
+                                    </button>
+                                </form>
+                            )}
                         </>
                     )}
                 </div>
             </div>
+
+            {/* 维护弹窗 */}
+            {showMaintenanceModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
+                        <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <AlertCircle className="w-8 h-8 text-amber-500" />
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                            网站正在开发中
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6">
+                            抱歉，我们正在紧张开发中，注册和登录功能暂时关闭。敬请期待正式上线！
+                        </p>
+                        <button
+                            onClick={() => setShowMaintenanceModal(false)}
+                            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all"
+                        >
+                            我知道了
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

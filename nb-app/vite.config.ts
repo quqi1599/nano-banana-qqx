@@ -18,6 +18,11 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => '/gh/glidea/banana-prompt-quicker@main/prompts.json',
           secure: true,
         },
+        // 后端 API 代理 (开发模式用)
+        '/api': {
+          target: process.env.VITE_API_TARGET || 'http://backend:8000',
+          changeOrigin: true,
+        },
         // 动态代理所有 API 请求（开发环境绕过 CORS）
         '/gemini-api': {
           target: DEFAULT_API_ENDPOINT,
