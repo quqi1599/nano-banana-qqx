@@ -117,16 +117,30 @@ const request = async <T>(
 };
 
 /**
- * 用户注册
+ * 发送验证码
+ */
+export const sendCode = async (
+  email: string,
+  purpose: 'register' | 'reset' = 'register'
+): Promise<{ message: string }> => {
+  return request('/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, purpose }),
+  });
+};
+
+/**
+ * 用户注册（需验证码）
  */
 export const register = async (
   email: string,
   password: string,
-  nickname?: string
+  nickname?: string,
+  code?: string
 ): Promise<AuthResponse> => {
   const data = await request<AuthResponse>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, nickname }),
+    body: JSON.stringify({ email, password, nickname, code }),
   });
 
   saveToken(data.access_token);
@@ -163,7 +177,7 @@ export const getCurrentUser = async (): Promise<User> => {
 };
 
 /**
- * 获取积分余额
+ * 获取次数余额
  */
 export const getCreditBalance = async (): Promise<CreditBalance> => {
   return request<CreditBalance>('/credits/balance');
@@ -181,6 +195,35 @@ export const redeemCode = async (code: string): Promise<{
   return request('/redeem/use', {
     method: 'POST',
     body: JSON.stringify({ code }),
+  });
+};
+
+
+/**
+ * 重置密码（通过验证码）
+ */
+export const resetPassword = async (
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<{ message: string }> => {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ email, code, new_password: newPassword }),
+  });
+};
+
+
+/**
+ * 修改密码（需登录）
+ */
+export const changePassword = async (
+  oldPassword: string,
+  newPassword: string
+): Promise<{ message: string }> => {
+  return request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
   });
 };
 

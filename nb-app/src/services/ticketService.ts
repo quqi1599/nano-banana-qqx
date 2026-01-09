@@ -46,23 +46,46 @@ export interface TicketMessage {
     sender_email?: string;
 }
 
+export type TicketCategory = 'bug' | 'feature' | 'billing' | 'account' | 'technical' | 'other';
+export type TicketStatus = 'open' | 'pending' | 'resolved' | 'closed';
+export type TicketPriority = 'low' | 'normal' | 'high';
+
+// 工单状态配置
+export const TICKET_STATUS_LABELS: Record<TicketStatus, { label: string; color: string }> = {
+    open: { label: '待处理', color: 'bg-green-100 text-green-600' },
+    pending: { label: '待回复', color: 'bg-amber-100 text-amber-600' },
+    resolved: { label: '已解决', color: 'bg-blue-100 text-blue-600' },
+    closed: { label: '已关闭', color: 'bg-gray-100 text-gray-400' },
+};
+
 export interface Ticket {
     id: string;
     user_id: string;
     title: string;
-    status: 'open' | 'pending' | 'resolved' | 'closed';
-    priority: 'low' | 'normal' | 'high';
+    status: TicketStatus;
+    priority: TicketPriority;
+    category: TicketCategory;
     created_at: string;
     updated_at: string;
     user_email?: string; // Admin view only
     messages?: TicketMessage[]; // Detail view only
 }
 
+// 工单分类配置
+export const TICKET_CATEGORIES: Record<TicketCategory, { label: string; color: string; icon: string }> = {
+    bug: { label: 'Bug反馈', color: 'bg-red-100 text-red-600', icon: '🐛' },
+    feature: { label: '功能建议', color: 'bg-purple-100 text-purple-600', icon: '💡' },
+    billing: { label: '计费问题', color: 'bg-amber-100 text-amber-600', icon: '💰' },
+    account: { label: '账号问题', color: 'bg-blue-100 text-blue-600', icon: '👤' },
+    technical: { label: '技术支持', color: 'bg-green-100 text-green-600', icon: '🔧' },
+    other: { label: '其他', color: 'bg-gray-100 text-gray-600', icon: '📋' },
+};
+
 // User API
-export const createTicket = async (title: string, content: string, priority: string = 'normal'): Promise<Ticket> => {
+export const createTicket = async (title: string, content: string, priority: string = 'normal', category: string = 'other'): Promise<Ticket> => {
     return request('/', {
         method: 'POST',
-        body: JSON.stringify({ title, content, priority }),
+        body: JSON.stringify({ title, content, priority, category }),
     });
 };
 
@@ -81,16 +104,23 @@ export const replyTicket = async (id: string, content: string): Promise<void> =>
     });
 };
 
-// Admin API
-export const getAllTickets = async (status: string = 'all'): Promise<Ticket[]> => {
-    // admin api prefix is slightly different in our router implementation or we used /admin path?
-    // Let's check router: get("/admin/all")
-    return request(`/admin/all?status_filter=${status}`);
+export const closeTicket = async (id: string): Promise<{ status: string; message: string }> => {
+    return request(`/${id}/close`, {
+        method: 'POST',
+    });
 };
 
-export const updateTicketStatus = async (id: string, status?: string, priority?: string): Promise<void> => {
+// Admin API
+export const getAllTickets = async (status: string = 'all', category: string = 'all'): Promise<Ticket[]> => {
+    const params = new URLSearchParams();
+    if (status !== 'all') params.append('status_filter', status);
+    if (category !== 'all') params.append('category_filter', category);
+    return request(`/admin/all?${params.toString()}`);
+};
+
+export const updateTicketStatus = async (id: string, status?: string, priority?: string, category?: string): Promise<void> => {
     return request(`/${id}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status, priority }),
+        body: JSON.stringify({ status, priority, category }),
     });
 };

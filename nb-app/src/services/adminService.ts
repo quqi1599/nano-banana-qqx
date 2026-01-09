@@ -51,6 +51,14 @@ export interface TokenInfo {
     created_at: string;
 }
 
+export interface ModelPricingInfo {
+    id: string;
+    model_name: string;
+    credits_per_request: number;
+    created_at: string;
+    updated_at: string;
+}
+
 export const getTokens = async (): Promise<TokenInfo[]> => {
     return request('/tokens');
 };
@@ -71,6 +79,26 @@ export const updateToken = async (id: string, data: { name?: string; is_active?:
 
 export const deleteToken = async (id: string): Promise<void> => {
     return request(`/tokens/${id}`, { method: 'DELETE' });
+};
+
+// ========== 模型计费 ==========
+
+export const getModelPricing = async (): Promise<ModelPricingInfo[]> => {
+    return request('/model-pricing');
+};
+
+export const createModelPricing = async (modelName: string, creditsPerRequest: number): Promise<ModelPricingInfo> => {
+    return request('/model-pricing', {
+        method: 'POST',
+        body: JSON.stringify({ model_name: modelName, credits_per_request: creditsPerRequest }),
+    });
+};
+
+export const updateModelPricing = async (id: string, creditsPerRequest: number): Promise<ModelPricingInfo> => {
+    return request(`/model-pricing/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ credits_per_request: creditsPerRequest }),
+    });
 };
 
 // ========== 兑换码管理 ==========
@@ -158,6 +186,8 @@ export interface DashboardStats {
     total_requests_today: number;
     token_pool_count: number;
     available_tokens: number;
+    today_credits_used: number;
+    today_image_calls: number;
     daily_stats: { date: string; total_requests: number; total_credits_used: number; unique_users: number }[];
     model_stats: { model_name: string; total_requests: number; total_credits_used: number }[];
 }
@@ -178,4 +208,37 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     }
 
     return response.json();
+};
+
+
+// ========== 邮箱白名单管理 ==========
+
+export interface EmailWhitelistInfo {
+    id: string;
+    suffix: string;
+    is_active: boolean;
+    created_at: string;
+}
+
+export const getEmailWhitelist = async (): Promise<EmailWhitelistInfo[]> => {
+    return request('/email-whitelist');
+};
+
+export const addEmailWhitelist = async (suffix: string): Promise<EmailWhitelistInfo> => {
+    return request('/email-whitelist', {
+        method: 'POST',
+        body: JSON.stringify({ suffix }),
+    });
+};
+
+export const toggleEmailWhitelist = async (id: string): Promise<{ is_active: boolean }> => {
+    return request(`/email-whitelist/${id}`, {
+        method: 'PUT',
+    });
+};
+
+export const deleteEmailWhitelist = async (id: string): Promise<void> => {
+    return request(`/email-whitelist/${id}`, {
+        method: 'DELETE',
+    });
 };

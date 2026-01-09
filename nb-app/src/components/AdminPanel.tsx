@@ -2,22 +2,23 @@
  * 管理员后台面板
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2, ShieldCheck, MessageSquare, Send, UserCog, User, FileText } from 'lucide-react';
+import { X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2, ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Coins } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
     getTokens, addToken, deleteToken, updateToken, TokenInfo,
+    getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
     generateRedeemCodes, getRedeemCodes, RedeemCodeInfo,
     getUsers, adjustUserCredits, updateUserNote, AdminUser,
     getDashboardStats, DashboardStats,
 } from '../services/adminService';
-import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage } from '../services/ticketService';
+import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory } from '../services/ticketService';
 
 interface AdminPanelProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-type TabType = 'dashboard' | 'tokens' | 'codes' | 'users' | 'tickets';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets';
 
 export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const { user } = useAuthStore();
@@ -33,6 +34,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const [newTokenName, setNewTokenName] = useState('');
     const [newTokenKey, setNewTokenKey] = useState('');
     const [newTokenPriority, setNewTokenPriority] = useState(0);
+
+    // Model Pricing
+    const [pricing, setPricing] = useState<ModelPricingInfo[]>([]);
+    const [pricingDrafts, setPricingDrafts] = useState<Record<string, number>>({});
+    const [newModelName, setNewModelName] = useState('');
+    const [newModelCredits, setNewModelCredits] = useState(10);
 
     // Redeem Codes
     const [codes, setCodes] = useState<RedeemCodeInfo[]>([]);
@@ -52,6 +59,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     // Tickets
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [ticketStatusFilter, setTicketStatusFilter] = useState('all');
+    const [ticketCategoryFilter, setTicketCategoryFilter] = useState('all');
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
     const [adminReplyContent, setAdminReplyContent] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -68,6 +76,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             } else if (activeTab === 'tokens') {
                 const data = await getTokens();
                 setTokens(data);
+            } else if (activeTab === 'pricing') {
+                const data = await getModelPricing();
+                setPricing(data);
             } else if (activeTab === 'codes') {
                 const data = await getRedeemCodes();
                 setCodes(data);
@@ -75,7 +86,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                 const data = await getUsers(1, userSearch);
                 setUsers(data.users);
             } else if (activeTab === 'tickets') {
-                const data = await getAllTickets(ticketStatusFilter);
+                const data = await getAllTickets(ticketStatusFilter, ticketCategoryFilter);
                 setTickets(data);
             }
         } catch (err) {
@@ -89,7 +100,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         if (activeTab === 'tickets') {
             loadData();
         }
-    }, [ticketStatusFilter]);
+    }, [ticketStatusFilter, ticketCategoryFilter]);
 
     useEffect(() => {
         if (selectedTicket && messagesEndRef.current) {
@@ -102,6 +113,14 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             loadData();
         }
     }, [isOpen, activeTab, user?.is_admin]);
+
+    useEffect(() => {
+        const nextDrafts: Record<string, number> = {};
+        pricing.forEach((item) => {
+            nextDrafts[item.id] = item.credits_per_request;
+        });
+        setPricingDrafts(nextDrafts);
+    }, [pricing]);
 
     const handleAddToken = async () => {
         if (!newTokenName || !newTokenKey) return;
@@ -129,6 +148,32 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         if (!confirm('确定要删除这个 Token 吗？')) return;
         try {
             await deleteToken(id);
+            loadData();
+        } catch (err) {
+            setError((err as Error).message);
+        }
+    };
+
+    const handleAddPricing = async () => {
+        if (!newModelName.trim() || newModelCredits <= 0) return;
+        try {
+            await createModelPricing(newModelName.trim(), newModelCredits);
+            setNewModelName('');
+            setNewModelCredits(10);
+            loadData();
+        } catch (err) {
+            setError((err as Error).message);
+        }
+    };
+
+    const handleUpdatePricing = async (id: string) => {
+        const nextValue = pricingDrafts[id];
+        if (!nextValue || nextValue <= 0) {
+            setError('扣点次数必须大于 0');
+            return;
+        }
+        try {
+            await updateModelPricing(id, nextValue);
             loadData();
         } catch (err) {
             setError((err as Error).message);
@@ -210,6 +255,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const tabs = [
         { id: 'dashboard', label: '统计', icon: BarChart3 },
         { id: 'tokens', label: 'Token池', icon: Key },
+        { id: 'pricing', label: '计费', icon: Coins },
         { id: 'codes', label: '兑换码', icon: Gift },
         { id: 'users', label: '用户', icon: Users },
         { id: 'tickets', label: '工单', icon: MessageSquare },
@@ -262,7 +308,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                         </div>
                     )}
 
-                    {isLoading && !stats && !tokens.length && !codes.length && !users.length && !tickets.length ? (
+                    {isLoading && !stats && !tokens.length && !pricing.length && !codes.length && !users.length && !tickets.length ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-3">
                             <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
                             <p className="text-gray-500 text-sm animate-pulse">加载数据中...</p>
@@ -288,7 +334,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                         <div key={m.model_name} className="group">
                                                             <div className="flex justify-between text-sm mb-1.5">
                                                                 <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
-                                                                <span className="text-gray-500">{m.total_requests} 次 / {m.total_credits_used} 积分</span>
+                                                                <span className="text-gray-500">{m.total_requests} 次 / {m.total_credits_used} 次</span>
                                                             </div>
                                                             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                                                 <div
@@ -396,6 +442,76 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                 </div>
                             )}
 
+                            {/* Model Pricing */}
+                            {activeTab === 'pricing' && (
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                    <div className="bg-purple-50/50 dark:bg-purple-900/10 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/20">
+                                        <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase mb-3 px-1">新增模型计费</h4>
+                                        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                                            <input
+                                                type="text"
+                                                value={newModelName}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModelName(e.currentTarget.value)}
+                                                placeholder="模型名称 (如 gemini-3-pro-image-preview)"
+                                                className="flex-1 min-w-[200px] px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                                            />
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={newModelCredits}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModelCredits(Number(e.currentTarget.value))}
+                                                placeholder="扣点次数"
+                                                className="w-28 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                                            />
+                                            <button
+                                                onClick={handleAddPricing}
+                                                disabled={!newModelName.trim() || newModelCredits <= 0}
+                                                className="px-6 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 transition-all font-bold text-sm shadow-sm"
+                                            >
+                                                添加
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase px-1">模型计费列表 ({pricing.length})</h4>
+                                        {pricing.map(item => (
+                                            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl gap-3 hover:shadow-md transition-shadow">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-bold text-gray-900 dark:text-white truncate">{item.model_name}</div>
+                                                    <div className="text-[10px] text-gray-400 mt-1">更新于 {new Date(item.updated_at).toLocaleString()}</div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={pricingDrafts[item.id] ?? item.credits_per_request}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                            const nextValue = Number(e.currentTarget.value);
+                                                            setPricingDrafts(prev => ({ ...prev, [item.id]: nextValue }));
+                                                        }}
+                                                        className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-900 text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                                                    />
+                                                    <span className="text-xs text-gray-400">次/次</span>
+                                                    <button
+                                                        onClick={() => handleUpdatePricing(item.id)}
+                                                        className="px-3 py-2 text-xs font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition"
+                                                    >
+                                                        保存
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {pricing.length === 0 && (
+                                            <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
+                                                <Coins className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                                                <p className="text-gray-400 text-sm">暂无计费配置，请在上方添加</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Redeem Codes */}
                             {activeTab === 'codes' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
@@ -412,7 +528,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-[100px]">
-                                                <label className="block text-[10px] font-bold text-amber-500 mb-1.5 ml-1">面值 (积分)</label>
+                                                <label className="block text-[10px] font-bold text-amber-500 mb-1.5 ml-1">面值 (次数)</label>
                                                 <input
                                                     type="number"
                                                     value={generateAmount}
@@ -458,7 +574,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 <div key={code.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition">
                                                     <span className="font-mono text-sm font-medium text-gray-600 dark:text-gray-400">{code.code}</span>
                                                     <div className="flex items-center gap-6">
-                                                        <span className="text-xs font-bold text-gray-500">{code.credit_amount} 积分</span>
+                                                        <span className="text-xs font-bold text-gray-500">{code.credit_amount} 次</span>
                                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${code.is_used ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-600'}`}>
                                                             {code.is_used ? 'EXPIRED' : 'AVAILABLE'}
                                                         </span>
@@ -514,7 +630,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                             <div className="text-[10px] font-mono text-gray-400">{u.last_login_ip || '-'}</div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <div className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">积分余额</div>
+                                                            <div className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">剩余次数</div>
                                                             <div className="text-lg font-black text-amber-600">{u.credit_balance}</div>
                                                         </div>
                                                         <div className="text-right border-l border-gray-100 dark:border-gray-800 pl-6 hidden sm:block">
@@ -540,7 +656,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                                     setEditingNoteUserId(null);
                                                                 }}
                                                                 className={`p-2 rounded-xl transition-all ${editingUserId === u.id ? 'bg-blue-500 text-white' : 'bg-gray-50 dark:bg-gray-900 text-blue-500 hover:bg-blue-50'}`}
-                                                                title="调整积分"
+                                                                title="调整次数"
                                                             >
                                                                 <UserCog className="w-5 h-5" />
                                                             </button>
@@ -558,7 +674,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 {editingUserId === u.id && (
                                                     <div className="flex items-center gap-3 mt-2 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl animate-in slide-in-from-top-2 duration-300">
                                                         <div className="flex-1">
-                                                            <p className="text-[10px] font-bold text-blue-600 mb-2 uppercase">调整积分余额</p>
+                                                            <p className="text-[10px] font-bold text-blue-600 mb-2 uppercase">调整剩余次数</p>
                                                             <div className="flex gap-2">
                                                                 <input
                                                                     type="number"
@@ -614,19 +730,47 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                 <div className="flex h-[600px] border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800">
                                     {/* Ticket List */}
                                     <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-                                        <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex gap-2 overflow-x-auto">
-                                            {['all', 'open', 'pending', 'resolved', 'closed'].map(status => (
+                                        {/* Filters */}
+                                        <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex flex-col gap-2">
+                                            {/* Status Filters */}
+                                            <div className="flex gap-1 overflow-x-auto">
+                                                {['all', 'open', 'pending', 'resolved', 'closed'].map(status => (
+                                                    <button
+                                                        key={status}
+                                                        onClick={() => setTicketStatusFilter(status)}
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketStatusFilter === status
+                                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+                                                            }`}
+                                                    >
+                                                        {status === 'all' ? '全部' : TICKET_STATUS_LABELS[status as keyof typeof TICKET_STATUS_LABELS]?.label || status}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {/* Category Filters */}
+                                            <div className="flex gap-1 overflow-x-auto">
                                                 <button
-                                                    key={status}
-                                                    onClick={() => setTicketStatusFilter(status)}
-                                                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketStatusFilter === status
-                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                    onClick={() => setTicketCategoryFilter('all')}
+                                                    className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketCategoryFilter === 'all'
+                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
                                                         : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
                                                         }`}
                                                 >
-                                                    {status === 'all' ? '全部' : status}
+                                                    全部分类
                                                 </button>
-                                            ))}
+                                                {(Object.keys(TICKET_CATEGORIES) as TicketCategory[]).map(cat => (
+                                                    <button
+                                                        key={cat}
+                                                        onClick={() => setTicketCategoryFilter(cat)}
+                                                        className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketCategoryFilter === cat
+                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+                                                            }`}
+                                                    >
+                                                        {TICKET_CATEGORIES[cat].icon}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                         <div className="flex-1 overflow-y-auto">
                                             {tickets.length === 0 ? (
@@ -642,16 +786,17 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                         <h4 className={`font-medium text-sm line-clamp-1 ${t.status === 'closed' ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
                                                             {t.title}
                                                         </h4>
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${t.status === 'open' ? 'bg-green-100 text-green-600' :
-                                                            t.status === 'pending' ? 'bg-amber-100 text-amber-600' :
-                                                                t.status === 'resolved' ? 'bg-blue-100 text-blue-600' :
-                                                                    'bg-gray-100 text-gray-400'
-                                                            }`}>
-                                                            {t.status}
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${TICKET_STATUS_LABELS[t.status]?.color || 'bg-gray-100 text-gray-400'}`}>
+                                                            {TICKET_STATUS_LABELS[t.status]?.label || t.status}
                                                         </span>
                                                     </div>
-                                                    <div className="flex justify-between text-xs text-gray-400 mt-2">
-                                                        <span>{t.user_email?.split('@')[0]}</span>
+                                                    <div className="flex justify-between items-center text-xs text-gray-400 mt-2">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className={`px-1.5 py-0.5 rounded ${TICKET_CATEGORIES[t.category]?.color || 'bg-gray-100 text-gray-500'}`}>
+                                                                {TICKET_CATEGORIES[t.category]?.icon}
+                                                            </span>
+                                                            <span>{t.user_email?.split('@')[0]}</span>
+                                                        </div>
                                                         <span>{new Date(t.created_at).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
@@ -666,17 +811,22 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center shadow-sm z-10">
                                                     <div>
                                                         <h3 className="font-bold text-gray-900 dark:text-white">{selectedTicket.title}</h3>
-                                                        <p className="text-xs text-gray-500 mt-0.5">User: {selectedTicket.user_email}</p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-xs text-gray-500">用户: {selectedTicket.user_email}</span>
+                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${TICKET_CATEGORIES[selectedTicket.category]?.color || 'bg-gray-100 text-gray-500'}`}>
+                                                                {TICKET_CATEGORIES[selectedTicket.category]?.icon} {TICKET_CATEGORIES[selectedTicket.category]?.label}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <select
                                                         value={selectedTicket.status}
                                                         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleUpdateTicketStatus(e.currentTarget.value)}
                                                         className="text-xs border-none bg-gray-100 dark:bg-gray-700 rounded-lg px-2 py-1 outline-none font-medium cursor-pointer"
                                                     >
-                                                        <option value="open">待处理 (Open)</option>
-                                                        <option value="pending">待回复 (Pending)</option>
-                                                        <option value="resolved">已解决 (Resolved)</option>
-                                                        <option value="closed">已关闭 (Closed)</option>
+                                                        <option value="open">待处理</option>
+                                                        <option value="pending">待回复</option>
+                                                        <option value="resolved">已解决</option>
+                                                        <option value="closed">已关闭</option>
                                                     </select>
                                                 </div>
 

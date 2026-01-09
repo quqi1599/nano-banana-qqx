@@ -28,7 +28,20 @@ RUN echo 'server { \
     root /usr/share/nginx/html; \
     index index.html; \
     \
-    # API 反向代理 - 解决 CORS 问题 \
+    # 后端 API 代理 \
+    location /api/ { \
+    proxy_pass http://backend:8000/api/; \
+    proxy_set_header Host $host; \
+    proxy_set_header X-Real-IP $remote_addr; \
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+    proxy_set_header X-Forwarded-Proto $scheme; \
+    client_max_body_size 50M; \
+    proxy_connect_timeout 60s; \
+    proxy_send_timeout 120s; \
+    proxy_read_timeout 120s; \
+    } \
+    \
+    # Gemini API 反向代理 - 解决 CORS 问题 \
     location /gemini-api/ { \
     # 从请求头获取目标端点，默认使用环境变量或默认值 \
     set $target_endpoint "https://banana2.peacedejiai.cc"; \

@@ -50,6 +50,23 @@ async def get_dashboard(
     )
     total_credits_consumed = total_credits_result.scalar() or 0
     
+    # 今日消耗积分
+    today_credits_result = await db.execute(
+        select(func.sum(UsageLog.credits_used)).where(
+            cast(UsageLog.created_at, Date) == today
+        )
+    )
+    today_credits_used = today_credits_result.scalar() or 0
+    
+    # 今日图片调用次数
+    today_image_result = await db.execute(
+        select(func.count(UsageLog.id)).where(
+            cast(UsageLog.created_at, Date) == today,
+            UsageLog.request_type == 'generate_image'
+        )
+    )
+    today_image_calls = today_image_result.scalar() or 0
+    
     # Token 池信息
     token_count_result = await db.execute(select(func.count(TokenPool.id)))
     token_pool_count = token_count_result.scalar() or 0
@@ -57,7 +74,6 @@ async def get_dashboard(
     available_tokens_result = await db.execute(
         select(func.count(TokenPool.id)).where(
             TokenPool.is_active == True,
-            TokenPool.remaining_quota > 0,
         )
     )
     available_tokens = available_tokens_result.scalar() or 0
@@ -109,6 +125,8 @@ async def get_dashboard(
         total_requests_today=total_requests_today,
         token_pool_count=token_pool_count,
         available_tokens=available_tokens,
+        today_credits_used=today_credits_used,
+        today_image_calls=today_image_calls,
         daily_stats=daily_stats,
         model_stats=model_stats,
     )

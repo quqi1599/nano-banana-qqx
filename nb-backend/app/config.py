@@ -23,11 +23,22 @@ class Settings(BaseSettings):
     # 积分配置
     credits_gemini_3_pro: int = 10
     credits_gemini_25_flash: int = 5
-    credits_new_user_bonus: int = 50
+    credits_new_user_bonus: int = 0
     
     # 管理员
     admin_email: str = "admin@example.com"
     admin_password: str = "admin123"
+    admin_notification_emails: str = ""  # 管理员通知邮箱，多个用逗号分隔
+    
+    # 阿里云邮件推送 (DirectMail SMTP)
+    aliyun_smtp_host: str = "smtpdm.aliyun.com"
+    aliyun_smtp_port: int = 465
+    aliyun_smtp_user: str = ""  # 发信地址
+    aliyun_smtp_password: str = ""  # SMTP密码
+    aliyun_email_from_name: str = "DEAI"  # 发信人昵称
+    
+    # 验证码配置
+    email_code_expire_minutes: int = 10  # 验证码有效期
     
     class Config:
         env_file = ".env"

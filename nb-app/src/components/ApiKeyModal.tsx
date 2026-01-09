@@ -8,9 +8,10 @@ import { WeChatQRModal } from './WeChatQRModal';
 
 interface ApiKeyModalProps {
   onClose?: () => void;
+  onSkip?: () => void;
 }
 
-export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
+export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => {
   const { apiKey, setApiKey, updateSettings, settings, fetchBalance, endpointHistory, addEndpointToHistory } = useAppStore();
   const { showDialog } = useUiStore();
   const [inputKey, setInputKey] = useState('');
@@ -107,7 +108,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
 
         <h2 className="mb-2 text-center text-2xl font-bold text-gray-900 dark:text-white">配置 API</h2>
         <p className="mb-6 text-sm text-center text-gray-500 dark:text-gray-400">
-          您的 API Key 仅存储在本地浏览器中，安全可靠。
+          您的 API Key 仅存储在本地浏览器中。也可登录使用次数模式。
         </p>
 
 
@@ -274,6 +275,16 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose }) => {
           >
             开始创作
           </button>
+
+          {onSkip && (
+            <button
+              type="button"
+              onClick={onSkip}
+              className="w-full mt-2 rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              暂不输入
+            </button>
+          )}
 
           {/* 加入交流群链接 */}
           <button

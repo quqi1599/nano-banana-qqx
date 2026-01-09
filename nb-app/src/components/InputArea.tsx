@@ -47,6 +47,21 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
 
+  // Auto-resize textarea
+  const autoResizeTextarea = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 200);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+
+  // Auto-resize when input text changes
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [inputText, autoResizeTextarea]);
+
   // 监听待添加的参考图片
   useEffect(() => {
     if (pendingReferenceImage && attachments.length < 14) {
@@ -389,8 +404,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             onKeyDown={handleKeyDown}
             disabled={disabled}
             placeholder="描述一张图片来生成 或上传参考图来修改 或使用/t中模板"
-            className="mb-1 max-h-[200px] min-h-10 w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2.5 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 field-sizing-content"
+            className="mb-1 max-h-[200px] min-h-10 w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2.5 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
             rows={1}
+            style={{ height: '40px' }}
           />
 
           {disabled ? (

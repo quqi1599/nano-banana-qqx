@@ -13,16 +13,24 @@ from app.models.user import User
 from app.models.token_pool import TokenPool
 from app.models.redeem_code import RedeemCode, generate_redeem_code
 from app.models.usage_log import UsageLog
+from app.models.model_pricing import ModelPricing
 from app.schemas.admin import (
     TokenPoolCreate,
     TokenPoolResponse,
     TokenPoolUpdate,
+    ModelPricingCreate,
+    ModelPricingUpdate,
+    ModelPricingResponse,
     UserListResponse,
     AdminUserResponse,
     DashboardStats,
     DailyStats,
     ModelStats,
     UserNoteUpdate,
+    EmailConfigResponse,
+    EmailConfigUpdate,
+    SmtpConfigResponse,
+    SmtpConfigUpdate,
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
 from app.utils.security import get_admin_user
@@ -135,6 +143,84 @@ async def delete_token(
     await db.commit()
     
     return {"message": "删除成功"}
+
+
+# ============ 模型计费 ============
+
+@router.get("/model-pricing", response_model=list[ModelPricingResponse])
+async def list_model_pricing(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取模型计费配置"""
+    result = await db.execute(
+        select(ModelPricing).order_by(ModelPricing.model_name.asc())
+    )
+    return [ModelPricingResponse.model_validate(p) for p in result.scalars().all()]
+
+
+@router.post("/model-pricing", response_model=ModelPricingResponse)
+async def create_model_pricing(
+    data: ModelPricingCreate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """新增模型计费配置"""
+    if data.credits_per_request <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="扣点次数必须大于 0",
+        )
+
+    result = await db.execute(
+        select(ModelPricing).where(ModelPricing.model_name == data.model_name)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="模型已存在，请直接修改",
+        )
+
+    pricing = ModelPricing(
+        model_name=data.model_name,
+        credits_per_request=data.credits_per_request,
+    )
+    db.add(pricing)
+    await db.commit()
+    await db.refresh(pricing)
+
+    return ModelPricingResponse.model_validate(pricing)
+
+
+@router.put("/model-pricing/{pricing_id}", response_model=ModelPricingResponse)
+async def update_model_pricing(
+    pricing_id: str,
+    data: ModelPricingUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """更新模型计费配置"""
+    if data.credits_per_request <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="扣点次数必须大于 0",
+        )
+
+    result = await db.execute(
+        select(ModelPricing).where(ModelPricing.id == pricing_id)
+    )
+    pricing = result.scalar_one_or_none()
+    if not pricing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="计费配置不存在",
+        )
+
+    pricing.credits_per_request = data.credits_per_request
+    await db.commit()
+    await db.refresh(pricing)
+
+    return ModelPricingResponse.model_validate(pricing)
 
 
 # ============ 兑换码管理 ============
@@ -311,3 +397,268 @@ async def update_user_note(
     await db.commit()
     
     return {"message": "备注更新成功"}
+
+
+# ============ 邮箱白名单管理 ============
+
+from app.models.email_whitelist import EmailWhitelist
+from pydantic import BaseModel
+
+
+class EmailWhitelistCreate(BaseModel):
+    suffix: str  # 如 @qq.com
+
+
+class EmailWhitelistResponse(BaseModel):
+    id: str
+    suffix: str
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/email-whitelist", response_model=list[EmailWhitelistResponse])
+async def list_email_whitelist(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取邮箱后缀白名单"""
+    result = await db.execute(
+        select(EmailWhitelist).order_by(EmailWhitelist.created_at.desc())
+    )
+    return [EmailWhitelistResponse.model_validate(w) for w in result.scalars().all()]
+
+
+@router.post("/email-whitelist", response_model=EmailWhitelistResponse)
+async def add_email_whitelist(
+    data: EmailWhitelistCreate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """添加邮箱后缀白名单"""
+    suffix = data.suffix.strip().lower()
+    if not suffix.startswith("@"):
+        suffix = "@" + suffix
+    
+    # 检查是否已存在
+    result = await db.execute(
+        select(EmailWhitelist).where(EmailWhitelist.suffix == suffix)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该后缀已存在",
+        )
+    
+    whitelist = EmailWhitelist(suffix=suffix)
+    db.add(whitelist)
+    await db.commit()
+    await db.refresh(whitelist)
+    
+    return EmailWhitelistResponse.model_validate(whitelist)
+
+
+@router.put("/email-whitelist/{whitelist_id}")
+async def toggle_email_whitelist(
+    whitelist_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """切换邮箱后缀白名单状态"""
+    result = await db.execute(
+        select(EmailWhitelist).where(EmailWhitelist.id == whitelist_id)
+    )
+    whitelist = result.scalar_one_or_none()
+    
+    if not whitelist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="白名单不存在",
+        )
+    
+    whitelist.is_active = not whitelist.is_active
+    await db.commit()
+    
+    return {"message": "状态已切换", "is_active": whitelist.is_active}
+
+
+@router.delete("/email-whitelist/{whitelist_id}")
+async def delete_email_whitelist(
+    whitelist_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """删除邮箱后缀白名单"""
+    result = await db.execute(
+        select(EmailWhitelist).where(EmailWhitelist.id == whitelist_id)
+    )
+    whitelist = result.scalar_one_or_none()
+    
+    if not whitelist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="白名单不存在",
+        )
+    
+    await db.delete(whitelist)
+    await db.commit()
+
+    return {"message": "删除成功"}
+
+
+# ============ 邮件配置管理 ============
+
+from app.models.email_config import EmailConfig
+from app.config import get_settings
+
+settings = get_settings()
+
+
+@router.get("/email-config", response_model=list[EmailConfigResponse])
+async def list_email_config(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取所有邮件配置"""
+    result = await db.execute(
+        select(EmailConfig).order_by(EmailConfig.email_type.asc())
+    )
+    configs = result.scalars().all()
+
+    # 如果没有任何配置，初始化默认配置
+    if not configs:
+        default_configs = []
+        for email_type, label in EmailConfig.EMAIL_TYPES.items():
+            config = EmailConfig(
+                email_type=email_type,
+                from_name="DEAI",
+                is_enabled=True,
+            )
+            db.add(config)
+            default_configs.append(config)
+        await db.commit()
+        configs = default_configs
+
+    # 添加类型标签
+    response = []
+    for config in configs:
+        config_dict = EmailConfigResponse.model_validate(config).model_dump()
+        config_dict["email_type_label"] = EmailConfig.EMAIL_TYPES.get(config.email_type, config.email_type)
+        response.append(EmailConfigResponse(**config_dict))
+
+    return response
+
+
+@router.put("/email-config/{email_type}", response_model=EmailConfigResponse)
+async def update_email_config(
+    email_type: str,
+    data: EmailConfigUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """更新邮件配置"""
+    # 检查邮件类型是否有效
+    if email_type not in EmailConfig.EMAIL_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的邮件类型，支持的类型: {list(EmailConfig.EMAIL_TYPES.keys())}",
+        )
+
+    result = await db.execute(
+        select(EmailConfig).where(EmailConfig.email_type == email_type)
+    )
+    config = result.scalar_one_or_none()
+
+    # 如果不存在则创建
+    if not config:
+        config = EmailConfig(email_type=email_type)
+        db.add(config)
+
+    # 更新配置
+    if data.from_name is not None:
+        config.from_name = data.from_name
+    if data.from_email is not None:
+        config.from_email = data.from_email
+    if data.subject_template is not None:
+        config.subject_template = data.subject_template
+    if data.is_enabled is not None:
+        config.is_enabled = data.is_enabled
+
+    await db.commit()
+    await db.refresh(config)
+
+    config_dict = EmailConfigResponse.model_validate(config).model_dump()
+    config_dict["email_type_label"] = EmailConfig.EMAIL_TYPES.get(config.email_type, config.email_type)
+    return EmailConfigResponse(**config_dict)
+
+
+@router.get("/smtp-config", response_model=SmtpConfigResponse)
+async def get_smtp_config(
+    admin: User = Depends(get_admin_user),
+):
+    """获取SMTP配置"""
+    return SmtpConfigResponse(
+        smtp_host=settings.aliyun_smtp_host,
+        smtp_port=settings.aliyun_smtp_port,
+        smtp_user=settings.aliyun_smtp_user,
+        from_name=settings.aliyun_email_from_name,
+        is_configured=bool(settings.aliyun_smtp_user and settings.aliyun_smtp_password),
+    )
+
+
+@router.put("/smtp-config")
+async def update_smtp_config(
+    data: SmtpConfigUpdate,
+    admin: User = Depends(get_admin_user),
+):
+    """更新SMTP配置（需要重启服务生效）"""
+    # 注意：这里只是示例，实际应该更新.env文件或数据库
+    # 由于环境变量运行时不可修改，这里返回提示
+    return {
+        "message": "SMTP配置需要通过环境变量或.env文件修改，请重启服务后生效",
+        "config": {
+            "smtp_host": data.smtp_host,
+            "smtp_port": data.smtp_port,
+            "from_name": data.from_name,
+        }
+    }
+
+
+@router.post("/email-config/test-send")
+async def test_send_email(
+    email_type: str = Query(..., description="邮件类型"),
+    test_email: str = Query(..., description="测试接收邮箱"),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """测试发送邮件"""
+    from app.services.email_service import send_verification_code, send_ticket_reply_notification
+
+    # 检查邮件类型
+    if email_type not in EmailConfig.EMAIL_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的邮件类型: {email_type}",
+        )
+
+    # 根据类型发送测试邮件
+    test_code = "123456"
+    success = False
+
+    if email_type == "register":
+        success = send_verification_code(test_email, test_code, "register")
+    elif email_type == "reset":
+        success = send_verification_code(test_email, test_code, "reset")
+    elif email_type == "ticket_reply":
+        success = send_ticket_reply_notification(test_email, "测试工单标题", "这是一条测试回复内容")
+    else:
+        # 其他类型使用注册模板测试
+        success = send_verification_code(test_email, test_code, "register")
+
+    return {
+        "success": success,
+        "message": "测试邮件发送成功" if success else "测试邮件发送失败，请检查SMTP配置"
+    }
+

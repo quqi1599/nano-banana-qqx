@@ -9,6 +9,7 @@ import { WeChatQRModal } from './components/WeChatQRModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanel } from './components/AdminPanel';
+import { AdminDashboard } from './components/AdminDashboard';
 import { TicketModal } from './components/TicketModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
@@ -31,6 +32,11 @@ const App: React.FC = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [adminLoggedOut, setAdminLoggedOut] = useState(false);
+  const [skipApiKeyPrompt, setSkipApiKeyPrompt] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('nbnb_skip_api_key') === '1';
+  });
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -117,10 +123,16 @@ const App: React.FC = () => {
 
   // Auto-show API Key modal if no key is set AND welcome modal is closed
   useEffect(() => {
-    if (mounted && hasHydrated && !apiKey && !showWelcome) {
+    if (mounted && hasHydrated && !apiKey && !showWelcome && !isAuthenticated && !skipApiKeyPrompt) {
       setShowApiKeyModal(true);
     }
-  }, [mounted, hasHydrated, apiKey, showWelcome, setShowApiKeyModal]);
+  }, [mounted, hasHydrated, apiKey, showWelcome, setShowApiKeyModal, isAuthenticated, skipApiKeyPrompt]);
+
+  const handleSkipApiKeyPrompt = () => {
+    localStorage.setItem('nbnb_skip_api_key', '1');
+    setSkipApiKeyPrompt(true);
+    setShowApiKeyModal(false);
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -205,6 +217,17 @@ const App: React.FC = () => {
 
   if (!mounted) return null;
 
+  // Admin users get the full-screen admin dashboard
+  if (isAuthenticated && user?.is_admin && !adminLoggedOut) {
+    return (
+      <>
+        <AdminDashboard onLogout={() => setAdminLoggedOut(true)} />
+        <ToastContainer />
+        <GlobalDialog />
+      </>
+    );
+  }
+
   return (
     <div className="flex h-dvh w-full flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden relative transition-colors duration-200">
       {/* Header */}
@@ -225,10 +248,10 @@ const App: React.FC = () => {
             <div
               onClick={() => setShowAuthModal(true)}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:from-amber-200 hover:to-orange-200 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 transition mr-2"
-              title="点击查看积分详情"
+              title="点击查看次数详情"
             >
               <Coins className="h-4 w-4" />
-              <span>{user.credit_balance} 积分</span>
+              <span>{user.credit_balance} 次</span>
             </div>
           )}
 
@@ -454,7 +477,12 @@ const App: React.FC = () => {
 
       {/* Modals */}
       <Suspense fallback={null}>
-        {showApiKeyModal && <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />}
+        {showApiKeyModal && (
+          <ApiKeyModal
+            onClose={() => setShowApiKeyModal(false)}
+            onSkip={handleSkipApiKeyPrompt}
+          />
+        )}
         {isImageHistoryOpen && (
           <ImageHistoryPanel isOpen={isImageHistoryOpen} onClose={() => setIsImageHistoryOpen(false)} />
         )}

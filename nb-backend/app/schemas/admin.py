@@ -37,6 +37,30 @@ class TokenPoolUpdate(BaseModel):
     priority: Optional[int] = None
 
 
+# 模型计费
+class ModelPricingCreate(BaseModel):
+    """创建模型计费"""
+    model_name: str
+    credits_per_request: int
+
+
+class ModelPricingUpdate(BaseModel):
+    """更新模型计费"""
+    credits_per_request: int
+
+
+class ModelPricingResponse(BaseModel):
+    """模型计费响应"""
+    id: str
+    model_name: str
+    credits_per_request: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # 用户管理
 class AdminUserResponse(BaseModel):
     """管理员查看的用户信息"""
@@ -92,5 +116,50 @@ class DashboardStats(BaseModel):
     total_requests_today: int
     token_pool_count: int
     available_tokens: int
+    today_credits_used: int = 0  # 今日消耗积分
+    today_image_calls: int = 0   # 今日图片调用次数
     daily_stats: List[DailyStats]
     model_stats: List[ModelStats]
+
+
+# 邮件配置管理
+class EmailConfigResponse(BaseModel):
+    """邮件配置响应"""
+    id: str
+    email_type: str
+    email_type_label: str = ""
+    from_name: str
+    from_email: Optional[str] = None
+    subject_template: Optional[str] = None
+    is_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EmailConfigUpdate(BaseModel):
+    """更新邮件配置"""
+    from_name: Optional[str] = None
+    from_email: Optional[str] = None
+    subject_template: Optional[str] = None
+    is_enabled: Optional[bool] = None
+
+
+class SmtpConfigResponse(BaseModel):
+    """SMTP配置响应"""
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    from_name: str = ""
+    is_configured: bool = False
+
+
+class SmtpConfigUpdate(BaseModel):
+    """更新SMTP配置"""
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_password: Optional[str] = None
+    from_name: Optional[str] = None
+

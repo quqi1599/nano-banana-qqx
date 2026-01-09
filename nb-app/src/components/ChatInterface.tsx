@@ -1,10 +1,12 @@
 import React, { useRef, useEffect, useState, Suspense } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { InputArea } from './InputArea';
 import { PipelineModal } from './PipelineModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { streamGeminiResponse, generateContent } from '../services/geminiService';
+import { streamContentViaProxy, generateContentViaProxy } from '../services/proxyService';
 import { formatCost } from '../services/balanceService';
 import { convertMessagesToHistory } from '../utils/messageUtils';
 import { ChatMessage, Attachment, Part } from '../types';
@@ -31,6 +33,8 @@ export const ChatInterface: React.FC = () => {
     incrementUsageCount,
     usageCount
   } = useAppStore();
+
+  const { isAuthenticated, refreshCredits } = useAuthStore();
 
   const { batchMode, batchCount, setBatchMode, addToast, setShowApiKeyModal } = useUiStore();
 
@@ -81,9 +85,9 @@ export const ChatInterface: React.FC = () => {
 
   const handleSend = async (text: string, attachments: Attachment[]) => {
     // 检查 API Key
-    if (!apiKey) {
+    if (!isAuthenticated && !apiKey) {
       setShowApiKeyModal(true);
-      addToast('请先输入 API Key', 'error');
+      addToast('请先登录或输入 API Key', 'error');
       return;
     }
 
@@ -130,6 +134,8 @@ export const ChatInterface: React.FC = () => {
   };
 
   const executeSingleGeneration = async (text: string, attachments: Attachment[]) => {
+    const useProxy = isAuthenticated;
+    const apiKeyValue = apiKey || '';
     // Capture the current messages state *before* adding the new user message.
     // This allows us to generate history up to this point.
     const currentMessages = useAppStore.getState().messages;
@@ -139,7 +145,7 @@ export const ChatInterface: React.FC = () => {
     const msgId = Date.now().toString();
 
     // 记录生成前的余额用于计算消耗
-    const balanceBefore = useAppStore.getState().balance?.usage;
+    const balanceBefore = useProxy ? undefined : useAppStore.getState().balance?.usage;
 
     // Construct User UI Message
     const userParts: Part[] = [];
@@ -190,14 +196,22 @@ export const ChatInterface: React.FC = () => {
       let isThinking = false;
 
       if (settings.streamResponse) {
-        const stream = streamGeminiResponse(
-          apiKey,
-          history,
-          text,
-          imagesPayload,
-          settings,
-          abortControllerRef.current.signal
-        );
+        const stream = useProxy
+          ? streamContentViaProxy(
+            history,
+            text,
+            imagesPayload,
+            settings,
+            abortControllerRef.current.signal
+          )
+          : streamGeminiResponse(
+            apiKeyValue,
+            history,
+            text,
+            imagesPayload,
+            settings,
+            abortControllerRef.current.signal
+          );
 
         for await (const chunk of stream) {
           // Check if currently generating thought
@@ -220,14 +234,22 @@ export const ChatInterface: React.FC = () => {
           updateLastMessage(useAppStore.getState().messages.slice(-1)[0].parts, false, thinkingDuration);
         }
       } else {
-        const result = await generateContent(
-          apiKey,
-          history,
-          text,
-          imagesPayload,
-          settings,
-          abortControllerRef.current.signal
-        );
+        const result = useProxy
+          ? await generateContentViaProxy(
+            history,
+            text,
+            imagesPayload,
+            settings,
+            abortControllerRef.current.signal
+          )
+          : await generateContent(
+            apiKeyValue,
+            history,
+            text,
+            imagesPayload,
+            settings,
+            abortControllerRef.current.signal
+          );
 
         // Calculate thinking duration for non-streaming response
         let totalDuration = (Date.now() - startTime) / 1000;
@@ -290,25 +312,39 @@ export const ChatInterface: React.FC = () => {
         incrementUsageCount();
         const currentUsageCount = useAppStore.getState().usageCount;
 
-        // 刷新余额并计算本次消耗
-        try {
-          await fetchBalance();
-          const balanceAfter = useAppStore.getState().balance?.usage;
-          if (balanceBefore !== undefined && balanceAfter !== undefined) {
-            const cost = balanceAfter - balanceBefore;
-            if (cost > 0) {
-              addToast(`本次消耗: ${formatCost(cost)} (第 ${currentUsageCount} 次)`, 'info');
+        if (useProxy) {
+          try {
+            await refreshCredits();
+            const remaining = useAuthStore.getState().user?.credit_balance;
+            if (remaining !== undefined && remaining !== null) {
+              addToast(`生成完成，剩余 ${remaining} 次`, 'success');
             } else {
-              // 余额没变化，可能是第三方API，显示次数
               addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
             }
-          } else {
-            // 余额不可用，显示次数
+          } catch (e) {
             addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
           }
-        } catch (e) {
-          // 余额查询失败，显示使用次数
-          addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
+        } else {
+          // 刷新余额并计算本次消耗
+          try {
+            await fetchBalance();
+            const balanceAfter = useAppStore.getState().balance?.usage;
+            if (balanceBefore !== undefined && balanceAfter !== undefined) {
+              const cost = balanceAfter - balanceBefore;
+              if (cost > 0) {
+                addToast(`本次消耗: ${formatCost(cost)} (第 ${currentUsageCount} 次)`, 'info');
+              } else {
+                // 余额没变化，可能是第三方API，显示次数
+                addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
+              }
+            } else {
+              // 余额不可用，显示次数
+              addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
+            }
+          } catch (e) {
+            // 余额查询失败，显示使用次数
+            addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
+          }
         }
       }
     }
@@ -375,9 +411,9 @@ export const ChatInterface: React.FC = () => {
     steps: Array<{ id: string; prompt: string; modelName?: string; status: string }>,
     initialAttachments: Attachment[]
   ) => {
-    if (!apiKey) {
+    if (!isAuthenticated && !apiKey) {
       setShowApiKeyModal(true);
-      addToast('请先输入 API Key', 'error');
+      addToast('请先登录或输入 API Key', 'error');
       return;
     }
 
@@ -404,7 +440,13 @@ export const ChatInterface: React.FC = () => {
     } finally {
       pipelineAbortControllerRef.current = null;
       setIsPipelineRunning(false);
-      fetchBalance();
+      if (isAuthenticated) {
+        refreshCredits().catch(() => {
+          addToast('次数刷新失败', 'info');
+        });
+      } else {
+        fetchBalance();
+      }
     }
   };
 

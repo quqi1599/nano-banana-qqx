@@ -42,7 +42,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
 app.include_router(user.router, prefix="/api/user", tags=["用户"])
-app.include_router(credit.router, prefix="/api/credits", tags=["积分"])
+app.include_router(credit.router, prefix="/api/credits", tags=["次数"])
 app.include_router(redeem.router, prefix="/api/redeem", tags=["兑换码"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["API代理"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageCircle, Plus, Send, ChevronLeft, Loader2, User, UserCog } from 'lucide-react';
+import { X, MessageCircle, Plus, Send, ChevronLeft, Loader2, User, UserCog, Check } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
-    createTicket, getMyTickets, getTicketDetail, replyTicket,
-    Ticket, TicketMessage
+    createTicket, getMyTickets, getTicketDetail, replyTicket, closeTicket,
+    Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory
 } from '../services/ticketService';
 
 interface TicketModalProps {
@@ -17,11 +17,13 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [closeSuccess, setCloseSuccess] = useState(false);
 
     // Create Form
     const [newTitle, setNewTitle] = useState('');
     const [newContent, setNewContent] = useState('');
     const [newPriority, setNewPriority] = useState('normal');
+    const [newCategory, setNewCategory] = useState<TicketCategory>('other');
 
     // Reply
     const [replyContent, setReplyContent] = useState('');
@@ -31,6 +33,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
         if (isOpen) {
             loadTickets();
             setActiveView('list');
+            setCloseSuccess(false);
         }
     }, [isOpen]);
 
@@ -58,6 +61,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
 
     const loadTicketDetail = async (id: string) => {
         setIsLoading(true);
+        setCloseSuccess(false);
         try {
             const data = await getTicketDetail(id);
             setSelectedTicket(data);
@@ -73,10 +77,11 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
         if (!newTitle.trim() || !newContent.trim()) return;
         setIsLoading(true);
         try {
-            await createTicket(newTitle, newContent, newPriority);
+            await createTicket(newTitle, newContent, newPriority, newCategory);
             setNewTitle('');
             setNewContent('');
             setNewPriority('normal');
+            setNewCategory('other');
             await loadTickets();
             setActiveView('list');
         } catch (err) {
@@ -107,6 +112,21 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
         } catch (err) {
             setError((err as Error).message);
             // Revert on error could be implemented here
+        }
+    };
+
+    const handleCloseTicket = async () => {
+        if (!selectedTicket) return;
+        setIsLoading(true);
+        try {
+            await closeTicket(selectedTicket.id);
+            setCloseSuccess(true);
+            await loadTicketDetail(selectedTicket.id);
+            setTimeout(() => setCloseSuccess(false), 2000);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -171,8 +191,13 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                                             <h4 className="font-bold text-gray-800 dark:text-gray-200 line-clamp-1">{ticket.title}</h4>
                                             <StatusBadge status={ticket.status} />
                                         </div>
-                                        <div className="flex justify-between items-center text-xs text-gray-500">
-                                            <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                                        <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
+                                            <div className="flex gap-1.5 items-center">
+                                                <span className={`px-2 py-0.5 rounded ${TICKET_CATEGORIES[ticket.category]?.color || 'bg-gray-100 text-gray-500'}`}>
+                                                    {TICKET_CATEGORIES[ticket.category]?.icon}
+                                                </span>
+                                                <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                                            </div>
                                             <span className={`px-2 py-0.5 rounded-full ${ticket.priority === 'high' ? 'bg-red-100 text-red-600' :
                                                 ticket.priority === 'low' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-600'
                                                 }`}>
@@ -200,9 +225,28 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                             </div>
 
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">分类</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(Object.keys(TICKET_CATEGORIES) as TicketCategory[]).map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setNewCategory(cat)}
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-xs transition ${newCategory === cat
+                                                ? TICKET_CATEGORIES[cat].color + ' border-current'
+                                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            <span className="text-lg">{TICKET_CATEGORIES[cat].icon}</span>
+                                            <span>{TICKET_CATEGORIES[cat].label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">优先级</label>
                                 <div className="flex gap-2">
-                                    {['low', 'normal', 'high'].map(p => (
+                                    {(['low', 'normal', 'high'] as const).map(p => (
                                         <button
                                             key={p}
                                             onClick={() => setNewPriority(p)}
@@ -244,9 +288,20 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                     {activeView === 'detail' && selectedTicket && (
                         <div className="flex flex-col h-full">
                             <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 shadow-sm z-10">
-                                <h4 className="font-bold text-lg mb-1">{selectedTicket.title}</h4>
-                                <div className="flex gap-2 text-xs">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-bold text-lg">{selectedTicket.title}</h4>
+                                    {closeSuccess && (
+                                        <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">
+                                            <Check className="w-3 h-3" />
+                                            已关闭
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex gap-2 text-xs items-center flex-wrap">
                                     <StatusBadge status={selectedTicket.status} />
+                                    <span className={`px-2 py-0.5 rounded ${TICKET_CATEGORIES[selectedTicket.category]?.color || 'bg-gray-100 text-gray-600'}`}>
+                                        {TICKET_CATEGORIES[selectedTicket.category]?.icon} {TICKET_CATEGORIES[selectedTicket.category]?.label}
+                                    </span>
                                     <span className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-500">ID: {selectedTicket.id.slice(0, 8)}</span>
                                 </div>
                             </div>
@@ -272,10 +327,8 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                                 <div ref={messagesEndRef} />
                             </div>
 
-                            <div className="p-4 bg-gray-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
-                                {selectedTicket.status === 'closed' ? (
-                                    <div className="text-center text-gray-500 text-sm py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">工单已关闭，无法回复</div>
-                                ) : (
+                            <div className="p-4 bg-gray-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 space-y-3">
+                                {selectedTicket.status !== 'closed' && (
                                     <div className="flex gap-2">
                                         <input
                                             type="text"
@@ -293,6 +346,18 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                                             <Send className="w-5 h-5" />
                                         </button>
                                     </div>
+                                )}
+                                {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (
+                                    <button
+                                        onClick={handleCloseTicket}
+                                        disabled={isLoading}
+                                        className="w-full py-2 text-sm text-gray-500 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                                    >
+                                        关闭工单
+                                    </button>
+                                )}
+                                {selectedTicket.status === 'closed' && (
+                                    <div className="text-center text-gray-500 text-sm py-2 bg-gray-100 dark:bg-gray-800 rounded-lg">工单已关闭</div>
                                 )}
                             </div>
                         </div>

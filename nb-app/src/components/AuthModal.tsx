@@ -17,7 +17,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [activeTab, setActiveTab] = useState<TabType>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [nickname, setNickname] = useState('');
     const [redeemCodeInput, setRedeemCodeInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -49,7 +48,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         setIsLoading(true);
 
         try {
-            const { access_token, user } = await register(email, password, nickname);
+            const { access_token, user } = await register(email, password);
             storeLogin(access_token, user);
             onClose();
         } catch (err) {
@@ -195,19 +194,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     />
                                 </div>
 
-                                {activeTab === 'register' && (
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={nickname}
-                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNickname(e.currentTarget.value)}
-                                            placeholder="昵称（可选）"
-                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                        />
-                                    </div>
-                                )}
-
                                 {error && (
                                     <p className="text-sm text-red-500 text-center">{error}</p>
                                 )}
@@ -221,12 +207,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     {activeTab === 'login' ? '登录' : '注册'}
                                 </button>
                             </form>
-
-                            {activeTab === 'register' && (
-                                <p className="mt-4 text-xs text-gray-500 text-center">
-                                    注册即可获得 50 积分体验
-                                </p>
-                            )}
                         </>
                     )}
                 </div>

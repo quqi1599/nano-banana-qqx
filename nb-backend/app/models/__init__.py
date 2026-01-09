@@ -8,7 +8,10 @@ from app.models.token_pool import TokenPool
 from app.models.usage_log import UsageLog
 from app.models.ticket import Ticket, TicketMessage
 from app.models.model_pricing import ModelPricing
-from .login_history import LoginHistory
+from app.models.login_history import LoginHistory
+from app.models.email_code import EmailCode
+from app.models.email_whitelist import EmailWhitelist
+from app.models.email_config import EmailConfig
 
 __all__ = [
     "User",
@@ -20,4 +23,9 @@ __all__ = [
     "TicketMessage",
     "ModelPricing",
     "LoginHistory",
+    "EmailCode",
+    "EmailWhitelist",
+    "EmailConfig",
 ]
+
+
