@@ -44,7 +44,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     // Redeem Codes
     const [codes, setCodes] = useState<RedeemCodeInfo[]>([]);
     const [generateCount, setGenerateCount] = useState(10);
-    const [generateAmount, setGenerateAmount] = useState(100);
+    const [generateAmount, setGenerateAmount] = useState(0);
+    const [generatePro3Amount, setGeneratePro3Amount] = useState(10);
+    const [generateFlashAmount, setGenerateFlashAmount] = useState(10);
     const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
     const [copiedCodes, setCopiedCodes] = useState(false);
 
@@ -205,7 +207,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
 
     const handleGenerateCodes = async () => {
         try {
-            const result = await generateRedeemCodes(generateCount, generateAmount);
+            const result = await generateRedeemCodes(
+                generateCount,
+                generateAmount,
+                generatePro3Amount,
+                generateFlashAmount
+            );
             setGeneratedCodes(result.codes);
             loadData();
         } catch (err) {
@@ -262,21 +269,23 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     ] as const;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
+            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col border border-white/20">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between p-4 border-b border-cream-200 dark:border-gray-800">
                     <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-6 h-6 text-purple-500" />
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">管理后台</h2>
+                        <div className="p-2 bg-cream-100 rounded-xl">
+                            <ShieldCheck className="w-5 h-5 text-cream-600" />
+                        </div>
+                        <h2 className="text-xl font-bold text-cream-950 dark:text-cream-50">管理后台</h2>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                        <X className="w-5 h-5 text-gray-500" />
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-cream-100 dark:hover:bg-gray-800 transition text-cream-400 hover:text-cream-600">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b border-gray-200 dark:border-gray-700 px-4 bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="flex border-b border-cream-200 dark:border-gray-800 px-4 bg-cream-50/80 dark:bg-gray-900/50">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
@@ -285,16 +294,16 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                 setError('');
                                 setGeneratedCodes([]);
                             }}
-                            className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-all shrink-0 ${activeTab === tab.id
-                                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-900'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                            className={`flex items-center gap-2 px-5 py-4 text-sm font-bold border-b-2 transition-all shrink-0 ${activeTab === tab.id
+                                ? 'border-cream-600 text-cream-700 dark:text-cream-100 bg-white/50 dark:bg-gray-800/50'
+                                : 'border-transparent text-cream-400 hover:text-cream-600 dark:hover:text-cream-200'
                                 }`}
                         >
                             <tab.icon className="w-4 h-4" />
                             {tab.label}
                         </button>
                     ))}
-                    <button onClick={loadData} className="ml-auto flex items-center gap-1.5 px-3 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <button onClick={loadData} className="ml-auto flex items-center gap-1.5 px-3 text-xs text-cream-400 hover:text-cream-600 dark:hover:text-cream-200 transition-colors">
                         <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
                         <span>刷新</span>
                     </button>
@@ -303,15 +312,15 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                 {/* Content */}
                 <div className="flex-1 overflow-auto p-6 bg-white dark:bg-gray-900">
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-xl text-sm">
+                        <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/20 text-rose-600 dark:text-rose-400 rounded-2xl text-sm shadow-sm">
                             {error}
                         </div>
                     )}
 
                     {isLoading && !stats && !tokens.length && !pricing.length && !codes.length && !users.length && !tickets.length ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-3">
-                            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
-                            <p className="text-gray-500 text-sm animate-pulse">加载数据中...</p>
+                            <Loader2 className="w-10 h-10 animate-spin text-cream-400" />
+                            <p className="text-cream-400 text-sm animate-pulse">加载数据中...</p>
                         </div>
                     ) : (
                         <>
@@ -326,7 +335,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                     </div>
 
                                     <div className="grid md:grid-cols-2 gap-6">
-                                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
+                                        <div className="bg-cream-50/50 dark:bg-gray-800/50 rounded-2xl p-6 border border-cream-100 dark:border-gray-800">
                                             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">模型消耗占比</h3>
                                             {stats.model_stats.length > 0 ? (
                                                 <div className="space-y-4">
@@ -338,7 +347,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                             </div>
                                                             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                                                 <div
-                                                                    className="h-full bg-blue-500 group-hover:bg-blue-400 transition-all"
+                                                                    className="h-full bg-cream-500 group-hover:bg-cream-400 transition-all"
                                                                     style={{ width: `${Math.min(100, (m.total_requests / (stats.total_requests_today || 1)) * 100)}%` }}
                                                                 />
                                                             </div>
@@ -350,9 +359,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                             )}
                                         </div>
 
-                                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center text-center">
-                                            <BarChart3 className="w-12 h-12 text-gray-300 mb-2" />
-                                            <p className="text-sm text-gray-400">更多细化统计图表正在开发中...</p>
+                                        <div className="bg-cream-50/50 dark:bg-gray-800/50 rounded-2xl p-6 border border-cream-100 dark:border-gray-800 flex flex-col items-center justify-center text-center">
+                                            <BarChart3 className="w-12 h-12 text-cream-200 mb-2" />
+                                            <p className="text-sm text-cream-400">更多细化统计图表正在开发中...</p>
                                         </div>
                                     </div>
                                 </div>
@@ -361,22 +370,22 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                             {/* Tokens */}
                             {activeTab === 'tokens' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/20">
-                                        <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-3 px-1">添加新 API Token</h4>
+                                    <div className="bg-cream-50 dark:bg-cream-900/10 p-5 rounded-3xl border border-cream-200 dark:border-cream-900/20 shadow-sm">
+                                        <h4 className="text-xs font-bold text-cream-600 dark:text-cream-400 uppercase mb-3 px-1">添加新 API Token</h4>
                                         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                                             <input
                                                 type="text"
                                                 value={newTokenName}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTokenName(e.currentTarget.value)}
                                                 placeholder="名称 (如 Gemini-Pro-1)"
-                                                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                className="flex-1 min-w-[140px] px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
                                             />
                                             <input
                                                 type="text"
                                                 value={newTokenKey}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTokenKey(e.currentTarget.value)}
                                                 placeholder="API Key"
-                                                className="flex-[2] min-w-[200px] px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                                                className="flex-[2] min-w-[200px] px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-mono focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
                                             />
                                             <input
                                                 type="number"
@@ -384,12 +393,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTokenPriority(Number(e.currentTarget.value))}
                                                 placeholder="优先级"
                                                 title="数值越大，分发权重越高"
-                                                className="w-20 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                                                className="w-20 px-3 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-cream-500 outline-none transition-all text-cream-700"
                                             />
                                             <button
                                                 onClick={handleAddToken}
                                                 disabled={!newTokenName || !newTokenKey}
-                                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all font-bold text-sm shadow-sm"
+                                                className="px-6 py-2.5 bg-cream-600 text-white rounded-2xl hover:bg-cream-700 disabled:opacity-50 transition-all font-bold text-sm shadow-md hover:shadow-lg active:scale-95"
                                             >
                                                 添加
                                             </button>
@@ -399,33 +408,33 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                     <div className="space-y-3">
                                         <h4 className="text-xs font-bold text-gray-400 uppercase px-1">Token 列表 ({tokens.length})</h4>
                                         {tokens.map(token => (
-                                            <div key={token.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl gap-3 hover:shadow-md transition-shadow">
+                                            <div key={token.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-gray-800 border border-cream-100 dark:border-gray-700 rounded-2xl gap-3 hover:shadow-md transition-shadow">
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className="font-bold text-gray-900 dark:text-white uppercase tracking-tight">{token.name}</span>
-                                                        <span className="text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded">优先级 {token.priority}</span>
+                                                        <span className="font-bold text-cream-950 dark:text-cream-50 uppercase tracking-tight">{token.name}</span>
+                                                        <span className="text-[10px] font-bold bg-cream-100 text-cream-700 dark:bg-cream-900/30 dark:text-cream-300 px-2 py-1 rounded-lg">优先级 {token.priority}</span>
                                                     </div>
-                                                    <div className="text-xs text-gray-400 truncate font-mono bg-gray-50 dark:bg-gray-900/50 p-1 rounded select-all">{token.api_key}</div>
+                                                    <div className="text-xs text-cream-400 truncate font-mono bg-cream-50 dark:bg-gray-900/50 p-1.5 rounded-lg select-all">{token.api_key}</div>
                                                 </div>
                                                 <div className="flex items-center justify-between sm:justify-end gap-6 text-sm">
                                                     <div className="flex flex-col items-center gap-1">
-                                                        <span className={`text-[10px] font-black uppercase ${token.is_active ? 'text-green-500' : 'text-red-400'}`}>
+                                                        <span className={`text-[10px] font-black uppercase ${token.is_active ? 'text-green-500' : 'text-rose-400'}`}>
                                                             {token.is_active ? 'ACTIVE' : 'DISABLED'}
                                                         </span>
                                                         <button
                                                             onClick={() => handleToggleToken(token.id, token.is_active)}
-                                                            className="text-xs text-blue-500 hover:text-blue-600 font-medium bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded transition"
+                                                            className="text-xs text-cream-600 hover:text-cream-700 font-medium bg-cream-100 dark:bg-cream-900/20 px-3 py-1 rounded-lg transition"
                                                         >
                                                             {token.is_active ? '停止' : '激活'}
                                                         </button>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="text-xs text-gray-400">已处理</div>
-                                                        <div className="font-bold text-gray-700 dark:text-gray-300">{token.total_requests} 次</div>
+                                                        <div className="text-xs text-cream-400">已处理</div>
+                                                        <div className="font-bold text-cream-700 dark:text-cream-300">{token.total_requests} 次</div>
                                                     </div>
                                                     <button
                                                         onClick={() => handleDeleteToken(token.id)}
-                                                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                                                        className="p-2 text-cream-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition"
                                                     >
                                                         <Trash2 className="w-5 h-5" />
                                                     </button>
@@ -433,9 +442,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                             </div>
                                         ))}
                                         {tokens.length === 0 && (
-                                            <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
-                                                <Key className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                                                <p className="text-gray-400 text-sm">暂无活跃 Token，请在上方添加</p>
+                                            <div className="text-center py-20 bg-cream-50/50 dark:bg-gray-800/20 rounded-3xl border-2 border-dashed border-cream-200 dark:border-gray-800">
+                                                <Key className="w-12 h-12 text-cream-200 mx-auto mb-3" />
+                                                <p className="text-cream-400 text-sm">暂无活跃 Token，请在上方添加</p>
                                             </div>
                                         )}
                                     </div>
@@ -445,15 +454,15 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                             {/* Model Pricing */}
                             {activeTab === 'pricing' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-purple-50/50 dark:bg-purple-900/10 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/20">
-                                        <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase mb-3 px-1">新增模型计费</h4>
+                                    <div className="bg-cream-50 dark:bg-cream-900/10 p-5 rounded-3xl border border-cream-200 dark:border-cream-900/20">
+                                        <h4 className="text-xs font-bold text-cream-600 dark:text-cream-400 uppercase mb-3 px-1">新增模型计费</h4>
                                         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                                             <input
                                                 type="text"
                                                 value={newModelName}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModelName(e.currentTarget.value)}
                                                 placeholder="模型名称 (如 gemini-3-pro-image-preview)"
-                                                className="flex-1 min-w-[200px] px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                                                className="flex-1 min-w-[200px] px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
                                             />
                                             <input
                                                 type="number"
@@ -461,12 +470,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 value={newModelCredits}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewModelCredits(Number(e.currentTarget.value))}
                                                 placeholder="扣点次数"
-                                                className="w-28 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                                                className="w-28 px-3 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-cream-500 outline-none text-cream-700"
                                             />
                                             <button
                                                 onClick={handleAddPricing}
                                                 disabled={!newModelName.trim() || newModelCredits <= 0}
-                                                className="px-6 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 transition-all font-bold text-sm shadow-sm"
+                                                className="px-6 py-2.5 bg-cream-500 text-white rounded-2xl hover:bg-cream-600 disabled:opacity-50 transition-all font-bold text-sm shadow-md"
                                             >
                                                 添加
                                             </button>
@@ -476,10 +485,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                     <div className="space-y-3">
                                         <h4 className="text-xs font-bold text-gray-400 uppercase px-1">模型计费列表 ({pricing.length})</h4>
                                         {pricing.map(item => (
-                                            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl gap-3 hover:shadow-md transition-shadow">
+                                            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-gray-800 border border-cream-100 dark:border-gray-700 rounded-2xl gap-3 hover:shadow-md transition-shadow">
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="font-bold text-gray-900 dark:text-white truncate">{item.model_name}</div>
-                                                    <div className="text-[10px] text-gray-400 mt-1">更新于 {new Date(item.updated_at).toLocaleString()}</div>
+                                                    <div className="font-bold text-cream-950 dark:text-cream-50 truncate">{item.model_name}</div>
+                                                    <div className="text-[10px] text-cream-400 mt-1">更新于 {new Date(item.updated_at).toLocaleString()}</div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <input
@@ -490,12 +499,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                             const nextValue = Number(e.currentTarget.value);
                                                             setPricingDrafts(prev => ({ ...prev, [item.id]: nextValue }));
                                                         }}
-                                                        className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-900 text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                                                        className="w-24 px-3 py-2 rounded-xl border border-cream-200 dark:border-gray-700 dark:bg-gray-900 text-sm text-center focus:ring-2 focus:ring-cream-500 outline-none text-cream-700"
                                                     />
-                                                    <span className="text-xs text-gray-400">次/次</span>
+                                                    <span className="text-xs text-cream-400">次/次</span>
                                                     <button
                                                         onClick={() => handleUpdatePricing(item.id)}
-                                                        className="px-3 py-2 text-xs font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition"
+                                                        className="px-3 py-2 text-xs font-bold text-cream-600 bg-cream-100 dark:bg-cream-900/20 rounded-xl hover:bg-cream-200 dark:hover:bg-cream-900/30 transition"
                                                     >
                                                         保存
                                                     </button>
@@ -515,30 +524,30 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                             {/* Redeem Codes */}
                             {activeTab === 'codes' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-amber-50/50 dark:bg-amber-900/10 p-5 rounded-2xl border border-amber-100 dark:border-amber-900/20">
-                                        <h4 className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase mb-4 px-1">批量生成兑换码</h4>
+                                    <div className="bg-cream-50/50 dark:bg-amber-900/10 p-5 rounded-3xl border border-cream-200 dark:border-amber-900/20">
+                                        <h4 className="text-xs font-bold text-cream-600 dark:text-cream-400 uppercase mb-4 px-1">批量生成兑换码</h4>
                                         <div className="flex gap-4 items-end flex-wrap sm:flex-nowrap">
                                             <div className="flex-1 min-w-[100px]">
-                                                <label className="block text-[10px] font-bold text-amber-500 mb-1.5 ml-1">生成数量</label>
+                                                <label className="block text-[10px] font-bold text-cream-500 mb-1.5 ml-1">生成数量</label>
                                                 <input
                                                     type="number"
                                                     value={generateCount}
                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGenerateCount(Number(e.currentTarget.value))}
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+                                                    className="w-full px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-bold focus:ring-2 focus:ring-cream-500 outline-none text-cream-950 dark:text-cream-50"
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-[100px]">
-                                                <label className="block text-[10px] font-bold text-amber-500 mb-1.5 ml-1">面值 (次数)</label>
+                                                <label className="block text-[10px] font-bold text-cream-500 mb-1.5 ml-1">面值 (次数)</label>
                                                 <input
                                                     type="number"
                                                     value={generateAmount}
                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGenerateAmount(Number(e.currentTarget.value))}
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-bold focus:ring-2 focus:ring-amber-500 outline-none"
+                                                    className="w-full px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-bold focus:ring-2 focus:ring-cream-500 outline-none text-cream-950 dark:text-cream-50"
                                                 />
                                             </div>
                                             <button
                                                 onClick={handleGenerateCodes}
-                                                className="px-8 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-bold text-sm shadow-md h-[42px]"
+                                                className="px-8 py-2.5 bg-cream-500 text-white rounded-2xl hover:bg-cream-600 transition-all font-bold text-sm shadow-md h-[42px] hover:shadow-lg active:scale-95"
                                             >
                                                 一键生成
                                             </button>
@@ -546,36 +555,38 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                     </div>
 
                                     {generatedCodes.length > 0 && (
-                                        <div className="p-6 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-2xl slide-in-bottom duration-300">
+                                        <div className="p-6 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/20 rounded-3xl slide-in-bottom duration-300">
                                             <div className="flex justify-between items-center mb-4">
                                                 <div className="flex items-center gap-2">
                                                     <Check className="w-5 h-5 text-green-500" />
                                                     <span className="font-bold text-green-700 dark:text-green-400">成功生成 {generatedCodes.length} 个兑换码</span>
                                                 </div>
-                                                <button onClick={handleCopyCodes} className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-50 transition shadow-sm">
+                                                <button onClick={handleCopyCodes} className="flex items-center gap-2 px-4 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-xl hover:bg-green-50 transition shadow-sm">
                                                     {copiedCodes ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                                                     {copiedCodes ? '已复制到剪贴板' : '复制全部代码'}
                                                 </button>
                                             </div>
-                                            <div className="bg-white/50 dark:bg-gray-900/50 p-4 rounded-xl text-sm font-mono grid grid-cols-2 gap-2 text-green-800 dark:text-green-300 max-h-48 overflow-auto border border-green-50 dark:border-green-900/30">
+                                            <div className="bg-white/50 dark:bg-gray-900/50 p-4 rounded-2xl text-sm font-mono grid grid-cols-2 gap-2 text-green-800 dark:text-green-300 max-h-48 overflow-auto border border-green-50 dark:border-green-900/30">
                                                 {generatedCodes.map(code => (
-                                                    <div key={code} className="hover:bg-green-100 dark:hover:bg-green-900/40 p-1 rounded text-center">{code}</div>
+                                                    <div key={code} className="hover:bg-green-100 dark:hover:bg-green-900/40 p-1 rounded-lg text-center">{code}</div>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                                        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
-                                            <h3 className="text-xs font-black text-gray-400 uppercase">历史兑换码记录 (最近20条)</h3>
+                                    <div className="bg-white dark:bg-gray-900 rounded-3xl border border-cream-100 dark:border-gray-800 overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-cream-100 dark:border-gray-800 bg-cream-50/50 dark:bg-gray-800/50">
+                                            <h3 className="text-xs font-black text-cream-400 uppercase">历史兑换码记录 (最近20条)</h3>
                                         </div>
-                                        <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                                        <div className="divide-y divide-cream-50 dark:divide-gray-800">
                                             {codes.slice(0, 20).map(code => (
-                                                <div key={code.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition">
-                                                    <span className="font-mono text-sm font-medium text-gray-600 dark:text-gray-400">{code.code}</span>
+                                                <div key={code.id} className="flex items-center justify-between px-5 py-3 hover:bg-cream-50/50 transition">
+                                                    <span className="font-mono text-sm font-medium text-cream-600 dark:text-cream-400">{code.code}</span>
                                                     <div className="flex items-center gap-6">
-                                                        <span className="text-xs font-bold text-gray-500">{code.credit_amount} 次</span>
-                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${code.is_used ? 'bg-gray-100 text-gray-400' : 'bg-green-100 text-green-600'}`}>
+                                                        <span className="text-xs font-bold text-cream-500">{code.credit_amount} 次</span>
+                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cream-100 text-cream-600">P3:{code.pro3_credits}</span>
+                                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">F:{code.flash_credits}</span>
+                                                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${code.is_used ? 'bg-cream-100 text-cream-400' : 'bg-green-100 text-green-600'}`}>
                                                             {code.is_used ? 'EXPIRED' : 'AVAILABLE'}
                                                         </span>
                                                     </div>
@@ -593,49 +604,49 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                             {activeTab === 'users' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
                                     <div className="relative group">
-                                        <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                        <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cream-400 group-focus-within:text-cream-600 transition-colors" />
                                         <input
                                             type="text"
                                             value={userSearch}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserSearch(e.currentTarget.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && loadData()}
                                             placeholder="按邮箱或昵称搜索用户信息..."
-                                            className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                            className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
                                         />
                                     </div>
 
                                     <div className="space-y-3">
                                         <h4 className="text-xs font-bold text-gray-400 uppercase px-1">匹配用户 ({users.length})</h4>
                                         {users.map(u => (
-                                            <div key={u.id} className="flex flex-col p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl gap-4 hover:shadow-md transition-all">
+                                            <div key={u.id} className="flex flex-col p-5 bg-white dark:bg-gray-800 border border-cream-100 dark:border-gray-700 rounded-3xl gap-4 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center font-bold text-gray-500">
+                                                        <div className="w-10 h-10 rounded-full bg-cream-100 dark:bg-gray-700 flex items-center justify-center font-bold text-cream-600 dark:text-cream-400">
                                                             {u.nickname?.[0] || u.email[0].toUpperCase()}
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-900 dark:text-white">{u.nickname || '未设置昵称'}</span>
-                                                                {u.is_admin && <span className="text-[9px] bg-purple-600 text-white px-1.5 py-0.5 rounded-full font-black tracking-tighter">ADMIN</span>}
+                                                                <span className="font-bold text-cream-950 dark:text-cream-50">{u.nickname || '未设置昵称'}</span>
+                                                                {u.is_admin && <span className="text-[9px] bg-cream-600 text-white px-2 py-0.5 rounded-full font-black tracking-tighter shadow-sm">ADMIN</span>}
                                                             </div>
-                                                            <div className="text-xs text-gray-400">{u.email}</div>
+                                                            <div className="text-xs text-cream-400">{u.email}</div>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-6">
                                                         <div className="text-right hidden md:block">
-                                                            <div className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">上次登录</div>
-                                                            <div className="text-xs font-mono text-gray-600 dark:text-gray-400">
+                                                            <div className="text-[10px] uppercase font-bold text-cream-300 mb-0.5">上次登录</div>
+                                                            <div className="text-xs font-mono text-cream-600 dark:text-cream-400">
                                                                 {u.last_login_at ? new Date(u.last_login_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
                                                             </div>
-                                                            <div className="text-[10px] font-mono text-gray-400">{u.last_login_ip || '-'}</div>
+                                                            <div className="text-[10px] font-mono text-cream-300">{u.last_login_ip || '-'}</div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <div className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">剩余次数</div>
-                                                            <div className="text-lg font-black text-amber-600">{u.credit_balance}</div>
+                                                            <div className="text-[10px] uppercase font-bold text-cream-300 mb-0.5">剩余次数</div>
+                                                            <div className="text-lg font-black text-amber-500">{u.credit_balance}</div>
                                                         </div>
-                                                        <div className="text-right border-l border-gray-100 dark:border-gray-800 pl-6 hidden sm:block">
-                                                            <div className="text-[10px] uppercase font-bold text-gray-400 mb-0.5">消耗次数</div>
-                                                            <div className="text-lg font-black text-gray-700 dark:text-gray-300">{u.total_usage}</div>
+                                                        <div className="text-right border-l border-cream-100 dark:border-gray-700 pl-6 hidden sm:block">
+                                                            <div className="text-[10px] uppercase font-bold text-cream-300 mb-0.5">消耗次数</div>
+                                                            <div className="text-lg font-black text-cream-600 dark:text-cream-400">{u.total_usage}</div>
                                                         </div>
                                                         <div className="flex gap-1">
                                                             <button
@@ -644,7 +655,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                                     setNoteContent(u.note || '');
                                                                     setEditingUserId(null);
                                                                 }}
-                                                                className={`p-2 rounded-xl transition-all ${editingNoteUserId === u.id ? 'bg-amber-500 text-white' : 'bg-gray-50 dark:bg-gray-900 text-gray-500 hover:bg-amber-50 hover:text-amber-500'}`}
+                                                                className={`p-2 rounded-xl transition-all ${editingNoteUserId === u.id ? 'bg-amber-100 text-amber-600' : 'bg-cream-50 dark:bg-gray-900 text-cream-400 hover:bg-amber-50 hover:text-amber-500'}`}
                                                                 title="编辑备注"
                                                             >
                                                                 <FileText className="w-5 h-5" />
@@ -655,7 +666,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                                     setAdjustAmount(0);
                                                                     setEditingNoteUserId(null);
                                                                 }}
-                                                                className={`p-2 rounded-xl transition-all ${editingUserId === u.id ? 'bg-blue-500 text-white' : 'bg-gray-50 dark:bg-gray-900 text-blue-500 hover:bg-blue-50'}`}
+                                                                className={`p-2 rounded-xl transition-all ${editingUserId === u.id ? 'bg-cream-600 text-white' : 'bg-cream-50 dark:bg-gray-900 text-cream-500 hover:bg-cream-100 hover:text-cream-700'}`}
                                                                 title="调整次数"
                                                             >
                                                                 <UserCog className="w-5 h-5" />
@@ -672,20 +683,20 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 )}
 
                                                 {editingUserId === u.id && (
-                                                    <div className="flex items-center gap-3 mt-2 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl animate-in slide-in-from-top-2 duration-300">
+                                                    <div className="flex items-center gap-3 mt-2 p-4 bg-cream-100/50 dark:bg-gray-800/50 rounded-2xl animate-in slide-in-from-top-2 duration-300">
                                                         <div className="flex-1">
-                                                            <p className="text-[10px] font-bold text-blue-600 mb-2 uppercase">调整剩余次数</p>
+                                                            <p className="text-[10px] font-bold text-cream-600 mb-2 uppercase">调整剩余次数</p>
                                                             <div className="flex gap-2">
                                                                 <input
                                                                     type="number"
                                                                     value={adjustAmount}
                                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdjustAmount(Number(e.currentTarget.value))}
                                                                     placeholder="数量 (正加负减)"
-                                                                    className="flex-1 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-900/30 dark:bg-gray-800 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                                                    className="flex-1 px-4 py-2 rounded-xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-bold focus:ring-2 focus:ring-cream-500 outline-none"
                                                                 />
                                                                 <button
                                                                     onClick={() => handleAdjustCredits(u.id)}
-                                                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-sm"
+                                                                    className="px-6 py-2 bg-cream-600 text-white rounded-xl text-sm font-bold hover:bg-cream-700 shadow-sm"
                                                                 >
                                                                     保存修改
                                                                 </button>
@@ -727,20 +738,20 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
 
                             {/* Tickets */}
                             {activeTab === 'tickets' && (
-                                <div className="flex h-[600px] border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-white dark:bg-gray-800">
+                                <div className="flex h-[600px] border border-cream-200 dark:border-gray-700 rounded-3xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm">
                                     {/* Ticket List */}
-                                    <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+                                    <div className="w-1/3 border-r border-cream-200 dark:border-gray-700 flex flex-col">
                                         {/* Filters */}
-                                        <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex flex-col gap-2">
+                                        <div className="p-3 border-b border-cream-100 dark:border-gray-700 flex flex-col gap-2 bg-cream-50/30">
                                             {/* Status Filters */}
-                                            <div className="flex gap-1 overflow-x-auto">
+                                            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
                                                 {['all', 'open', 'pending', 'resolved', 'closed'].map(status => (
                                                     <button
                                                         key={status}
                                                         onClick={() => setTicketStatusFilter(status)}
-                                                        className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketStatusFilter === status
-                                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+                                                        className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${ticketStatusFilter === status
+                                                            ? 'bg-cream-600 text-white shadow-md'
+                                                            : 'bg-cream-100 text-cream-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-cream-200'
                                                             }`}
                                                     >
                                                         {status === 'all' ? '全部' : TICKET_STATUS_LABELS[status as keyof typeof TICKET_STATUS_LABELS]?.label || status}
@@ -748,12 +759,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 ))}
                                             </div>
                                             {/* Category Filters */}
-                                            <div className="flex gap-1 overflow-x-auto">
+                                            <div className="flex gap-1 overflow-x-auto scrollbar-hide">
                                                 <button
                                                     onClick={() => setTicketCategoryFilter('all')}
-                                                    className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketCategoryFilter === 'all'
-                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                                        : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${ticketCategoryFilter === 'all'
+                                                        ? 'bg-cream-200 text-cream-800 dark:bg-orange-900/30 dark:text-orange-300'
+                                                        : 'bg-cream-50 text-cream-400 dark:bg-gray-800 dark:text-gray-400 hover:bg-cream-100'
                                                         }`}
                                                 >
                                                     全部分类
@@ -762,9 +773,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                     <button
                                                         key={cat}
                                                         onClick={() => setTicketCategoryFilter(cat)}
-                                                        className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${ticketCategoryFilter === cat
-                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+                                                        className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${ticketCategoryFilter === cat
+                                                            ? 'bg-cream-200 text-cream-800 dark:bg-orange-900/30 dark:text-orange-300'
+                                                            : 'bg-cream-50 text-cream-400 dark:bg-gray-800 dark:text-gray-400 hover:bg-cream-100'
                                                             }`}
                                                     >
                                                         {TICKET_CATEGORIES[cat].icon}
@@ -772,27 +783,27 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 ))}
                                             </div>
                                         </div>
-                                        <div className="flex-1 overflow-y-auto">
+                                        <div className="flex-1 overflow-y-auto bg-cream-50/30">
                                             {tickets.length === 0 ? (
-                                                <div className="p-8 text-center text-gray-400 text-sm">没有工单</div>
+                                                <div className="p-8 text-center text-cream-400 text-sm">没有工单</div>
                                             ) : tickets.map(t => (
                                                 <div
                                                     key={t.id}
                                                     onClick={() => loadTicketDetail(t.id)}
-                                                    className={`p-4 border-b border-gray-50 dark:border-gray-700/50 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition ${selectedTicket?.id === t.id ? 'bg-blue-50 dark:bg-blue-900/10 border-l-4 border-l-blue-500' : ''
+                                                    className={`p-4 border-b border-cream-50 dark:border-gray-700/50 cursor-pointer hover:bg-cream-50 dark:hover:bg-gray-700/50 transition ${selectedTicket?.id === t.id ? 'bg-cream-100 dark:bg-gray-800 border-l-4 border-l-cream-600' : ''
                                                         }`}
                                                 >
                                                     <div className="flex justify-between items-start mb-1">
-                                                        <h4 className={`font-medium text-sm line-clamp-1 ${t.status === 'closed' ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>
+                                                        <h4 className={`font-medium text-sm line-clamp-1 ${t.status === 'closed' ? 'text-cream-400 line-through' : 'text-cream-950 dark:text-gray-200'}`}>
                                                             {t.title}
                                                         </h4>
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${TICKET_STATUS_LABELS[t.status]?.color || 'bg-gray-100 text-gray-400'}`}>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${TICKET_STATUS_LABELS[t.status]?.color || 'bg-cream-100 text-cream-400'}`}>
                                                             {TICKET_STATUS_LABELS[t.status]?.label || t.status}
                                                         </span>
                                                     </div>
-                                                    <div className="flex justify-between items-center text-xs text-gray-400 mt-2">
+                                                    <div className="flex justify-between items-center text-xs text-cream-400 mt-2">
                                                         <div className="flex items-center gap-1.5">
-                                                            <span className={`px-1.5 py-0.5 rounded ${TICKET_CATEGORIES[t.category]?.color || 'bg-gray-100 text-gray-500'}`}>
+                                                            <span className={`px-1.5 py-0.5 rounded ${TICKET_CATEGORIES[t.category]?.color || 'bg-cream-100 text-cream-500'}`}>
                                                                 {TICKET_CATEGORIES[t.category]?.icon}
                                                             </span>
                                                             <span>{t.user_email?.split('@')[0]}</span>
@@ -833,16 +844,17 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                                     {selectedTicket.messages?.map(msg => (
                                                         <div key={msg.id} className={`flex gap-3 ${msg.is_admin ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.is_admin ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-600'
-                                                                }`}>
-                                                                {msg.is_admin ? <UserCog size={16} /> : <User size={16} />}
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.is_admin ? 'bg-cream-600 text-white' : 'bg-cream-100 text-cream-600'}`}>
+                                                                {msg.is_admin ? <ShieldCheck className="w-4 h-4" /> : <User className="w-4 h-4" />}
                                                             </div>
-                                                            <div className={`max-w-[80%] rounded-2xl p-3 text-sm ${msg.is_admin
-                                                                ? 'bg-purple-600 text-white rounded-tr-none shadow-md shadow-purple-500/20'
-                                                                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                                                                }`}>
-                                                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                                                <p className={`text-[10px] mt-1 opacity-70 ${msg.is_admin ? 'text-purple-100' : 'text-gray-400'}`}>
+                                                            <div
+                                                                className={`max-w-[80%] p-3.5 rounded-2xl text-sm ${msg.is_admin
+                                                                    ? 'bg-cream-600 text-white rounded-tr-none shadow-[0_4px_12px_rgba(188,138,95,0.2)]'
+                                                                    : 'bg-cream-50 text-cream-800 rounded-tl-none border border-cream-100'
+                                                                    }`}
+                                                            >
+                                                                <div>{msg.content}</div>
+                                                                <p className={`text-[10px] mt-1 opacity-70 ${msg.is_admin ? 'text-cream-100' : 'text-cream-400'}`}>
                                                                     {new Date(msg.created_at).toLocaleString()}
                                                                 </p>
                                                             </div>
@@ -859,12 +871,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAdminReplyContent(e.currentTarget.value)}
                                                             onKeyDown={(e) => e.key === 'Enter' && handleAdminReply()}
                                                             placeholder="作为管理员回复..."
-                                                            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 outline-none"
+                                                            className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-cream-500 outline-none"
                                                         />
                                                         <button
                                                             onClick={handleAdminReply}
                                                             disabled={!adminReplyContent.trim()}
-                                                            className="p-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 transition shadow-lg shadow-purple-500/30"
+                                                            className="p-3 bg-cream-600 text-white rounded-xl hover:bg-cream-700 disabled:opacity-50 transition shadow-lg shadow-cream-600/20"
                                                         >
                                                             <Send className="w-5 h-5" />
                                                         </button>

@@ -3,6 +3,7 @@
 """
 import uuid
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import String, Boolean, DateTime, Text, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -31,10 +32,10 @@ class EmailConfig(Base):
     from_name: Mapped[str] = mapped_column(
         String(100), default="DEAI"
     )  # 发件人名称
-    from_email: Mapped[str | None] = mapped_column(
+    from_email: Mapped[Optional[str]] = mapped_column(
         String(200), nullable=True
     )  # 发件人邮箱（留空则使用默认SMTP配置）
-    subject_template: Mapped[str | None] = mapped_column(
+    subject_template: Mapped[Optional[str]] = mapped_column(
         String(200), nullable=True
     )  # 邮件主题模板
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -18,7 +18,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     nickname: Mapped[str] = mapped_column(String(100), nullable=True)
-    credit_balance: Mapped[int] = mapped_column(Integer, default=0)
+    credit_balance: Mapped[int] = mapped_column(Integer, default=0)  # 通用积分余额
+    pro3_balance: Mapped[int] = mapped_column(Integer, default=0)  # Gemini 3 Pro 可用次数
+    flash_balance: Mapped[int] = mapped_column(Integer, default=0)  # Gemini 2.5 Flash 可用次数
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_login_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

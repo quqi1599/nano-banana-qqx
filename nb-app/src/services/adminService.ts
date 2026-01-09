@@ -107,6 +107,8 @@ export interface RedeemCodeInfo {
     id: string;
     code: string;
     credit_amount: number;
+    pro3_credits: number;
+    flash_credits: number;
     is_used: boolean;
     used_at: string | null;
     expires_at: string | null;
@@ -118,12 +120,26 @@ export interface GenerateCodesResult {
     codes: string[];
     count: number;
     credit_amount: number;
+    pro3_credits: number;
+    flash_credits: number;
 }
 
-export const generateRedeemCodes = async (count: number, creditAmount: number, expiresDays?: number): Promise<GenerateCodesResult> => {
+export const generateRedeemCodes = async (
+    count: number,
+    creditAmount: number,
+    pro3Credits: number,
+    flashCredits: number,
+    expiresDays?: number
+): Promise<GenerateCodesResult> => {
     return request('/redeem-codes/generate', {
         method: 'POST',
-        body: JSON.stringify({ count, credit_amount: creditAmount, expires_days: expiresDays }),
+        body: JSON.stringify({
+            count,
+            credit_amount: creditAmount,
+            pro3_credits: pro3Credits,
+            flash_credits: flashCredits,
+            expires_days: expiresDays
+        }),
     });
 };
 

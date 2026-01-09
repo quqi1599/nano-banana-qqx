@@ -2,7 +2,7 @@
  * 登录/注册弹窗组件
  */
 import React, { useEffect, useState } from 'react';
-import { X, Mail, Lock, User, Loader2, Gift, AlertCircle } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, Gift } from 'lucide-react';
 import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -15,7 +15,6 @@ type TabType = 'login' | 'register' | 'redeem' | 'reset';
 
 export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [activeTab, setActiveTab] = useState<TabType>('login');
-    const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [redeemCodeInput, setRedeemCodeInput] = useState('');
@@ -169,6 +168,16 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         }
     };
 
+    const switchTab = (tab: TabType) => {
+        if (tab === activeTab) return;
+        if (activeTab === 'register' && tab !== 'register') {
+            setRegisterCode('');
+        }
+        setActiveTab(tab);
+        setError('');
+        setSuccess('');
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
@@ -249,7 +258,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                             {/* Tabs */}
                             <div className="flex gap-2 mb-6">
                                 <button
-                                    onClick={() => setShowMaintenanceModal(true)}
+                                    onClick={() => switchTab('login')}
                                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${activeTab === 'login'
                                         ? 'bg-blue-500 text-white'
                                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -258,7 +267,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     登录
                                 </button>
                                 <button
-                                    onClick={() => setShowMaintenanceModal(true)}
+                                    onClick={() => switchTab('register')}
                                     className={`flex-1 py-2 rounded-lg font-medium transition-colors ${activeTab === 'register'
                                         ? 'bg-blue-500 text-white'
                                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -340,7 +349,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
                                     <button
                                         type="button"
-                                        onClick={() => { setActiveTab('login'); setError(''); setSuccess(''); }}
+                                        onClick={() => switchTab('login')}
                                         className="w-full text-sm text-gray-500 hover:text-blue-600 transition-colors"
                                     >
                                         返回登录
@@ -379,9 +388,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                 type="button"
                                                 onClick={() => {
                                                     setResetEmail(email);
-                                                    setActiveTab('reset');
-                                                    setError('');
-                                                    setSuccess('');
+                                                    switchTab('reset');
                                                 }}
                                                 className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
                                             >
@@ -439,29 +446,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                     )}
                 </div>
             </div>
-
-            {/* 维护弹窗 */}
-            {showMaintenanceModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
-                        <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <AlertCircle className="w-8 h-8 text-amber-500" />
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            网站正在开发中
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6">
-                            抱歉，我们正在紧张开发中，注册和登录功能暂时关闭。敬请期待正式上线！
-                        </p>
-                        <button
-                            onClick={() => setShowMaintenanceModal(false)}
-                            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all"
-                        >
-                            我知道了
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

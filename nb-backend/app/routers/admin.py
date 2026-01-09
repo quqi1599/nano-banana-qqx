@@ -236,24 +236,28 @@ async def generate_redeem_codes(
     expires_at = None
     if data.expires_days:
         expires_at = datetime.utcnow() + timedelta(days=data.expires_days)
-    
+
     codes = []
     for _ in range(data.count):
         code = RedeemCode(
             credit_amount=data.credit_amount,
+            pro3_credits=data.pro3_credits,
+            flash_credits=data.flash_credits,
             batch_id=batch_id,
             expires_at=expires_at,
         )
         db.add(code)
         codes.append(code.code)
-    
+
     await db.commit()
-    
+
     return GenerateCodesResponse(
         batch_id=batch_id,
         codes=codes,
         count=data.count,
         credit_amount=data.credit_amount,
+        pro3_credits=data.pro3_credits,
+        flash_credits=data.flash_credits,
     )
 
 

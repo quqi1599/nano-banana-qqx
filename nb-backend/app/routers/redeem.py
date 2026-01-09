@@ -1,16 +1,17 @@
 """
 兑换码路由
 """
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import Optional
 
 from app.database import get_db
 from app.models.user import User
 from app.models.redeem_code import RedeemCode
 from app.models.credit import CreditTransaction, TransactionType
-from app.schemas.redeem import RedeemRequest, RedeemResponse
+from app.schemas.redeem import RedeemRequest, RedeemResponse, RedeemCodeInfo
 from app.utils.security import get_current_user
 
 router = APIRouter()
@@ -29,49 +30,102 @@ async def use_redeem_code(
         select(RedeemCode).where(RedeemCode.code == code)
     )
     redeem_code = result.scalar_one_or_none()
-    
+
     if not redeem_code:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="兑换码不存在",
         )
-    
+
     if redeem_code.is_used:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="兑换码已被使用",
         )
-    
+
     if redeem_code.expires_at and redeem_code.expires_at < datetime.utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="兑换码已过期",
         )
-    
+
+    # 检查是否有任何积分可兑换
+    if redeem_code.credit_amount == 0 and redeem_code.pro3_credits == 0 and redeem_code.flash_credits == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="兑换码无可用积分",
+        )
+
     # 兑换积分
-    credits = redeem_code.credit_amount
-    current_user.credit_balance += credits
-    
+    credits_added = redeem_code.credit_amount
+    pro3_added = redeem_code.pro3_credits
+    flash_added = redeem_code.flash_credits
+
+    current_user.credit_balance += credits_added
+    current_user.pro3_balance += pro3_added
+    current_user.flash_balance += flash_added
+
     # 标记兑换码已使用
     redeem_code.is_used = True
     redeem_code.used_by = current_user.id
     redeem_code.used_at = datetime.utcnow()
-    
-    # 记录交易
-    transaction = CreditTransaction(
-        user_id=current_user.id,
-        amount=credits,
-        type=TransactionType.REDEEM.value,
-        description=f"兑换码兑换: {code[:4]}****",
-        balance_after=current_user.credit_balance,
-    )
-    db.add(transaction)
-    
+
+    # 记录交易（通用积分）
+    if credits_added > 0:
+        transaction = CreditTransaction(
+            user_id=current_user.id,
+            amount=credits_added,
+            type=TransactionType.REDEEM.value,
+            description=f"兑换码兑换(通用): {code[:4]}****",
+            balance_after=current_user.credit_balance,
+        )
+        db.add(transaction)
+
+    # 记录 Pro3 积分交易
+    if pro3_added > 0:
+        transaction = CreditTransaction(
+            user_id=current_user.id,
+            amount=pro3_added,
+            type=TransactionType.REDEEM.value,
+            description=f"兑换码兑换(Pro3): {code[:4]}****",
+            balance_after=current_user.pro3_balance,
+        )
+        db.add(transaction)
+
+    # 记录 Flash 积分交易
+    if flash_added > 0:
+        transaction = CreditTransaction(
+            user_id=current_user.id,
+            amount=flash_added,
+            type=TransactionType.REDEEM.value,
+            description=f"兑换码兑换(Flash): {code[:4]}****",
+            balance_after=current_user.flash_balance,
+        )
+        db.add(transaction)
+
     await db.commit()
-    
+
+    # 计算总增加的积分（用于兼容前端显示）
+    total_added = credits_added + pro3_added + flash_added
+
     return RedeemResponse(
         success=True,
         message="兑换成功",
-        credits_added=credits,
-        new_balance=current_user.credit_balance,
+        credits_added=credits_added,
+        pro3_credits_added=pro3_added,
+        flash_credits_added=flash_added,
+        new_balance=current_user.credit_balance + current_user.pro3_balance + current_user.flash_balance,
     )
+
+
+@router.get("/balance", response_model=dict)
+async def get_user_balance(
+    current_user: User = Depends(get_current_user),
+):
+    """获取用户各类型余额"""
+    return {
+        "general_balance": current_user.credit_balance,
+        "pro3_balance": current_user.pro3_balance,
+        "flash_balance": current_user.flash_balance,
+        "total_balance": current_user.credit_balance + current_user.pro3_balance + current_user.flash_balance,
+    }

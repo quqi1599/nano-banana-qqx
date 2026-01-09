@@ -15,20 +15,31 @@ class RedeemResponse(BaseModel):
     """兑换结果响应"""
     success: bool
     message: str
-    credits_added: int
+    credits_added: int  # 增加的通用积分
+    pro3_credits_added: int  # 增加的 Pro3 次数
+    flash_credits_added: int  # 增加的 Flash 次数
     new_balance: int
-    
+
+
+class UserBalanceInfo(BaseModel):
+    """用户余额信息"""
+    general_balance: int  # 通用积分余额
+    pro3_balance: int  # Pro3 次数余额
+    flash_balance: int  # Flash 次数余额
+
 
 class RedeemCodeInfo(BaseModel):
     """兑换码信息"""
     id: str
     code: str
-    credit_amount: int
+    credit_amount: int  # 通用积分
+    pro3_credits: int  # Pro3 次数
+    flash_credits: int  # Flash 次数
     is_used: bool
     used_at: Optional[datetime]
     expires_at: Optional[datetime]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -36,7 +47,9 @@ class RedeemCodeInfo(BaseModel):
 class GenerateCodesRequest(BaseModel):
     """批量生成兑换码请求"""
     count: int = 10
-    credit_amount: int = 100
+    credit_amount: int = 0  # 通用积分数量
+    pro3_credits: int = 0  # Pro3 次数
+    flash_credits: int = 0  # Flash 次数
     expires_days: Optional[int] = 365  # 有效期天数
 
 
@@ -46,3 +59,5 @@ class GenerateCodesResponse(BaseModel):
     codes: List[str]
     count: int
     credit_amount: int
+    pro3_credits: int
+    flash_credits: int
