@@ -189,8 +189,7 @@ export const SettingsPanel: React.FC = () => {
           <div className="space-y-2">
             {([
               { name: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro' },
-              { name: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash (Preview)' },
-              { name: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash' }
+              { name: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash (Preview)' }
             ] as const).map((model) => {
               const isActive = (settings.modelName || 'gemini-3-pro-image-preview') === model.name;
               return (

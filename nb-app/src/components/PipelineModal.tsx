@@ -11,11 +11,9 @@ interface Props {
   onExecute: (mode: 'serial' | 'parallel' | 'combination', steps: PipelineStep[], attachments: Attachment[]) => void;
 }
 
-// 可用模型列表
 const AVAILABLE_MODELS = [
   { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro' },
-  { value: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash (Preview)' },
-  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash' }
+  { value: 'gemini-2.5-flash-image-preview', label: 'Gemini 2.5 Flash (Preview)' }
 ] as const;
 
 const fileToBase64 = (file: File): Promise<string> => {
