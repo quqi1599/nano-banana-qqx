@@ -1,0 +1,3 @@
+"""
+NanoBanana Backend - FastAPI Application
+"""

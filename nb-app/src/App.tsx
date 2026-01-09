@@ -1,14 +1,18 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { useUiStore } from './store/useUiStore';
+import { useAuthStore } from './store/useAuthStore';
 import { ChatInterface } from './components/ChatInterface';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { GlobalDialog } from './components/ui/GlobalDialog';
 import { WeChatQRModal } from './components/WeChatQRModal';
 import { WelcomeModal } from './components/WelcomeModal';
+import { AuthModal } from './components/AuthModal';
+import { AdminPanel } from './components/AdminPanel';
+import { TicketModal } from './components/TicketModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -22,7 +26,11 @@ const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibrar
 const App: React.FC = () => {
   const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
+  const { isAuthenticated, user, initAuth, logout } = useAuthStore();
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showTicketModal, setShowTicketModal] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -78,6 +86,12 @@ const App: React.FC = () => {
     // Preload prompt library data in background
     preloadPrompts();
   }, []);
+
+  // 初始化认证状态
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
+
   const [mounted, setMounted] = useState(false);
   const [isImageHistoryOpen, setIsImageHistoryOpen] = useState(false);
   const [showFloatingWeChatQR, setShowFloatingWeChatQR] = useState(false);
@@ -206,8 +220,20 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Balance Display - Only show when has API key */}
-          {apiKey && balance && (
+          {/* Credits Display - Show when authenticated */}
+          {isAuthenticated && user && (
+            <div
+              onClick={() => setShowAuthModal(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:from-amber-200 hover:to-orange-200 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 transition mr-2"
+              title="点击查看积分详情"
+            >
+              <Coins className="h-4 w-4" />
+              <span>{user.credit_balance} 积分</span>
+            </div>
+          )}
+
+          {/* Legacy Balance Display - Only show when has API key and not authenticated */}
+          {!isAuthenticated && apiKey && balance && (
             <div
               onClick={() => fetchBalance()}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition mr-2"
@@ -253,16 +279,79 @@ const App: React.FC = () => {
             </button>
           )}
 
-          {/* API Key button - Always visible for setting/changing key */}
-          <button
-            onClick={() => setShowApiKeyModal(true)}
-            className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
-            title={apiKey ? "更换 API Key" : "设置 API Key"}
-          >
-            <Key className="h-5 w-5 sm:h-6 sm:w-6" />
-          </button>
+          {/* Admin Panel button */}
+          {isAuthenticated && user?.is_admin && (
+            <button
+              onClick={() => setShowAdminPanel(true)}
+              className="rounded-lg p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
+              title="管理后台"
+            >
+              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          )}
 
-          {apiKey && (
+          {isAuthenticated && ( // 3. Add Header button
+            <button
+              onClick={() => setShowTicketModal(true)}
+              className="rounded-lg p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
+              title="提交工单/反馈"
+            >
+              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          )}
+
+          {/* Login/User button */}
+          {isAuthenticated ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                title={user?.nickname || user?.email || '账户'}
+              >
+                <User className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+              <button
+                onClick={() => {
+                  showDialog({
+                    title: '退出登录',
+                    message: '确定要退出登录吗？',
+                    confirmLabel: '退出',
+                    cancelLabel: '取消',
+                    onConfirm: () => {
+                      logout();
+                      addToast('已退出登录', 'success');
+                    }
+                  });
+                }}
+                className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                title="退出登录"
+              >
+                <LogOut className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-medium hover:from-blue-600 hover:to-purple-600 transition touch-feedback"
+              title="登录/注册"
+            >
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">登录</span>
+            </button>
+          )}
+
+          {/* API Key button - Only show when not authenticated */}
+          {!isAuthenticated && (
+            <button
+              onClick={() => setShowApiKeyModal(true)}
+              className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              title={apiKey ? "更换 API Key" : "设置 API Key"}
+            >
+              <Key className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+          )}
+
+          {(apiKey || isAuthenticated) && (
             <>
               <button
                 onClick={() => setIsImageHistoryOpen(true)}
@@ -371,6 +460,20 @@ const App: React.FC = () => {
         )}
         <PromptLibraryPanel />
       </Suspense>
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* Admin Panel */}
+      {user?.is_admin && (
+        <AdminPanel isOpen={showAdminPanel} onClose={() => setShowAdminPanel(false)} />
+      )}
+
+      {/* Ticket Modal */}
+      {isAuthenticated && (
+        <TicketModal isOpen={showTicketModal} onClose={() => setShowTicketModal(false)} />
+      )}
+
       <ToastContainer />
       <GlobalDialog />
 
