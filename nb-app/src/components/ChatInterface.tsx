@@ -869,7 +869,7 @@ export const ChatInterface: React.FC = () => {
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center opacity-40 select-none">
             <div className="mb-6 rounded-3xl bg-gray-50 dark:bg-gray-900 p-8 shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800 transition-colors duration-200">
-              <Sparkles className="h-16 w-16 text-cream-500 mb-4 mx-auto animate-pulse-fast" />
+              <img src="/logo.png" alt="DEAI" className="h-16 w-16 mb-4 mx-auto" />
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">DEAI</h3>
               <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400">
                 开始输入以创建图像，通过对话编辑它们，或询问复杂的问题。
