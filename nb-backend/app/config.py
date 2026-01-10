@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     
     # 验证码配置
     email_code_expire_minutes: int = 10  # 验证码有效期
+
+    # 滑块验证码配置
+    captcha_secret_key: str = "your-captcha-secret-key-change-in-production"
+    captcha_challenge_ttl_seconds: int = 120
+    captcha_ticket_ttl_seconds: int = 600
+    captcha_challenge_max_attempts: int = 5
     
     class Config:
         env_file = ".env"

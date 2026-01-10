@@ -2,7 +2,7 @@
  * 登录/注册弹窗组件
  */
 import React, { useEffect, useState } from 'react';
-import { X, Mail, Lock, User, Loader2, Gift } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, Gift, Eye, EyeOff } from 'lucide-react';
 import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
 import { SliderCaptcha } from './SliderCaptcha';
@@ -18,6 +18,9 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [activeTab, setActiveTab] = useState<TabType>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [redeemCodeInput, setRedeemCodeInput] = useState('');
     const [registerCode, setRegisterCode] = useState('');
     const [registerCodeSending, setRegisterCodeSending] = useState(false);
@@ -60,8 +63,17 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         e.preventDefault();
         setError('');
         setSuccess('');
+
         if (!registerCode.trim()) {
             setError('请输入验证码');
+            return;
+        }
+        if (password.length < 6) {
+            setError('密码长度至少6位');
+            return;
+        }
+        if (password !== confirmPassword) {
+            setError('两次输入的密码不一致');
             return;
         }
         setIsLoading(true);
@@ -194,6 +206,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (tab === activeTab) return;
         if (activeTab === 'register' && tab !== 'register') {
             setRegisterCode('');
+            setConfirmPassword('');
         }
         setActiveTab(tab);
         setError('');
@@ -410,15 +423,48 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                         <input
-                                            type="password"
+                                            type={showPassword ? 'text' : 'password'}
                                             value={password}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
                                             placeholder="密码"
                                             required
                                             minLength={6}
-                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                            className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                        >
+                                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        </button>
                                     </div>
+
+                                    {activeTab === 'register' && (
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                value={confirmPassword}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.currentTarget.value)}
+                                                placeholder="确认密码"
+                                                required
+                                                minLength={6}
+                                                className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 outline-none transition-colors ${
+                                                    confirmPassword && password !== confirmPassword
+                                                        ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
+                                                        : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
+                                                }`}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                            >
+                                                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    )}
 
                                     {activeTab === 'login' && (
                                         <div className="flex justify-end">

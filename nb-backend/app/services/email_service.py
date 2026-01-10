@@ -67,8 +67,8 @@ def send_verification_code(to_email: str, code: str, purpose: str = "register") 
         subject = "【DEAI】邮箱验证码"
         title = "验证您的邮箱地址"
         desc = "感谢您注册 DEAI！请使用以下验证码完成注册："
-        theme_color = "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)"
-        bg_gradient = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+        theme_color = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+        bg_gradient = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
         logo_icon = "🎨"
     elif purpose == "reset":
         # 使用专门的密码重置邮件模板
@@ -77,8 +77,8 @@ def send_verification_code(to_email: str, code: str, purpose: str = "register") 
         subject = "【DEAI】邮箱验证码"
         title = "邮箱验证"
         desc = "请使用以下验证码完成验证："
-        theme_color = "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)"
-        bg_gradient = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+        theme_color = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+        bg_gradient = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
         logo_icon = "🎨"
 
     html = f"""
@@ -99,8 +99,8 @@ def send_verification_code(to_email: str, code: str, purpose: str = "register") 
             .content {{ padding: 40px 30px; }}
             .greeting {{ font-size: 16px; color: #1f2937; margin-bottom: 8px; font-weight: 500; }}
             .desc {{ color: #6b7280; font-size: 15px; margin-bottom: 24px; }}
-            .code-box {{ background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #7c3aed; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; }}
-            .code-label {{ font-size: 12px; color: #7c3aed; font-weight: 600; letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }}
+            .code-box {{ background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px dashed #f59e0b; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; }}
+            .code-label {{ font-size: 12px; color: #d97706; font-weight: 600; letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }}
             .code {{ font-size: 42px; font-weight: 700; color: #1f2937; letter-spacing: 12px; font-family: 'Courier New', monospace; }}
             .bonus {{ background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 16px; margin: 20px 0; text-align: center; }}
             .bonus-icon {{ font-size: 20px; }}
@@ -112,10 +112,10 @@ def send_verification_code(to_email: str, code: str, purpose: str = "register") 
             .divider {{ height: 1px; background: #e5e7eb; margin: 24px 0; }}
             .footer {{ text-align: center; padding: 0 30px 30px; }}
             .footer-text {{ font-size: 12px; color: #9ca3af; line-height: 1.8; }}
-            .footer-link {{ color: #7c3aed; text-decoration: none; }}
+            .footer-link {{ color: #d97706; text-decoration: none; }}
             .social-links {{ margin-top: 16px; }}
             .social-link {{ display: inline-block; width: 36px; height: 36px; line-height: 36px; background: #f3f4f6; border-radius: 50%; color: #6b7280; text-decoration: none; margin: 0 4px; font-size: 14px; }}
-            .social-link:hover {{ background: #7c3aed; color: white; }}
+            .social-link:hover {{ background: #f59e0b; color: white; }}
             @media screen and (max-width: 600px) {{
                 .container {{ border-radius: 16px; }}
                 .header {{ padding: 30px 20px; }}
@@ -310,7 +310,7 @@ def send_ticket_reply_notification(to_email: str, ticket_title: str, reply_conte
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; }}
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 20px; }}
             .container {{ max-width: 520px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }}
             .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 30px; text-align: center; }}
             .icon {{ font-size: 48px; margin-bottom: 12px; }}
@@ -321,10 +321,10 @@ def send_ticket_reply_notification(to_email: str, ticket_title: str, reply_conte
             .ticket-title {{ font-size: 16px; font-weight: 600; color: #1f2937; }}
             .reply-box {{ background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; }}
             .reply-header {{ display: flex; align-items: center; margin-bottom: 12px; }}
-            .reply-badge {{ background: linear-gradient(135deg, #7c3aed, #ec4899); color: white; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }}
+            .reply-badge {{ background: linear-gradient(135deg, #f59e0b, #d97706); color: white; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }}
             .reply-content {{ color: #374151; line-height: 1.7; white-space: pre-wrap; font-size: 15px; }}
             .button-box {{ text-align: center; margin: 24px 0; }}
-            .button {{ display: inline-block; background: linear-gradient(135deg, #7c3aed, #ec4899); color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; }}
+            .button {{ display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; }}
             .footer {{ text-align: center; padding: 0 30px 24px; }}
             .footer-text {{ font-size: 12px; color: #9ca3af; }}
         </style>
@@ -400,7 +400,7 @@ def send_new_ticket_notification(
                 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; padding: 40px 20px; }}
                 .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
-                .header {{ background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); padding: 28px 30px; }}
+                .header {{ background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 28px 30px; }}
                 .header-title {{ font-size: 20px; font-weight: 700; color: white; }}
                 .header-subtitle {{ font-size: 13px; color: rgba(255,255,255,0.85); margin-top: 4px; }}
                 .content {{ padding: 28px 30px; }}
@@ -416,7 +416,7 @@ def send_new_ticket_notification(
                 .message-label {{ font-size: 12px; color: #6b7280; margin-bottom: 10px; font-weight: 600; }}
                 .message-content {{ color: #374151; line-height: 1.6; white-space: pre-wrap; font-size: 14px; }}
                 .button-box {{ text-align: center; margin: 24px 0; }}
-                .button {{ display: inline-block; background: linear-gradient(135deg, #7c3aed, #ec4899); color: white; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px; }}
+                .button {{ display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px; }}
                 .footer {{ text-align: center; padding: 20px 30px; background: #f9fafb; font-size: 12px; color: #9ca3af; }}
             </style>
         </head>
