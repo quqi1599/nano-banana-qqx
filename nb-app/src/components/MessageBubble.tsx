@@ -322,16 +322,19 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
           {groupedParts.map((item, i) => renderContent(item, i))}
 
           {message.isError && (
-            <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
-              <div className="text-xs text-red-600 dark:text-red-300 font-medium mb-2">
-                生成响应失败。请检查您的 API Key 或网络连接。
+            <div className="mt-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
+              <div className="text-sm text-red-600 dark:text-red-300 font-medium mb-1">
+                😔 非常抱歉，图片生成失败了
+              </div>
+              <div className="text-xs text-red-500 dark:text-red-400 mb-3">
+                可能是网络波动或服务暂时繁忙，给您带来不便深表歉意。
               </div>
               <button
                 onClick={() => setShowWeChatQR(true)}
-                className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all"
               >
-                <MessageCircle className="h-3.5 w-3.5" />
-                遇到问题？加入交流群获取帮助
+                <MessageCircle className="h-4 w-4" />
+                点击加入交流群，有技术支持在线解答 💬
               </button>
             </div>
           )}
