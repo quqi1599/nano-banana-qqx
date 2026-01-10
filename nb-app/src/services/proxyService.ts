@@ -56,8 +56,12 @@ const formatProxyError = (error: any): Error => {
         message = "服务暂时不可用，请稍后重试。";
     } else if (errorMsg.includes("504") || errorMsg.includes("超时")) {
         message = "请求超时，请稍后重试。";
+    } else if (errorMsg.includes("No content generated")) {
+        message = "AI 没有生成任何内容。可能原因：提示词或图片触发了安全过滤、图片格式不支持、或 API 临时异常。请尝试换张图片或修改提示词。";
+    } else if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
+        message = "网络请求失败。可能原因：网络不稳定、API 服务地址无法访问。请检查网络连接。";
     } else {
-        message = `请求出错: ${errorMsg}`;
+        message = `请求出错: ${errorMsg}。如果问题持续，请联系管理员。`;
     }
 
     const newError = new Error(message);

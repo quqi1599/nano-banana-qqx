@@ -32,22 +32,23 @@ const formatGeminiError = (error: any): Error => {
 
   if (errorMsg.includes("401") || errorMsg.includes("API key not valid")) {
     message = "API Key 无效或过期，请检查您的设置。";
-  } else if (errorMsg.includes("403")) {
-    message = "访问被拒绝。请检查您的网络连接（可能需要切换节点）或 API Key 权限。";
   } else if (errorMsg.includes("Thinking_config.include_thoughts") || errorMsg.includes("thinking is enabled")) {
-    message = "当前模型不支持思考过程。请在设置中关闭“显示思考过程”，或切换到支持思考的模型。";
+    message = '当前模型不支持思考过程。请在设置中关闭"显示思考过程"，或切换到支持思考的模型。';
   } else if (errorMsg.includes("400")) {
-    message = "请求参数无效 (400 Bad Request)。请检查您的设置或提示词。";
+    message = "请求参数无效 (400)。可能是图片格式不支持或提示词有问题，请尝试换一张图片。";
+  } else if (errorMsg.includes("403")) {
+    message = "访问被拒绝 (403)。可能原因：API Key 权限不足、网络连接需要切换节点、或 API 服务地址配置错误。";
   } else if (errorMsg.includes("429")) {
-    message = "请求过于频繁，请稍后再试（429 Too Many Requests）。";
+    message = "请求过于频繁 (429)，请稍后再试。";
   } else if (errorMsg.includes("503")) {
-    message = "Gemini 服务暂时不可用，请稍后重试（503 Service Unavailable）。";
+    message = "Gemini 服务暂时不可用 (503)，请稍后重试。";
   } else if (errorMsg.includes("TypeError") || errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-    message = "网络请求失败。可能是网络连接问题，或者请求内容过多（如图片太大、历史记录过长）。";
+    message = "网络请求失败。可能原因：网络连接不稳定、API 中转地址无法访问、或请求内容过大。";
   } else if (errorMsg.includes("SAFETY")) {
-    message = "生成的内容因安全策略被拦截。请尝试修改您的提示词。";
+    message = "内容被安全策略拦截。请尝试修改您的提示词或更换图片。";
+  } else if (errorMsg.includes("No content generated")) {
+    message = "AI 没有生成任何内容。可能原因：提示词或图片触发了安全过滤、图片格式不支持、或 API 临时异常。请尝试换张图片或修改提示词。";
   } else if (errorMsg.includes("quota") || errorMsg.includes("pre_consume_token_quota_failed")) {
-    // 提取额度信息
     const remainMatch = errorMsg.match(/remain quota:\s*\$?([\d.]+)/);
     const needMatch = errorMsg.match(/need quota:\s*\$?([\d.]+)/);
     if (remainMatch && needMatch) {
@@ -55,15 +56,12 @@ const formatGeminiError = (error: any): Error => {
     } else {
       message = "API 额度不足，请充值后重试。";
     }
-  } else if (errorMsg.includes("403")) {
-    message = "访问被拒绝 (403 Forbidden)。可能是额度不足或权限问题。";
   } else if (errorMsg.includes("404")) {
-    message = "请求的模型不存在或路径错误 (404 Not Found)。";
+    message = "请求的模型不存在或 API 路径错误 (404)。请检查 API 中转地址是否正确配置。";
   } else if (errorMsg.includes("500")) {
-    message = "Gemini 服务器内部错误，请稍后重试 (500 Internal Server Error)。";
+    message = "Gemini 服务器内部错误 (500)，请稍后重试。";
   } else {
-    // 保留原始错误信息以便调试，但在前面加上中文提示
-    message = `请求出错: ${errorMsg}`;
+    message = `请求出错: ${errorMsg}。如果问题持续，请检查您的 API 设置。`;
   }
 
   const newError = new Error(message);
