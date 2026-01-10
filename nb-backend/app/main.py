@@ -54,3 +54,19 @@ app.include_router(ticket.router, prefix="/api/tickets", tags=["工单"])
 async def health_check():
     """健康检查"""
     return {"status": "ok", "service": "nbnb-backend"}
+
+
+@app.get("/api/prompts")
+async def get_prompts():
+    """获取提示词库 (代理)"""
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get("https://raw.githubusercontent.com/glidea/banana-prompt-quicker/main/prompts.json")
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception:
+        pass
+    
+    # Fallback default
+    return {"categories": []}
