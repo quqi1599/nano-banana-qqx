@@ -94,7 +94,8 @@ async def add_token(
     
     # 尝试查询额度
     try:
-        quota = await check_api_key_quota(data.api_key)
+        settings = get_settings()
+        quota = await check_api_key_quota(data.api_key, settings.newapi_base_url)
         if quota is not None:
             token.remaining_quota = quota
             token.last_checked_at = datetime.utcnow()
@@ -127,7 +128,8 @@ async def check_token_quota(
     
     # 查询额度（使用完整的 API Key）
     try:
-        quota = await check_api_key_quota(token.api_key)
+        settings = get_settings()
+        quota = await check_api_key_quota(token.api_key, settings.newapi_base_url)
         if quota is not None:
             token.remaining_quota = quota
             token.last_checked_at = datetime.utcnow()
