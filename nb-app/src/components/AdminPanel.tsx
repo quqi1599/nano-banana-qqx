@@ -11,7 +11,8 @@ import {
     getUsers, adjustUserCredits, updateUserNote, AdminUser,
     getDashboardStats, DashboardStats,
 } from '../services/adminService';
-import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory } from '../services/ticketService';
+import { formatBalance } from '../services/balanceService';
+import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, getAdminUnreadCount, Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory } from '../services/ticketService';
 
 interface AdminPanelProps {
     isOpen: boolean;
@@ -65,6 +66,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const [ticketCategoryFilter, setTicketCategoryFilter] = useState('all');
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
     const [adminReplyContent, setAdminReplyContent] = useState('');
+    const [unreadCount, setUnreadCount] = useState(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     if (!isOpen || !user?.is_admin) return null;
@@ -117,6 +119,25 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         }
     }, [isOpen, activeTab, user?.is_admin]);
 
+    // 轮询工单未读数量
+    useEffect(() => {
+        if (!isOpen || !user?.is_admin) return;
+
+        const fetchUnreadCount = async () => {
+            try {
+                const data = await getAdminUnreadCount();
+                setUnreadCount(data.unread_count);
+            } catch (error) {
+                console.debug('Failed to fetch unread count:', error);
+            }
+        };
+
+        fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 30000);
+
+        return () => clearInterval(interval);
+    }, [isOpen, user?.is_admin]);
+
     useEffect(() => {
         const nextDrafts: Record<string, number> = {};
         pricing.forEach((item) => {
@@ -124,6 +145,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         });
         setPricingDrafts(nextDrafts);
     }, [pricing]);
+
+    const formatQuota = (quota: number) => {
+        if (quota === null || quota === undefined || Number.isNaN(quota)) return '--';
+        const isUnlimited = !Number.isFinite(quota) || quota === Infinity;
+        return formatBalance(Number(quota), isUnlimited);
+    };
 
     const handleAddToken = async () => {
         if (!newTokenName || !newTokenKey) return;
@@ -308,13 +335,22 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                 setError('');
                                 setGeneratedCodes([]);
                             }}
-                            className={`flex items-center gap-2 px-5 py-4 text-sm font-bold border-b-2 transition-all shrink-0 ${activeTab === tab.id
+                            className="relative flex items-center gap-2 px-5 py-4 text-sm font-bold border-b-2 transition-all shrink-0"
+                        >
+                            <span className={`flex items-center gap-2 ${activeTab === tab.id
                                 ? 'border-cream-600 text-cream-700 dark:text-cream-100 bg-white/50 dark:bg-gray-800/50'
                                 : 'border-transparent text-cream-400 hover:text-cream-600 dark:hover:text-cream-200'
                                 }`}
-                        >
-                            <tab.icon className="w-4 h-4" />
-                            {tab.label}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                            </span>
+                            {tab.id === 'tickets' && unreadCount > 0 && (
+                                <span className="absolute -top-1 right-2 flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                </span>
+                            )}
                         </button>
                     ))}
                     <button onClick={loadData} className="ml-auto flex items-center gap-1.5 px-3 text-xs text-cream-400 hover:text-cream-600 dark:hover:text-cream-200 transition-colors">
@@ -445,10 +481,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                     <div className="text-right">
                                                         <div className="text-xs text-cream-400">额度</div>
                                                         <div className="font-bold text-amber-500 flex items-center gap-1">
-                                                            {token.remaining_quota > 0 ?
-                                                                `$${token.remaining_quota.toFixed(2)}` :
-                                                                <span className="text-cream-300">未查询</span>
-                                                            }
+                                                            {formatQuota(token.remaining_quota)}
                                                             <button
                                                                 onClick={() => handleCheckQuota(token.id)}
                                                                 disabled={checkingQuotaTokenId === token.id}

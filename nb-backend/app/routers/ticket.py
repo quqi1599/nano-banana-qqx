@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func, update
 from sqlalchemy.orm import selectinload
 from typing import List
 from uuid import UUID
@@ -89,6 +89,58 @@ async def get_my_tickets(
     tickets = result.scalars().all()
     return tickets
 
+@router.get("/unread-count")
+async def get_unread_count(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取用户未读消息数量（管理员回复但用户未读的消息）"""
+    # 获取用户的所有工单 ID
+    ticket_ids_query = select(Ticket.id).where(Ticket.user_id == current_user.id)
+    ticket_ids_result = await db.execute(ticket_ids_query)
+    ticket_ids = [row[0] for row in ticket_ids_result.fetchall()]
+
+    if not ticket_ids:
+        return {"unread_count": 0}
+
+    # 统计这些工单中未读的管理员回复
+    unread_query = select(func.count(TicketMessage.id)).where(
+        TicketMessage.ticket_id.in_(ticket_ids),
+        TicketMessage.is_admin == True,
+        TicketMessage.is_read == False
+    )
+    unread_result = await db.execute(unread_query)
+    unread_count = unread_result.scalar() or 0
+
+    return {"unread_count": unread_count}
+
+@router.get("/mark-read/{ticket_id}")
+async def mark_ticket_read(
+    ticket_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """标记工单中所有管理员回复为已读"""
+    # 验证工单属于当前用户
+    ticket_query = select(Ticket).where(Ticket.id == ticket_id, Ticket.user_id == current_user.id)
+    ticket_result = await db.execute(ticket_query)
+    ticket = ticket_result.scalars().first()
+
+    if not ticket:
+        raise HTTPException(status_code=404, detail="工单不存在")
+
+    # 标记所有管理员回复为已读
+    update_stmt = update(TicketMessage).where(
+        TicketMessage.ticket_id == ticket_id,
+        TicketMessage.is_admin == True,
+        TicketMessage.is_read == False
+    ).values(is_read=True)
+
+    await db.execute(update_stmt)
+    await db.commit()
+
+    return {"status": "success"}
+
 @router.get("/{ticket_id}", response_model=TicketDetailResponse)
 async def get_ticket_detail(
     ticket_id: str,
@@ -101,20 +153,35 @@ async def get_ticket_detail(
     )
     result = await db.execute(query)
     ticket = result.scalars().first()
-    
+
     if not ticket:
         raise HTTPException(status_code=404, detail="工单不存在")
-    
+
     # 权限检查：只能看自己的，或者是管理员
     if ticket.user_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="无权访问")
-        
-    # 填充消息发送者的邮箱信息 (schema转换需要)
-    # Pydantic schema will extract data from ORM objects based on config
-    # We loaded sender relationship, so message.sender.email should be available if we map it?
-    # Alternatively we can enrich the response manually if needed.
-    # For now relying on ORM relationship.
-    
+
+    # 自动标记未读消息为已读
+    if current_user.is_admin:
+        # 管理员查看：标记用户发送的未读消息为已读
+        await db.execute(
+            update(TicketMessage).where(
+                TicketMessage.ticket_id == ticket_id,
+                TicketMessage.is_admin == False,
+                TicketMessage.is_read == False
+            ).values(is_read=True)
+        )
+    else:
+        # 用户查看：标记管理员发送的未读消息为已读
+        await db.execute(
+            update(TicketMessage).where(
+                TicketMessage.ticket_id == ticket_id,
+                TicketMessage.is_admin == True,
+                TicketMessage.is_read == False
+            ).values(is_read=True)
+        )
+    await db.commit()
+
     return ticket
 
 @router.post("/{ticket_id}/reply")
@@ -210,6 +277,22 @@ async def close_ticket(
     return {"status": "success", "message": "工单已关闭"}
 
 # ========== 管理员 API ==========
+
+@router.get("/admin/unread-count")
+async def get_admin_unread_count(
+    current_user: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """获取管理员未读消息数量（用户回复但管理员未读的消息）"""
+    # 统计所有工单中未读的用户回复
+    unread_query = select(func.count(TicketMessage.id)).where(
+        TicketMessage.is_admin == False,
+        TicketMessage.is_read == False
+    )
+    unread_result = await db.execute(unread_query)
+    unread_count = unread_result.scalar() or 0
+
+    return {"unread_count": unread_count}
 
 @router.get("/admin/all", response_model=List[TicketResponse])
 async def get_all_tickets(

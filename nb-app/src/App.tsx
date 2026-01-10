@@ -13,6 +13,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { TicketModal } from './components/TicketModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
+import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
 import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
@@ -33,6 +34,8 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [adminLoggedOut, setAdminLoggedOut] = useState(false);
+  const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
   const [skipApiKeyPrompt, setSkipApiKeyPrompt] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
@@ -97,6 +100,37 @@ const App: React.FC = () => {
   useEffect(() => {
     initAuth();
   }, [initAuth]);
+
+  // 轮询工单未读数量
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setTicketUnreadCount(0);
+      setAdminUnreadCount(0);
+      return;
+    }
+
+    const fetchUnreadCounts = async () => {
+      try {
+        if (user?.is_admin) {
+          const adminData = await getAdminUnreadCount();
+          setAdminUnreadCount(adminData.unread_count);
+        }
+        const userData = await getUnreadCount();
+        setTicketUnreadCount(userData.unread_count);
+      } catch (error) {
+        // 静默失败，不显示错误
+        console.debug('Failed to fetch unread count:', error);
+      }
+    };
+
+    // 立即获取一次
+    fetchUnreadCounts();
+
+    // 每30秒轮询一次
+    const interval = setInterval(fetchUnreadCounts, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user?.is_admin]);
 
   const [mounted, setMounted] = useState(false);
   const [isImageHistoryOpen, setIsImageHistoryOpen] = useState(false);
@@ -306,20 +340,32 @@ const App: React.FC = () => {
           {isAuthenticated && user?.is_admin && (
             <button
               onClick={() => setShowAdminPanel(true)}
-              className="rounded-lg p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
+              className="relative rounded-lg p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
               title="管理后台"
             >
               <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+              {adminUnreadCount > 0 && (
+                <span className="absolute top-1 right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              )}
             </button>
           )}
 
           {isAuthenticated && ( // 3. Add Header button
             <button
               onClick={() => setShowTicketModal(true)}
-              className="rounded-lg p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
+              className="relative rounded-lg p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
               title="提交工单/反馈"
             >
               <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+              {ticketUnreadCount > 0 && (
+                <span className="absolute top-1 right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              )}
             </button>
           )}
 

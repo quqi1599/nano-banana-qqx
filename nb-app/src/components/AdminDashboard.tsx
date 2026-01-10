@@ -15,6 +15,7 @@ import {
     getUsers, adjustUserCredits, updateUserNote, AdminUser,
     getDashboardStats, DashboardStats, checkTokenQuota,
 } from '../services/adminService';
+import { formatBalance } from '../services/balanceService';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage } from '../services/ticketService';
 
 interface AdminDashboardProps {
@@ -167,9 +168,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     };
 
     const formatQuota = (quota: number) => {
-        if (Number.isNaN(quota)) return '未查询';
-        if (!Number.isFinite(quota)) return '无限';
-        return `$${quota.toFixed(2)}`;
+        if (quota === null || quota === undefined || Number.isNaN(quota)) return '--';
+        const isUnlimited = !Number.isFinite(quota) || quota === Infinity;
+        return formatBalance(Number(quota), isUnlimited);
     };
 
     const handleAddPricing = async () => {
@@ -223,7 +224,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
     const handleGenerateCodes = async () => {
         try {
-            const result = await generateRedeemCodes(generateCount, generateAmount);
+            const result = await generateRedeemCodes(generateCount, generateAmount, 0, 0);
             setGeneratedCodes(result.codes);
             loadData();
         } catch (err) {
@@ -303,7 +304,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                 <div className="h-16 flex items-center justify-between px-4 border-b border-white/10">
                     {!sidebarCollapsed && (
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
                                 <ShieldCheck className="w-6 h-6 text-white" />
                             </div>
                             <div>
@@ -331,7 +332,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                 setGeneratedCodes([]);
                             }}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${activeTab === item.id
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white shadow-lg shadow-amber-500/30'
                                 : 'text-gray-400 hover:bg-white/5 hover:text-white'
                                 }`}
                         >
@@ -411,8 +412,8 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                     {isLoading && !stats && !tokens.length && !pricing.length && !codes.length && !users.length && !tickets.length ? (
                         <div className="flex flex-col items-center justify-center py-32 gap-4">
                             <div className="relative">
-                                <div className="w-16 h-16 rounded-full border-4 border-purple-200 dark:border-purple-900"></div>
-                                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-purple-600 border-t-transparent animate-spin"></div>
+                                <div className="w-16 h-16 rounded-full border-4 border-amber-200 dark:border-amber-900"></div>
+                                <div className="absolute inset-0 w-16 h-16 rounded-full border-4 border-amber-500 border-t-transparent animate-spin"></div>
                             </div>
                             <p className="text-gray-500 font-medium">正在加载数据...</p>
                         </div>
@@ -435,7 +436,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                             value={stats.today_image_calls}
                                             suffix="次"
                                             icon={Image}
-                                            color="pink"
+                                            color="orange"
                                         />
                                         <StatCard
                                             label="今日活跃"
@@ -478,13 +479,13 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                         {/* Model Usage */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
                                             <h3 className="font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                                                <BarChart3 className="w-5 h-5 text-purple-500" />
+                                                <BarChart3 className="w-5 h-5 text-amber-500" />
                                                 模型使用占比
                                             </h3>
                                             {stats.model_stats.length > 0 ? (
                                                 <div className="space-y-4">
                                                     {stats.model_stats.map((m, idx) => {
-                                                        const colors = ['bg-purple-500', 'bg-pink-500', 'bg-blue-500', 'bg-green-500', 'bg-amber-500'];
+                                                        const colors = ['bg-amber-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-emerald-500'];
                                                         return (
                                                             <div key={m.model_name}>
                                                                 <div className="flex justify-between text-sm mb-2">
@@ -650,8 +651,8 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                             {/* Model Pricing */}
                             {activeTab === 'pricing' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 p-6 rounded-2xl border border-purple-100 dark:border-purple-900/30">
-                                        <h4 className="font-bold text-purple-600 dark:text-purple-400 mb-4 flex items-center gap-2">
+                                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-2">
                                             <Coins className="w-5 h-5" />
                                             新增模型计费
                                         </h4>
@@ -661,7 +662,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 value={newModelName}
                                                 onChange={(e) => setNewModelName(e.currentTarget.value)}
                                                 placeholder="模型名称 (如 gemini-3-pro-image-preview)"
-                                                className="flex-1 min-w-[220px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 outline-none transition"
+                                                className="flex-1 min-w-[220px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition"
                                             />
                                             <input
                                                 type="number"
@@ -669,12 +670,12 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 value={newModelCredits}
                                                 onChange={(e) => setNewModelCredits(Number(e.currentTarget.value))}
                                                 placeholder="扣点次数"
-                                                className="w-28 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-purple-500 outline-none transition"
+                                                className="w-28 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition"
                                             />
                                             <button
                                                 onClick={handleAddPricing}
                                                 disabled={!newModelName.trim() || newModelCredits <= 0}
-                                                className="px-8 py-3 bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-xl hover:from-purple-700 hover:to-fuchsia-700 disabled:opacity-50 transition font-bold shadow-lg shadow-purple-500/30"
+                                                className="px-8 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30"
                                             >
                                                 添加
                                             </button>
@@ -699,12 +700,12 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                                 const nextValue = Number(e.currentTarget.value);
                                                                 setPricingDrafts(prev => ({ ...prev, [item.id]: nextValue }));
                                                             }}
-                                                            className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                                                            className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-amber-500 outline-none"
                                                         />
                                                         <span className="text-xs text-gray-400">次/次</span>
                                                         <button
                                                             onClick={() => handleUpdatePricing(item.id)}
-                                                            className="px-3 py-2 text-xs font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition"
+                                                            className="px-3 py-2 text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition"
                                                         >
                                                             保存
                                                         </button>
@@ -1035,16 +1036,16 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
                                                     {selectedTicket.messages?.map(msg => (
                                                         <div key={msg.id} className={`flex gap-3 ${msg.is_admin ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${msg.is_admin ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-600'
+                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${msg.is_admin ? 'bg-amber-100 text-amber-600' : 'bg-gray-200 text-gray-600'
                                                                 }`}>
                                                                 {msg.is_admin ? <UserCog size={20} /> : <User size={20} />}
                                                             </div>
                                                             <div className={`max-w-[75%] rounded-2xl p-4 ${msg.is_admin
-                                                                ? 'bg-purple-600 text-white rounded-tr-none shadow-lg shadow-purple-500/20'
+                                                                ? 'bg-amber-500 text-white rounded-tr-none shadow-lg shadow-amber-500/20'
                                                                 : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
                                                                 }`}>
                                                                 <p className="whitespace-pre-wrap">{msg.content}</p>
-                                                                <p className={`text-xs mt-2 opacity-70 ${msg.is_admin ? 'text-purple-200' : 'text-gray-400'}`}>
+                                                                <p className={`text-xs mt-2 opacity-70 ${msg.is_admin ? 'text-amber-100' : 'text-gray-400'}`}>
                                                                     {new Date(msg.created_at).toLocaleString()}
                                                                 </p>
                                                             </div>
@@ -1061,12 +1062,12 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                             onChange={(e) => setAdminReplyContent(e.currentTarget.value)}
                                                             onKeyDown={(e) => e.key === 'Enter' && handleAdminReply()}
                                                             placeholder="作为管理员回复..."
-                                                            className="flex-1 px-5 py-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 outline-none"
+                                                            className="flex-1 px-5 py-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none"
                                                         />
                                                         <button
                                                             onClick={handleAdminReply}
                                                             disabled={!adminReplyContent.trim()}
-                                                            className="p-4 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 disabled:opacity-50 transition shadow-lg shadow-purple-500/30"
+                                                            className="p-4 bg-amber-600 text-white rounded-2xl hover:bg-amber-700 disabled:opacity-50 transition shadow-lg shadow-amber-500/30"
                                                         >
                                                             <Send className="w-6 h-6" />
                                                         </button>
@@ -1096,7 +1097,7 @@ interface StatCardProps {
     value: number;
     suffix?: string;
     icon: React.ElementType;
-    color: 'amber' | 'pink' | 'blue' | 'green' | 'purple';
+    color: 'amber' | 'pink' | 'blue' | 'green' | 'purple' | 'orange' | 'yellow';
 }
 
 const StatCard = ({ label, value, suffix, icon: Icon, color }: StatCardProps) => {
@@ -1106,6 +1107,8 @@ const StatCard = ({ label, value, suffix, icon: Icon, color }: StatCardProps) =>
         blue: 'from-blue-500 to-indigo-500 shadow-blue-500/30',
         green: 'from-green-500 to-emerald-500 shadow-green-500/30',
         purple: 'from-purple-500 to-violet-500 shadow-purple-500/30',
+        orange: 'from-orange-500 to-orange-600 shadow-orange-500/30',
+        yellow: 'from-yellow-400 to-yellow-500 shadow-yellow-500/30',
     };
 
     return (

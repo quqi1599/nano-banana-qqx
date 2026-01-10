@@ -28,8 +28,8 @@ from app.services.email_service import generate_code, send_verification_code
 router = APIRouter()
 settings = get_settings()
 
-# 限制发送验证码：每邮箱每分钟 1 次
-send_code_limiter = RateLimiter(times=1, seconds=60)
+# 限制发送验证码：每邮箱每分钟 5 次
+send_code_limiter = RateLimiter(times=5, seconds=60)
 
 
 # Redis 连接
@@ -42,8 +42,8 @@ async def get_redis():
 
 
 # 安全限制常量
-IP_REGISTER_LIMIT = 5  # 每 IP 24小时最多注册次数
-LOGIN_FAIL_LIMIT = 10  # 登录失败锁定次数
+IP_REGISTER_LIMIT = 20  # 每 IP 24小时最多注册次数
+LOGIN_FAIL_LIMIT = 20  # 登录失败锁定次数
 LIMIT_EXPIRE_SECONDS = 86400  # 24小时
 CAPTCHA_TICKET_USED_PREFIX = "captcha:ticket:used:"
 

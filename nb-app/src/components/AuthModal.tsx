@@ -1,7 +1,7 @@
 /**
  * 登录/注册弹窗组件
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Mail, Lock, User, Loader2, Gift, Eye, EyeOff } from 'lucide-react';
 import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
@@ -13,6 +13,7 @@ interface AuthModalProps {
 }
 
 type TabType = 'login' | 'register' | 'redeem' | 'reset';
+type CaptchaPurpose = 'login' | 'register' | 'reset';
 
 export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [activeTab, setActiveTab] = useState<TabType>('login');
@@ -36,30 +37,39 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
     // Captcha state
     const [showCaptcha, setShowCaptcha] = useState(false);
-    const [captchaType, setCaptchaType] = useState<'register' | 'reset' | null>(null);
+    const [captchaPurpose, setCaptchaPurpose] = useState<CaptchaPurpose | null>(null);
+    const pendingCaptchaActionRef = useRef<null | ((ticket: string) => Promise<void>)>(null);
 
     const { login: storeLogin, isAuthenticated, user, refreshCredits } = useAuthStore();
 
     if (!isOpen) return null;
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const openCaptcha = (purpose: CaptchaPurpose, action: (ticket: string) => Promise<void>) => {
+        pendingCaptchaActionRef.current = action;
+        setCaptchaPurpose(purpose);
+        setShowCaptcha(true);
+    };
+
+    const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
-        setIsLoading(true);
 
-        try {
-            const { access_token, user } = await login(email, password);
-            storeLogin(access_token, user);
-            onClose();
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setIsLoading(false);
-        }
+        openCaptcha('login', async (ticket) => {
+            setIsLoading(true);
+            try {
+                const { access_token, user } = await login(email, password, ticket);
+                storeLogin(access_token, user);
+                onClose();
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setIsLoading(false);
+            }
+        });
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
+    const handleRegister = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -76,17 +86,25 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             setError('两次输入的密码不一致');
             return;
         }
-        setIsLoading(true);
 
-        try {
-            const { access_token, user } = await register(email, password, undefined, registerCode.trim());
-            storeLogin(access_token, user);
-            onClose();
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setIsLoading(false);
-        }
+        openCaptcha('register', async (ticket) => {
+            setIsLoading(true);
+            try {
+                const { access_token, user } = await register(
+                    email,
+                    password,
+                    undefined,
+                    registerCode.trim(),
+                    ticket
+                );
+                storeLogin(access_token, user);
+                onClose();
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setIsLoading(false);
+            }
+        });
     };
 
     const handleRedeem = async (e: React.FormEvent) => {
@@ -131,8 +149,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (registerCodeCooldown > 0 || registerCodeSending) return;
         setError('');
         setSuccess('');
-        setCaptchaType('register');
-        setShowCaptcha(true);
+        sendRegisterCode();
     };
 
     const initiateResetCode = () => {
@@ -143,17 +160,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (codeCooldown > 0 || codeSending) return;
         setError('');
         setSuccess('');
-        setCaptchaType('reset');
-        setShowCaptcha(true);
-    };
-
-    const handleCaptchaVerify = async () => {
-        setShowCaptcha(false);
-        if (captchaType === 'register') {
-            await sendRegisterCode();
-        } else if (captchaType === 'reset') {
-            await sendResetCode();
-        }
+        sendResetCode();
     };
 
     const sendRegisterCode = async () => {
@@ -182,24 +189,41 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         }
     };
 
-    const handleResetPassword = async (e: React.FormEvent) => {
+    const handleCaptchaVerify = async (ticket: string) => {
+        setShowCaptcha(false);
+        setCaptchaPurpose(null);
+        const action = pendingCaptchaActionRef.current;
+        pendingCaptchaActionRef.current = null;
+        if (!action) return;
+        await action(ticket);
+    };
+
+    const handleCaptchaCancel = () => {
+        setShowCaptcha(false);
+        setCaptchaPurpose(null);
+        pendingCaptchaActionRef.current = null;
+    };
+
+    const handleResetPassword = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
-        setIsLoading(true);
 
-        try {
-            await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword);
-            setSuccess('密码重置成功，请使用新密码登录');
-            setResetCode('');
-            setResetNewPassword('');
-            setEmail(resetEmail.trim());
-            setActiveTab('login');
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setIsLoading(false);
-        }
+        openCaptcha('reset', async (ticket) => {
+            setIsLoading(true);
+            try {
+                await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword, ticket);
+                setSuccess('密码重置成功，请使用新密码登录');
+                setResetCode('');
+                setResetNewPassword('');
+                setEmail(resetEmail.trim());
+                setActiveTab('login');
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setIsLoading(false);
+            }
+        });
     };
 
     const switchTab = (tab: TabType) => {
@@ -212,6 +236,8 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         setError('');
         setSuccess('');
         setShowCaptcha(false);
+        setCaptchaPurpose(null);
+        pendingCaptchaActionRef.current = null;
     };
 
     return (
@@ -314,17 +340,22 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                             </div>
 
                             {/* Captcha Overlay */}
-                            {showCaptcha && (
+                            {showCaptcha && captchaPurpose && (
                                 <div className="absolute inset-0 z-10 bg-white/95 dark:bg-gray-800/95 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">安全验证</h3>
-                                    <p className="text-sm text-gray-500 mb-6">请完成滑块验证以发送验证码</p>
-                                    <SliderCaptcha onVerify={handleCaptchaVerify} />
-                                    <button
-                                        onClick={() => setShowCaptcha(false)}
-                                        className="mt-6 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                    >
-                                        取消
-                                    </button>
+                                    <p className="text-sm text-gray-500 mb-6">
+                                        请完成滑块验证以继续
+                                        {captchaPurpose === 'login'
+                                            ? '登录'
+                                            : captchaPurpose === 'register'
+                                                ? '注册'
+                                                : '重置密码'}
+                                    </p>
+                                    <SliderCaptcha
+                                        purpose={captchaPurpose}
+                                        onVerified={handleCaptchaVerify}
+                                        onCancel={handleCaptchaCancel}
+                                    />
                                 </div>
                             )}
 

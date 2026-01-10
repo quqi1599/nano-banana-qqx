@@ -124,3 +124,18 @@ export const updateTicketStatus = async (id: string, status?: string, priority?:
         body: JSON.stringify({ status, priority, category }),
     });
 };
+
+// 获取用户未读消息数量
+export const getUnreadCount = async (): Promise<{ unread_count: number }> => {
+    return request('/unread-count');
+};
+
+// 获取管理员未读消息数量
+export const getAdminUnreadCount = async (): Promise<{ unread_count: number }> => {
+    return request('/admin/unread-count');
+};
+
+// 标记工单为已读
+export const markTicketRead = async (id: string): Promise<{ status: string }> => {
+    return request(`/mark-read/${id}`);
+};
