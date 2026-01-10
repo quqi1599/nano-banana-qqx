@@ -32,10 +32,25 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
         msg['From'] = f"{settings.aliyun_email_from_name} <{settings.aliyun_smtp_user}>"
         msg['To'] = to_email
         
+        if settings.aliyun_email_reply_to:
+            msg['Reply-To'] = settings.aliyun_email_reply_to
+        
         html_part = MIMEText(html_content, 'html', 'utf-8')
         msg.attach(html_part)
-        
-        with smtplib.SMTP_SSL(settings.aliyun_smtp_host, settings.aliyun_smtp_port) as server:
+
+        smtp_host = settings.aliyun_smtp_host
+        smtp_port = settings.aliyun_smtp_port
+        use_ssl = smtp_port == 465
+
+        if use_ssl:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=20)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+
+        with server:
             server.login(settings.aliyun_smtp_user, settings.aliyun_smtp_password)
             server.sendmail(settings.aliyun_smtp_user, [to_email], msg.as_string())
         

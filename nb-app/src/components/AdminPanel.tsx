@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2, ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Coins } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import {
-    getTokens, addToken, deleteToken, updateToken, TokenInfo,
+    getTokens, addToken, deleteToken, updateToken, checkTokenQuota, TokenInfo,
     getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
     generateRedeemCodes, getRedeemCodes, RedeemCodeInfo,
     getUsers, adjustUserCredits, updateUserNote, AdminUser,
@@ -34,6 +34,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const [newTokenName, setNewTokenName] = useState('');
     const [newTokenKey, setNewTokenKey] = useState('');
     const [newTokenPriority, setNewTokenPriority] = useState(0);
+    const [checkingQuotaTokenId, setCheckingQuotaTokenId] = useState<string | null>(null);
 
     // Model Pricing
     const [pricing, setPricing] = useState<ModelPricingInfo[]>([]);
@@ -153,6 +154,19 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             loadData();
         } catch (err) {
             setError((err as Error).message);
+        }
+    };
+
+    const handleCheckQuota = async (id: string) => {
+        setCheckingQuotaTokenId(id);
+        try {
+            const updated = await checkTokenQuota(id);
+            // 更新列表中的 token
+            setTokens(prev => prev.map(t => t.id === id ? { ...t, remaining_quota: updated.remaining_quota } : t));
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setCheckingQuotaTokenId(null);
         }
     };
 
@@ -328,10 +342,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                             {activeTab === 'dashboard' && stats && (
                                 <div className="space-y-8 animate-in fade-in duration-300">
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        <StatCard label="总用户" value={stats.total_users} />
-                                        <StatCard label="今日活跃" value={stats.active_users_today} />
+                                        <StatCard label="总用户" value={stats.total_users} onClick={() => setActiveTab('users')} />
+                                        <StatCard label="今日活跃" value={stats.active_users_today} onClick={() => setActiveTab('users')} />
                                         <StatCard label="今日请求" value={stats.total_requests_today} />
-                                        <StatCard label="Token池状态" value={`${stats.available_tokens}/${stats.token_pool_count}`} />
+                                        <StatCard label="Token池状态" value={`${stats.available_tokens}/${stats.token_pool_count}`} onClick={() => setActiveTab('tokens')} />
                                     </div>
 
                                     <div className="grid md:grid-cols-2 gap-6">
@@ -429,8 +443,25 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                         </button>
                                                     </div>
                                                     <div className="text-right">
+                                                        <div className="text-xs text-cream-400">额度</div>
+                                                        <div className="font-bold text-amber-500 flex items-center gap-1">
+                                                            {token.remaining_quota > 0 ?
+                                                                `$${token.remaining_quota.toFixed(2)}` :
+                                                                <span className="text-cream-300">未查询</span>
+                                                            }
+                                                            <button
+                                                                onClick={() => handleCheckQuota(token.id)}
+                                                                disabled={checkingQuotaTokenId === token.id}
+                                                                className="p-1 text-cream-400 hover:text-cream-600 hover:bg-cream-50 dark:hover:bg-gray-700 rounded-lg transition disabled:opacity-50"
+                                                                title="刷新额度"
+                                                            >
+                                                                <RefreshCw className={`w-3 h-3 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
                                                         <div className="text-xs text-cream-400">已处理</div>
-                                                        <div className="font-bold text-cream-700 dark:text-cream-300">{token.total_requests} 次</div>
+                                                        <div className="font-bold text-cream-700 dark:text-cream-300">{token.total_requests}</div>
                                                     </div>
                                                     <button
                                                         onClick={() => handleDeleteToken(token.id)}
@@ -900,8 +931,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     );
 };
 
-const StatCard = ({ label, value }: { label: string; value: number | string }) => (
-    <div className="bg-white dark:bg-gray-800/80 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all">
+const StatCard = ({ label, value, onClick }: { label: string; value: number | string; onClick?: () => void }) => (
+    <div
+        onClick={onClick}
+        className={`bg-white dark:bg-gray-800/80 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all ${onClick ? 'cursor-pointer hover:border-cream-300 dark:hover:border-cream-700 hover:bg-cream-50/50 dark:hover:bg-cream-900/10' : ''}`}
+    >
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
         <p className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{value}</p>
     </div>

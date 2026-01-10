@@ -81,6 +81,10 @@ export const deleteToken = async (id: string): Promise<void> => {
     return request(`/tokens/${id}`, { method: 'DELETE' });
 };
 
+export const checkTokenQuota = async (id: string): Promise<TokenInfo> => {
+    return request(`/tokens/${id}/check-quota`, { method: 'POST' });
+};
+
 // ========== 模型计费 ==========
 
 export const getModelPricing = async (): Promise<ModelPricingInfo[]> => {

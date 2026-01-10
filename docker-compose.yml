@@ -44,8 +44,16 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-super-secret-key-change-in-production}
       NEWAPI_BASE_URL: ${NEWAPI_BASE_URL:-https://nanobanana2.peacedejiai.cc}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-banana@peacedejiai.cc}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_NOTIFICATION_EMAILS: ${ADMIN_NOTIFICATION_EMAILS:-banana@peacedejiai.cc}
+      ALIYUN_SMTP_HOST: ${ALIYUN_SMTP_HOST:-smtpdm.aliyun.com}
+      ALIYUN_SMTP_PORT: ${ALIYUN_SMTP_PORT:-465}
+      ALIYUN_SMTP_USER: ${ALIYUN_SMTP_USER:-banana@peacedejiai.cc}
+      ALIYUN_SMTP_PASSWORD: ${ALIYUN_SMTP_PASSWORD:-QkA2D9M7xF}
+      ALIYUN_EMAIL_FROM_NAME: ${ALIYUN_EMAIL_FROM_NAME:-DEAI}
+      ALIYUN_EMAIL_REPLY_TO: ${ALIYUN_EMAIL_REPLY_TO:-1542452647@qq.com}
+      EMAIL_CODE_EXPIRE_MINUTES: ${EMAIL_CODE_EXPIRE_MINUTES:-10}
     ports:
       - "8000:8000"
     depends_on:

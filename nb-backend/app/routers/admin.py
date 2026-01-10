@@ -3,6 +3,7 @@
 """
 import uuid
 from datetime import datetime, timedelta
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +35,9 @@ from app.schemas.admin import (
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
 from app.utils.security import get_admin_user
+from app.utils.balance_utils import check_api_key_quota
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -81,16 +85,75 @@ async def add_token(
             detail="该 Token 已存在",
         )
     
+    # 创建 Token
     token = TokenPool(
         name=data.name,
         api_key=data.api_key,
         priority=data.priority,
     )
+    
+    # 尝试查询额度
+    try:
+        quota = await check_api_key_quota(data.api_key)
+        if quota is not None:
+            token.remaining_quota = quota
+            token.last_checked_at = datetime.utcnow()
+            logger.info(f"Token {data.name} 额度查询成功: {quota}")
+    except Exception as e:
+        logger.warning(f"Token {data.name} 额度查询失败: {e}")
+    
     db.add(token)
     await db.commit()
     await db.refresh(token)
     
     return TokenPoolResponse.model_validate(token)
+
+
+@router.post("/tokens/{token_id}/check-quota", response_model=TokenPoolResponse)
+async def check_token_quota(
+    token_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """检查 Token 额度"""
+    result = await db.execute(select(TokenPool).where(TokenPool.id == token_id))
+    token = result.scalar_one_or_none()
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token 不存在",
+        )
+    
+    # 查询额度（使用完整的 API Key）
+    try:
+        quota = await check_api_key_quota(token.api_key)
+        if quota is not None:
+            token.remaining_quota = quota
+            token.last_checked_at = datetime.utcnow()
+            await db.commit()
+            await db.refresh(token)
+            logger.info(f"Token {token.name} 额度更新为: {quota}")
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="无法获取额度信息，请检查 API Key 是否有效",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token {token.name} 额度查询失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"额度查询失败: {str(e)}",
+        )
+    
+    # 返回时隐藏部分 API Key
+    token_dict = TokenPoolResponse.model_validate(token).model_dump()
+    api_key = token.api_key
+    if len(api_key) > 12:
+        token_dict["api_key"] = f"{api_key[:8]}...{api_key[-4:]}"
+    return TokenPoolResponse(**token_dict)
 
 
 @router.put("/tokens/{token_id}", response_model=TokenPoolResponse)

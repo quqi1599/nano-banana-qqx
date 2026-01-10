@@ -51,54 +51,14 @@ export default defineConfig(({ mode }) => {
       preact(),
       tailwindcss(),
       VitePWA({
-        registerType: 'prompt', // 改成 prompt 模式，让用户决定是否更新
-        includeAssets: ['kuai.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
-        devOptions: {
-          enabled: true
-        },
-        workbox: {
-          // 让新 Service Worker 立即激活，不等待旧的关闭
-          skipWaiting: true,
-          clientsClaim: true,
-          // 不缓存 index.html，确保每次都能检测到更新
-          navigateFallback: null,
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'google-fonts-cache',
-                expiration: {
-                  maxEntries: 10,
-                  maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            }
-          ]
-        },
+        selfDestroying: true, // ⚠️ 彻底注销 Service Worker，清除离线缓存
+        registerType: 'autoUpdate',
         manifest: {
           name: 'nbnb',
           short_name: 'nbnb',
           description: 'DEAI - AI 图像生成平台',
           theme_color: '#ffffff',
-          background_color: '#ffffff',
-          display: 'standalone',
-          orientation: 'portrait',
-          icons: [
-            {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            }
-          ]
+          icons: []
         }
       }),
     ],

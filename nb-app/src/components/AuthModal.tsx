@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Mail, Lock, User, Loader2, Gift } from 'lucide-react';
 import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
+import { SliderCaptcha } from './SliderCaptcha';
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -29,6 +30,10 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+
+    // Captcha state
+    const [showCaptcha, setShowCaptcha] = useState(false);
+    const [captchaType, setCaptchaType] = useState<'register' | 'reset' | null>(null);
 
     const { login: storeLogin, isAuthenticated, user, refreshCredits } = useAuthStore();
 
@@ -106,7 +111,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         return () => window.clearInterval(timer);
     }, [registerCodeCooldown]);
 
-    const handleSendRegisterCode = async () => {
+    const initiateRegisterCode = () => {
         if (!email.trim()) {
             setError('请输入邮箱地址');
             return;
@@ -114,8 +119,33 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (registerCodeCooldown > 0 || registerCodeSending) return;
         setError('');
         setSuccess('');
-        setRegisterCodeSending(true);
+        setCaptchaType('register');
+        setShowCaptcha(true);
+    };
 
+    const initiateResetCode = () => {
+        if (!resetEmail.trim()) {
+            setError('请输入邮箱地址');
+            return;
+        }
+        if (codeCooldown > 0 || codeSending) return;
+        setError('');
+        setSuccess('');
+        setCaptchaType('reset');
+        setShowCaptcha(true);
+    };
+
+    const handleCaptchaVerify = async () => {
+        setShowCaptcha(false);
+        if (captchaType === 'register') {
+            await sendRegisterCode();
+        } else if (captchaType === 'reset') {
+            await sendResetCode();
+        }
+    };
+
+    const sendRegisterCode = async () => {
+        setRegisterCodeSending(true);
         try {
             await sendCode(email.trim(), 'register');
             setSuccess('验证码已发送，请查收邮箱');
@@ -127,16 +157,8 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         }
     };
 
-    const handleSendResetCode = async () => {
-        if (!resetEmail.trim()) {
-            setError('请输入邮箱地址');
-            return;
-        }
-        if (codeCooldown > 0 || codeSending) return;
-        setError('');
-        setSuccess('');
+    const sendResetCode = async () => {
         setCodeSending(true);
-
         try {
             await sendCode(resetEmail.trim(), 'reset');
             setSuccess('验证码已发送，请查收邮箱');
@@ -176,11 +198,12 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         setActiveTab(tab);
         setError('');
         setSuccess('');
+        setShowCaptcha(false);
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden relative">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -277,6 +300,21 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                 </button>
                             </div>
 
+                            {/* Captcha Overlay */}
+                            {showCaptcha && (
+                                <div className="absolute inset-0 z-10 bg-white/95 dark:bg-gray-800/95 flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-200">
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">安全验证</h3>
+                                    <p className="text-sm text-gray-500 mb-6">请完成滑块验证以发送验证码</p>
+                                    <SliderCaptcha onVerify={handleCaptchaVerify} />
+                                    <button
+                                        onClick={() => setShowCaptcha(false)}
+                                        className="mt-6 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Form */}
                             {activeTab === 'reset' ? (
                                 <form onSubmit={handleResetPassword} className="space-y-4">
@@ -306,7 +344,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={handleSendResetCode}
+                                            onClick={initiateResetCode}
                                             disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
                                             className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
@@ -412,7 +450,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={handleSendRegisterCode}
+                                                onClick={initiateRegisterCode}
                                                 disabled={registerCodeSending || registerCodeCooldown > 0 || !email.trim()}
                                                 className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             >

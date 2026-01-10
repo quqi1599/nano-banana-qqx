@@ -110,7 +110,9 @@ const request = async <T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: '请求失败' }));
-    throw new Error(error.detail || `HTTP error ${response.status}`);
+    const err = new Error(error.detail || `HTTP error ${response.status}`);
+    (err as { status?: number }).status = response.status;
+    throw err;
   }
 
   return response.json();

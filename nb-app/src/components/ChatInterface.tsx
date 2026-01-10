@@ -556,6 +556,8 @@ export const ChatInterface: React.FC = () => {
     addToast(`开始并行编排，共 ${steps.length} 个任务`, 'info');
 
     const originalSettings = useAppStore.getState().settings;
+    const useProxy = isAuthenticated;
+    const apiKeyValue = apiKey || '';
 
     // 1. 创建用户消息（显示并行编排信息）
     const userMsgId = Date.now().toString();
@@ -624,14 +626,23 @@ export const ChatInterface: React.FC = () => {
         }));
 
         // 执行生成
-        const result = await generateContent(
-          apiKey,
-          history,
-          step.prompt,
-          imagesPayload,
-          step.modelName ? { ...settings, modelName: step.modelName } : settings,
-          signal
-        );
+        const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
+        const result = useProxy
+          ? await generateContentViaProxy(
+            history,
+            step.prompt,
+            imagesPayload,
+            stepSettings,
+            signal
+          )
+          : await generateContent(
+            apiKeyValue,
+            history,
+            step.prompt,
+            imagesPayload,
+            stepSettings,
+            signal
+          );
 
         if (signal.aborted) return;
 
@@ -716,6 +727,8 @@ export const ChatInterface: React.FC = () => {
     addToast(`开始批量组合生成，共 ${initialAttachments.length} 图 × ${steps.length} 词 = ${totalTasks} 张`, 'info');
 
     const originalSettings = useAppStore.getState().settings;
+    const useProxy = isAuthenticated;
+    const apiKeyValue = apiKey || '';
 
     // 1. 创建用户消息
     const userMsgId = Date.now().toString();
@@ -797,14 +810,23 @@ export const ChatInterface: React.FC = () => {
             }];
 
             // 执行生成
-            const result = await generateContent(
-              apiKey,
-              history,
-              step.prompt,
-              imagesPayload,
-              step.modelName ? { ...settings, modelName: step.modelName } : settings,
-              signal
-            );
+            const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
+            const result = useProxy
+              ? await generateContentViaProxy(
+                history,
+                step.prompt,
+                imagesPayload,
+                stepSettings,
+                signal
+              )
+              : await generateContent(
+                apiKeyValue,
+                history,
+                step.prompt,
+                imagesPayload,
+                stepSettings,
+                signal
+              );
 
             if (signal.aborted) return;
 

@@ -68,8 +68,11 @@ export const useAuthStore = create<AuthState>()(
                     set({ user, isAuthenticated: true });
                 } catch (error) {
                     console.error('Failed to refresh user:', error);
-                    // Token 过期，清除登录状态
-                    get().logout();
+                    const status = (error as { status?: number }).status;
+                    if (status === 401 || status === 403) {
+                        // Token 过期或无权限，清除登录状态
+                        get().logout();
+                    }
                 }
             },
 
