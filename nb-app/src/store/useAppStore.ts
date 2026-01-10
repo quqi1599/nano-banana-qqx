@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { get as getVal, set as setVal, del as delVal } from 'idb-keyval';
 import { fetchBalance, BalanceInfo } from '../services/balanceService';
+import {
+    createConversation,
+    getConversations,
+    getConversation,
+    addMessage as addMessageApi,
+    updateConversationTitle,
+    deleteConversation as deleteConversationApi,
+    Conversation,
+    ConversationMessage,
+    MessageImage,
+} from '../services/conversationService';
 import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
@@ -32,6 +43,11 @@ interface AppState {
   usageCount: number; // 使用次数（当余额API不可用时使用）
   installPrompt: any | null; // PWA Install Prompt Event
 
+  // 对话历史相关
+  currentConversationId: string | null;
+  conversationList: Conversation[];
+  isSyncing: boolean;
+
   setInstallPrompt: (prompt: any) => void;
   setApiKey: (key: string) => void;
   fetchBalance: () => Promise<void>;
@@ -52,6 +68,15 @@ interface AppState {
   removeApiKey: () => void;
   deleteMessage: (id: string) => void;
   sliceMessages: (index: number) => void;
+
+  // 对话历史方法
+  createNewConversation: (title?: string) => Promise<string | null>;
+  loadConversation: (id: string) => Promise<void>;
+  loadConversationList: () => Promise<void>;
+  syncCurrentMessage: (message: ChatMessage) => Promise<void>;
+  updateConversationTitle: (id: string, title: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
+  setCurrentConversationId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -77,6 +102,11 @@ export const useAppStore = create<AppState>()(
       balance: null,
       usageCount: 0,
       installPrompt: null,
+
+      // 对话历史状态
+      currentConversationId: null,
+      conversationList: [],
+      isSyncing: false,
 
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
       setApiKey: (key) => set({ apiKey: key }),
@@ -280,6 +310,161 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           messages: state.messages.slice(0, index + 1),
         })),
+
+      // ============ 对话历史方法 ============
+
+      setCurrentConversationId: (id) => set({ currentConversationId: id }),
+
+      createNewConversation: async (title) => {
+        try {
+          const conv = await createConversation(title, get().settings.modelName);
+          set({ currentConversationId: conv.id });
+          await get().loadConversationList(); // 刷新列表
+          return conv.id;
+        } catch (error) {
+          console.error('Failed to create conversation:', error);
+          return null;
+        }
+      },
+
+      loadConversation: async (id) => {
+        try {
+          const data = await getConversation(id);
+
+          // 转换消息格式
+          const messages: ChatMessage[] = data.messages.map((msg) => {
+            const parts: Part[] = [];
+
+            if (msg.is_thought) {
+              // 思考过程
+              parts.push({
+                thought: true,
+                text: msg.content || '思考中...',
+              });
+            } else if (msg.role === 'user') {
+              parts.push({
+                text: msg.content,
+              });
+              // 添加图片
+              if (msg.images && msg.images.length > 0) {
+                msg.images.forEach((img) => {
+                  parts.push({
+                    inline: img.base64,
+                    mimeType: img.mimeType,
+                  });
+                });
+              }
+            } else {
+              // assistant
+              parts.push({
+                text: msg.content,
+              });
+            }
+
+            return {
+              id: msg.id,
+              role: msg.role as 'user' | 'assistant' | 'system',
+              parts,
+              createdAt: new Date(msg.created_at),
+            };
+          });
+
+          set({
+            currentConversationId: id,
+            messages,
+          });
+        } catch (error) {
+          console.error('Failed to load conversation:', error);
+        }
+      },
+
+      loadConversationList: async () => {
+        try {
+          const list = await getConversations();
+          set({ conversationList: list });
+        } catch (error) {
+          console.error('Failed to load conversation list:', error);
+        }
+      },
+
+      syncCurrentMessage: async (message) => {
+        const conversationId = get().currentConversationId;
+        if (!conversationId) {
+          // 没有对话ID，创建新对话
+          try {
+            const conv = await createConversation(undefined, get().settings.modelName);
+            set({ currentConversationId: conv.id });
+            await get().loadConversationList();
+          } catch (error) {
+            console.error('Failed to create conversation:', error);
+            return;
+          }
+        }
+
+        // 同步消息到服务器
+        set({ isSyncing: true });
+        try {
+          const role = message.role || 'user';
+          const content = message.parts
+            .filter((p) => !p.inline && !p.thought)
+            .map((p) => p.text || '')
+            .join('\n');
+
+          // 提取图片
+          const images: MessageImage[] = [];
+          message.parts.forEach((p) => {
+            if (p.inline && p.mimeType) {
+              images.push({
+                base64: p.inline,
+                mimeType: p.mimeType,
+              });
+            }
+          });
+
+          // 检查是否有思考过程
+          const thoughtPart = message.parts.find((p) => p.thought);
+          const isThought = !!thoughtPart;
+
+          await addMessageApi(
+            get().currentConversationId!,
+            role,
+            content,
+            images.length > 0 ? images : undefined,
+            isThought,
+            message.thinkingDuration
+          );
+
+          await get().loadConversationList();
+        } catch (error) {
+          console.error('Failed to sync message:', error);
+        } finally {
+          set({ isSyncing: false });
+        }
+      },
+
+      updateConversationTitle: async (id, title) => {
+        try {
+          await updateConversationTitle(id, title);
+          await get().loadConversationList();
+        } catch (error) {
+          console.error('Failed to update conversation title:', error);
+        }
+      },
+
+      deleteConversation: async (id) => {
+        try {
+          await deleteConversationApi(id);
+
+          // 如果删除的是当前对话，清空消息
+          if (get().currentConversationId === id) {
+            set({ currentConversationId: null, messages: [] });
+          }
+
+          await get().loadConversationList();
+        } catch (error) {
+          console.error('Failed to delete conversation:', error);
+        }
+      },
     }),
     {
       name: 'gemini-pro-storage',

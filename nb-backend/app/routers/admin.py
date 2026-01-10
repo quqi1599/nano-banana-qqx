@@ -740,3 +740,184 @@ async def test_send_email(
         "success": success,
         "message": "测试邮件发送成功" if success else "测试邮件发送失败，请检查SMTP配置"
     }
+
+
+# ============ 对话历史管理 ============
+
+from app.models.conversation import Conversation, ConversationMessage
+from app.schemas.conversation import AdminConversationResponse, AdminConversationDetailResponse
+from sqlalchemy.orm import selectinload
+
+
+@router.get("/conversations", response_model=list[AdminConversationResponse])
+async def list_conversations(
+    user_id: Optional[str] = None,
+    search: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取所有用户的对话列表"""
+    # 构建查询
+    query = select(Conversation)
+
+    if user_id:
+        query = query.where(Conversation.user_id == user_id)
+
+    if search:
+        # 按用户邮箱搜索
+        query = query.join(User).where(User.email.ilike(f"%{search}%"))
+
+    # 分页
+    query = query.order_by(Conversation.updated_at.desc())
+    query = query.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(query)
+    conversations = result.scalars().all()
+
+    # 获取用户信息
+    response = []
+    for conv in conversations:
+        # 获取对话所属用户
+        user_result = await db.execute(select(User).where(User.id == conv.user_id))
+        user = user_result.scalar_one_or_none()
+
+        conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
+        conv_dict["user_email"] = user.email if user else "未知用户"
+        conv_dict["user_nickname"] = user.nickname if user else None
+        response.append(AdminConversationResponse(**conv_dict))
+
+    return response
+
+
+@router.get("/conversations/{conversation_id}", response_model=AdminConversationDetailResponse)
+async def get_conversation_detail(
+    conversation_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员查看对话详情"""
+    result = await db.execute(
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.id == conversation_id)
+    )
+    conversation = result.scalar_one_or_none()
+
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="对话不存在",
+        )
+
+    # 获取用户信息
+    user_result = await db.execute(select(User).where(User.id == conversation.user_id))
+    user = user_result.scalar_one_or_none()
+
+    conv_dict = AdminConversationDetailResponse.model_validate(conversation).model_dump()
+    conv_dict["user_email"] = user.email if user else "未知用户"
+    conv_dict["user_nickname"] = user.nickname if user else None
+    return AdminConversationDetailResponse(**conv_dict)
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation_admin(
+    conversation_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员删除对话"""
+    result = await db.execute(
+        select(Conversation).where(Conversation.id == conversation_id)
+    )
+    conversation = result.scalar_one_or_none()
+
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="对话不存在",
+        )
+
+    await db.delete(conversation)
+    await db.commit()
+
+    return {"message": "删除成功"}
+
+
+# ============ 对话清理管理 ============
+
+from app.services.conversation_cleanup import cleanup_old_conversations, get_cleanup_history
+
+
+@router.post("/conversations/cleanup")
+async def cleanup_conversations(
+    dry_run: bool = Query(False, description="试运行，不实际删除"),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """手动清理超过14天的对话"""
+    result = await cleanup_old_conversations(db, dry_run=dry_run)
+    return result
+
+
+@router.get("/conversations/cleanup-history")
+async def get_conversation_cleanup_history(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取对话清理历史记录"""
+    from app.services.conversation_cleanup import get_cleanup_history as fetch_history
+
+    records, total = await fetch_history(db, page, page_size)
+    return {
+        "records": records,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/conversations/cleanup-stats")
+async def get_cleanup_stats(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取清理统计信息"""
+    from app.services.conversation_cleanup import get_cutoff_time, RETENTION_DAYS
+    from app.models.conversation_cleanup import ConversationCleanup
+    from sqlalchemy import func, desc
+
+    cutoff_time = get_cutoff_time()
+
+    # 统计总清理次数
+    total_cleanup_result = await db.execute(select(func.count(ConversationCleanup.id)))
+    total_cleanup = total_cleanup_result.scalar() or 0
+
+    # 统计总删除对话数和消息数
+    stats_result = await db.execute(
+        select(
+            func.count(ConversationCleanup.id).label('conversations'),
+            func.sum(ConversationCleanup.message_count).label('messages')
+        )
+    )
+    stats = stats_result.first()
+
+    # 最近一次清理时间
+    recent_result = await db.execute(
+        select(ConversationCleanup)
+        .order_by(desc(ConversationCleanup.cleaned_at))
+        .limit(1)
+    )
+    recent_cleanup = recent_result.scalar_one_or_none()
+
+    return {
+        "retention_days": RETENTION_DAYS,
+        "cutoff_time": cutoff_time.strftime('%Y-%m-%d %H:%M:%S %Z'),
+        "total_cleanup_records": total_cleanup,
+        "total_conversations_deleted": stats.conversations if stats else 0,
+        "total_messages_deleted": int(stats.messages) if stats and stats.messages else 0,
+        "last_cleanup_time": recent_cleanup.cleaned_at.strftime('%Y-%m-%d %H:%M:%S') if recent_cleanup else None,
+    }

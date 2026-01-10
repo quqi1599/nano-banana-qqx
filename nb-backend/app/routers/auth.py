@@ -114,6 +114,15 @@ async def send_code(
     """发送邮箱验证码"""
     from app.models.email_whitelist import EmailWhitelist
 
+    if data.purpose not in {"register", "reset"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="验证码用途无效",
+        )
+
+    # 验证滑块验证码
+    await consume_captcha_ticket(data.captcha_ticket, data.purpose, redis_client)
+
     client_ip = request.client.host
     
     # 检查 IP 注册次数限制（仅注册时）
@@ -125,15 +134,6 @@ async def send_code(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
             )
-
-    if data.purpose not in {"register", "reset"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="验证码用途无效",
-        )
-
-    # 验证滑块验证码
-    await consume_captcha_ticket(data.captcha_ticket, data.purpose, redis_client)
     
     # 检查邮箱后缀白名单
     whitelist_result = await db.execute(

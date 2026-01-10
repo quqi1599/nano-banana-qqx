@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2,
     ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Image, Coins,
-    TrendingUp, Activity, Home, LogOut, Menu, ChevronRight
+    TrendingUp, Activity, Home, LogOut, Menu, ChevronRight, Clock
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
@@ -19,12 +19,20 @@ import {
 import { formatBalance } from '../services/balanceService';
 import { getApiBaseUrl } from '../utils/endpointUtils';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage } from '../services/ticketService';
+import {
+    adminGetConversations,
+    adminGetConversation,
+    adminDeleteConversation,
+    AdminConversation,
+    AdminConversationDetail,
+    ConversationMessage,
+} from '../services/conversationService';
 
 interface AdminDashboardProps {
     onLogout: () => void;
 }
 
-type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations';
 
 export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const { user, logout } = useAuthStore();
@@ -75,6 +83,11 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const [adminReplyContent, setAdminReplyContent] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Conversations
+    const [conversations, setConversations] = useState<AdminConversation[]>([]);
+    const [selectedConversation, setSelectedConversation] = useState<AdminConversationDetail | null>(null);
+    const [conversationSearch, setConversationSearch] = useState('');
+
     const loadData = async () => {
         setIsLoading(true);
         setError('');
@@ -97,6 +110,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             } else if (activeTab === 'tickets') {
                 const data = await getAllTickets(ticketStatusFilter);
                 setTickets(data);
+            } else if (activeTab === 'conversations') {
+                const data = await adminGetConversations(undefined, conversationSearch);
+                setConversations(data);
             }
         } catch (err) {
             setError((err as Error).message);
@@ -104,6 +120,18 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (activeTab === 'tickets') {
+            loadData();
+        }
+    }, [ticketStatusFilter]);
+
+    useEffect(() => {
+        if (activeTab === 'conversations' && conversationSearch) {
+            loadData();
+        }
+    }, [conversationSearch]);
 
     useEffect(() => {
         if (activeTab === 'tickets') {
@@ -307,6 +335,15 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         onLogout();
     };
 
+    const loadConversationDetail = async (id: string) => {
+        try {
+            const data = await adminGetConversation(id);
+            setSelectedConversation(data);
+        } catch (err) {
+            setError((err as Error).message);
+        }
+    };
+
     const menuItems = [
         { id: 'dashboard', label: '仪表盘', icon: Home },
         { id: 'tokens', label: 'Token池', icon: Key },
@@ -314,6 +351,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         { id: 'codes', label: '兑换码', icon: Gift },
         { id: 'users', label: '用户管理', icon: Users },
         { id: 'tickets', label: '工单系统', icon: MessageSquare },
+        { id: 'conversations', label: '对话历史', icon: MessageSquare },
     ] as const;
 
     return (
@@ -1135,6 +1173,132 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
                                                 <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
                                                 <p className="text-lg">选择左侧工单查看详情</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Conversations */}
+                            {activeTab === 'conversations' && (
+                                <div className="flex flex-col lg:flex-row h-[calc(100vh-200px)] bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                                    {/* Conversation List */}
+                                    <div className={`${selectedConversation ? 'hidden lg:flex' : 'flex'} lg:w-1/3 w-full border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 flex-col ${!selectedConversation ? 'flex-1' : ''}`}>
+                                        <div className="p-3 lg:p-4 border-b border-gray-100 dark:border-gray-800">
+                                            <input
+                                                type="text"
+                                                value={conversationSearch}
+                                                onChange={(e) => setConversationSearch(e.currentTarget.value)}
+                                                placeholder="搜索用户邮箱..."
+                                                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm"
+                                            />
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto">
+                                            {conversations.length === 0 ? (
+                                                <div className="p-12 text-center text-gray-400">
+                                                    <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                                    <p>暂无对话记录</p>
+                                                </div>
+                                            ) : (
+                                                conversations.map(conv => (
+                                                    <div
+                                                        key={conv.id}
+                                                        onClick={() => loadConversationDetail(conv.id)}
+                                                        className={`p-4 border-b border-gray-50 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${selectedConversation?.id === conv.id ? 'bg-amber-50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''
+                                                            }`}
+                                                    >
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <h4 className="font-medium text-gray-800 dark:text-gray-200 truncate flex-1">
+                                                                {conv.title || '未命名对话'}
+                                                            </h4>
+                                                            <span className="text-xs text-gray-400 ml-2">{conv.message_count} 条消息</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-sm text-gray-400">
+                                                            <span className="truncate">{conv.user_email}</span>
+                                                            <span>{new Date(conv.updated_at).toLocaleDateString()}</span>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Conversation Detail */}
+                                    <div className={`${selectedConversation ? 'flex' : 'hidden lg:flex'} flex-1 flex-col bg-gray-50 dark:bg-gray-950`}>
+                                        {selectedConversation ? (
+                                            <>
+                                                <div className="p-4 lg:p-5 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center gap-3">
+                                                    <button
+                                                        onClick={() => setSelectedConversation(null)}
+                                                        className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                                    >
+                                                        <ChevronRight className="w-5 h-5 rotate-180 text-gray-500" />
+                                                    </button>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-bold text-gray-900 dark:text-white text-base lg:text-lg truncate">
+                                                            {selectedConversation.title || '未命名对话'}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-500 mt-0.5">
+                                                            用户: {selectedConversation.user_email} · {selectedConversation.message_count} 条消息
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (confirm('确定要删除这个对话吗？')) {
+                                                                await adminDeleteConversation(selectedConversation.id);
+                                                                setSelectedConversation(null);
+                                                                loadData();
+                                                            }
+                                                        }}
+                                                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                                                        title="删除对话"
+                                                    >
+                                                        <Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                                    {selectedConversation.messages?.map(msg => (
+                                                        <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row' : 'flex-row-reverse'}`}>
+                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-amber-100 text-amber-600' : 'bg-gray-200 text-gray-600'
+                                                                }`}>
+                                                                {msg.role === 'user' ? <User size={20} /> : <MessageSquare size={20} />}
+                                                            </div>
+                                                            <div className={`max-w-[75%] rounded-2xl p-4 ${msg.role === 'user'
+                                                                ? 'bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-gray-200 rounded-tl-none'
+                                                                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tr-none'
+                                                                }`}>
+                                                                {msg.is_thought && (
+                                                                    <div className="text-xs text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1">
+                                                                        <Clock className="w-3 h-3" />
+                                                                        思考过程 {msg.thinking_duration && `(${msg.thinking_duration}ms)`}
+                                                                    </div>
+                                                                )}
+                                                                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                                                                {msg.images && msg.images.length > 0 && (
+                                                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                                                        {msg.images.map((img, idx) => (
+                                                                            <img
+                                                                                key={idx}
+                                                                                src={img.base64}
+                                                                                alt="attachment"
+                                                                                className="rounded-lg max-h-32 w-full object-cover"
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                <p className={`text-xs mt-2 text-gray-400`}>
+                                                                    {new Date(msg.created_at).toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                                                <MessageSquare className="w-16 h-16 mb-4 opacity-30" />
+                                                <p className="text-lg">选择左侧对话查看详情</p>
                                             </div>
                                         )}
                                     </div>

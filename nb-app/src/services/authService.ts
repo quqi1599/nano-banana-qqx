@@ -35,28 +35,14 @@ export interface AuthResponse {
 
 export interface SliderChallenge {
   challenge_id: string;
-  bg: string;
-  piece: string;
-  w: number;
-  h: number;
-  piece_size: number;
-  piece_y: number;
+  track_width: number;
+  handle_width: number;
   expires_in: number;
-}
-
-export interface SliderTracePoint {
-  t: number;
-  x: number;
-  y: number;
-  pt?: string;
-  it?: boolean;
 }
 
 export interface SliderVerifyRequest {
   challenge_id: string;
   final_x: number;
-  trace: SliderTracePoint[];
-  dpr?: number;
   use: 'register' | 'login' | 'reset';
 }
 

@@ -3,6 +3,7 @@ import { useAppStore } from './store/useAppStore';
 import { useUiStore } from './store/useUiStore';
 import { useAuthStore } from './store/useAuthStore';
 import { ChatInterface } from './components/ChatInterface';
+import { ConversationHistoryPanel } from './components/ConversationHistoryPanel';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { GlobalDialog } from './components/ui/GlobalDialog';
 import { WeChatQRModal } from './components/WeChatQRModal';
@@ -14,7 +15,7 @@ import { TicketModal } from './components/TicketModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -26,7 +27,7 @@ const ImageHistoryPanel = lazyWithRetry(() => import('./components/ImageHistoryP
 const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibraryPanel').then(module => ({ default: module.PromptLibraryPanel })));
 
 const App: React.FC = () => {
-  const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory } = useAppStore();
+  const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory, loadConversation, createNewConversation } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
   const { isAuthenticated, user, initAuth, logout } = useAuthStore();
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
@@ -40,6 +41,10 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
   });
+
+  // 对话历史侧边栏状态
+  const [isConversationHistoryOpen, setIsConversationHistoryOpen] = useState(false);
+  const [isConversationHistoryCollapsed, setIsConversationHistoryCollapsed] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -304,15 +309,16 @@ const App: React.FC = () => {
           )}
 
           {/* New Chat Button */}
-          {apiKey && (
+          {isAuthenticated && (
             <button
               onClick={() => {
                 showDialog({
                   title: '开始新对话',
-                  message: '确定要清空当前对话吗？这将开始一个全新的对话。',
+                  message: '确定要开始一个新对话吗？',
                   confirmLabel: '新对话',
                   cancelLabel: '取消',
-                  onConfirm: () => {
+                  onConfirm: async () => {
+                    await createNewConversation();
                     clearHistory();
                     addToast('已开始新对话', 'success');
                   }
@@ -323,6 +329,28 @@ const App: React.FC = () => {
             >
               <Plus className="h-4 w-4" />
               <span>新对话</span>
+            </button>
+          )}
+
+          {/* Conversation History Button (登录用户可见) */}
+          {isAuthenticated && (
+            <button
+              onClick={() => setIsConversationHistoryOpen(true)}
+              className="hidden sm:flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              title="对话历史"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* Mobile Conversation History Button */}
+          {isAuthenticated && (
+            <button
+              onClick={() => setIsConversationHistoryOpen(true)}
+              className="sm:hidden flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              title="对话历史"
+            >
+              <MessageSquare className="h-5 w-5" />
             </button>
           )}
 
@@ -471,6 +499,24 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative overflow-hidden flex flex-row">
+        {/* Conversation History Sidebar (登录用户可见) */}
+        {isAuthenticated && (
+          <ConversationHistoryPanel
+            isOpen={isConversationHistoryOpen}
+            isCollapsed={isConversationHistoryCollapsed}
+            onClose={() => setIsConversationHistoryOpen(false)}
+            onToggleCollapse={() => setIsConversationHistoryCollapsed(!isConversationHistoryCollapsed)}
+            onSelectConversation={async (id) => {
+              await loadConversation(id);
+            }}
+            onNewConversation={async () => {
+              await createNewConversation();
+              clearHistory();
+              addToast('已开始新对话', 'success');
+            }}
+          />
+        )}
+
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
           <ChatInterface />

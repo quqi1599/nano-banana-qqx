@@ -12,6 +12,8 @@ from app.models.login_history import LoginHistory
 from app.models.email_code import EmailCode
 from app.models.email_whitelist import EmailWhitelist
 from app.models.email_config import EmailConfig
+from app.models.conversation import Conversation, ConversationMessage
+from app.models.conversation_cleanup import ConversationCleanup
 
 __all__ = [
     "User",
@@ -26,6 +28,9 @@ __all__ = [
     "EmailCode",
     "EmailWhitelist",
     "EmailConfig",
+    "Conversation",
+    "ConversationMessage",
+    "ConversationCleanup",
 ]
 
 

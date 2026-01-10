@@ -31,7 +31,8 @@ export const ChatInterface: React.FC = () => {
     sliceMessages,
     fetchBalance,
     incrementUsageCount,
-    usageCount
+    usageCount,
+    syncCurrentMessage,
   } = useAppStore();
 
   const { isAuthenticated, refreshCredits } = useAuthStore();
@@ -345,6 +346,14 @@ export const ChatInterface: React.FC = () => {
             // 余额查询失败，显示使用次数
             addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
           }
+        }
+      }
+
+      // 自动同步对话到服务器（仅登录用户）
+      if (isAuthenticated && generationSucceeded) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          syncCurrentMessage(lastMessage).catch(console.error);
         }
       }
     }
@@ -713,6 +722,14 @@ export const ChatInterface: React.FC = () => {
       addToast('并行编排已停止', 'info');
     } else {
       addToast(`并行编排完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
+
+      // 自动同步对话到服务器（仅登录用户）
+      if (isAuthenticated) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          syncCurrentMessage(lastMessage).catch(console.error);
+        }
+      }
     }
   };
 
@@ -901,6 +918,14 @@ export const ChatInterface: React.FC = () => {
       addToast('批量组合已停止', 'info');
     } else {
       addToast(`批量组合完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
+
+      // 自动同步对话到服务器（仅登录用户）
+      if (isAuthenticated) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          syncCurrentMessage(lastMessage).catch(console.error);
+        }
+      }
     }
   };
 
