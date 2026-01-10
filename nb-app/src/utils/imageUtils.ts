@@ -1,4 +1,156 @@
 /**
+ * 图片压缩结果
+ */
+export interface CompressResult {
+  blob: Blob;
+  base64: string;
+  compressed: boolean;
+  originalSize: number;
+  compressedSize: number;
+  quality?: number;
+}
+
+/**
+ * 自动压缩图片到指定大小以内
+ * @param file 原始文件
+ * @param maxSizeBytes 最大文件大小（字节）
+ * @param maxDimension 最大尺寸（宽或高）
+ * @returns Promise<CompressResult> 压缩结果
+ */
+export const compressImage = async (
+  file: File,
+  maxSizeBytes: number,
+  maxDimension: number = 4096
+): Promise<CompressResult> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      // 第一步：如果尺寸过大，先缩放
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        } else {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('无法获取 canvas 上下文'));
+        return;
+      }
+
+      // 使用更好的图片缩放质量
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 判断输出格式（PNG 透明图保持 PNG，其他用 JPEG）
+      const isPngWithAlpha = file.type === 'image/png' && hasTransparency(img, ctx, width, height);
+      const exportType = isPngWithAlpha ? 'image/png' : 'image/jpeg';
+
+      // 如果已经是 PNG 且没有透明度，尝试用 JPEG 压缩
+      const originalSize = file.size;
+
+      // 如果原始文件已经符合要求，直接返回
+      if (originalSize <= maxSizeBytes && width === img.width && height === img.height) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          resolve({
+            blob: file,
+            base64,
+            compressed: false,
+            originalSize,
+            compressedSize: originalSize,
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // 需要压缩，从高质量开始逐步降低
+      let quality = exportType === 'image/png' ? 1 : 0.95;
+      const minQuality = 0.5; // 最低质量阈值
+      let resultBlob: Blob | null = null;
+      let resultBase64 = '';
+
+      const tryCompress = () => {
+        const dataUrl = canvas.toDataURL(exportType, quality);
+
+        // 获取实际大小
+        const base64Data = dataUrl.split(',')[1];
+        const blob = base64ToBlob(base64Data, exportType);
+
+        // 如果大小符合要求或已达到最低质量
+        if (blob.size <= maxSizeBytes || quality <= minQuality) {
+          resultBlob = blob;
+          resultBase64 = dataUrl;
+
+          // 创建压缩后的 File 对象
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: exportType,
+          });
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              blob: compressedFile,
+              base64: reader.result as string,
+              compressed: true,
+              originalSize,
+              compressedSize: blob.size,
+              quality: exportType === 'image/png' ? undefined : quality,
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(compressedFile);
+        } else {
+          // 继续降低质量
+          quality -= 0.05;
+          tryCompress();
+        }
+      };
+
+      tryCompress();
+    };
+    img.onerror = () => reject(new Error('图片加载失败'));
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+/**
+ * 检测 PNG 图片是否有透明通道
+ */
+function hasTransparency(
+  img: HTMLImageElement,
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number
+): boolean {
+  try {
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 255) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 将 Base64 字符串转换为 Blob 对象
  * @param base64Data Base64 编码的数据
  * @param mimeType MIME 类型

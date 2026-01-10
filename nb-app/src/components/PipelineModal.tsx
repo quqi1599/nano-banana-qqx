@@ -3,7 +3,7 @@ import { X, Plus, Trash2, ImagePlus, ChevronUp, ChevronDown, Layers, GitBranch, 
 import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
 import { useUiStore } from '../store/useUiStore';
-import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateImageFile } from '../utils/imageValidation';
+import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
 
 interface Props {
   isOpen: boolean;
@@ -124,32 +124,37 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
     for (const file of files) {
       if (file.type.startsWith('image/')) {
         try {
-          const validation = await validateImageFile(file, totalBytes);
+          const validation = await validateAndCompressImage(file, totalBytes);
           if (!validation.ok) {
             const errorMsg = getImageValidationMessage(validation.error);
-            // 图片大小超限时使用弹窗提醒
-            if (validation.error === 'file_too_large' || validation.error === 'total_too_large') {
-              showDialog({
-                type: 'alert',
-                title: '图片上传失败',
-                message: `${file.name}\n\n${errorMsg}`,
-              });
-            } else {
-              addToast(`${file.name}: ${errorMsg}`, 'error');
-            }
+            // 只有无法压缩的错误才弹窗
+            showDialog({
+              type: 'alert',
+              title: '图片上传失败',
+              message: `${file.name}\n\n${errorMsg}`,
+            });
             continue;
           }
 
-          const base64 = await fileToBase64(file);
+          // 使用验证返回的文件（可能是压缩后的）
+          const processedFile = validation.file || file;
+          const base64 = await fileToBase64(processedFile);
           const base64Data = base64.split(',')[1];
 
+          // 如果压缩了，显示提示
+          if (validation.compressed) {
+            const originalMB = (file.size / (1024 * 1024)).toFixed(1);
+            const compressedMB = (processedFile.size / (1024 * 1024)).toFixed(1);
+            addToast(`${file.name} 已压缩: ${originalMB}MB → ${compressedMB}MB`, 'success');
+          }
+
           newAttachments.push({
-            file,
+            file: processedFile,
             preview: base64,
             base64Data,
-            mimeType: file.type
+            mimeType: processedFile.type
           });
-          totalBytes += file.size;
+          totalBytes += processedFile.size;
         } catch (err) {
           console.error('Error reading file', err);
           addToast(`${file.name}: 读取失败`, 'error');
