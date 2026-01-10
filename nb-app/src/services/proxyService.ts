@@ -58,8 +58,8 @@ const formatProxyError = (error: any): Error => {
         message = "请求超时，请稍后重试。";
     } else if (errorMsg.includes("No content generated")) {
         message = "AI 没有生成任何内容。可能原因：提示词或图片触发了安全过滤、图片格式不支持、或 API 临时异常。请尝试换张图片或修改提示词。";
-    } else if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-        message = "网络请求失败。可能原因：网络不稳定、API 服务地址无法访问。请检查网络连接。";
+    } else if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("ECONNREFUSED") || errorMsg.includes("timeout") || errorMsg.includes("ERR_CONNECTION") || errorMsg.includes("TypeError")) {
+        message = "⚠️ 网络连接失败！无法访问 API 服务器。请检查：1. 网络连接是否正常  2. 后端服务是否运行  3. API 中转地址是否可访问";
     } else {
         message = `请求出错: ${errorMsg}。如果问题持续，请联系管理员。`;
     }

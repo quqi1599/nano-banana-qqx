@@ -42,8 +42,8 @@ const formatGeminiError = (error: any): Error => {
     message = "请求过于频繁 (429)，请稍后再试。";
   } else if (errorMsg.includes("503")) {
     message = "Gemini 服务暂时不可用 (503)，请稍后重试。";
-  } else if (errorMsg.includes("TypeError") || errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-    message = "网络请求失败。可能原因：网络连接不稳定、API 中转地址无法访问、或请求内容过大。";
+  } else if (errorMsg.includes("TypeError") || errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("ECONNREFUSED") || errorMsg.includes("timeout") || errorMsg.includes("ERR_CONNECTION")) {
+    message = "⚠️ 网络连接失败！无法访问 API 服务器。请检查：1. 网络连接是否正常  2. API 中转地址是否可用  3. 是否需要切换网络节点";
   } else if (errorMsg.includes("SAFETY")) {
     message = "内容被安全策略拦截。请尝试修改您的提示词或更换图片。";
   } else if (errorMsg.includes("No content generated")) {
