@@ -317,22 +317,24 @@ export const useAppStore = create<AppState>()(
 
       createNewConversation: async (title) => {
         try {
-          const conv = await createConversation(title, get().settings.modelName);
-          set({ currentConversationId: conv.id });
-          await get().loadConversationList(); // 刷新列表
-          return conv.id;
+          // 清空当前对话ID，这样下一条消息会创建新对话
+          set({ currentConversationId: null, messages: [] });
+          console.log('[Conversation] 已清空，等待下条消息创建新对话');
+          return null;
         } catch (error) {
-          console.error('Failed to create conversation:', error);
+          console.error('Failed to prepare new conversation:', error);
           return null;
         }
       },
 
       loadConversation: async (id) => {
         try {
+          console.log('[Conversation] 加载对话:', id);
           const data = await getConversation(id);
 
           // 转换消息格式
-          const messages: ChatMessage[] = data.messages.map((msg) => {
+          const messages: ChatMessage[] = [];
+          for (const msg of data.messages) {
             const parts: Part[] = [];
 
             if (msg.is_thought) {
@@ -342,9 +344,10 @@ export const useAppStore = create<AppState>()(
                 text: msg.content || '思考中...',
               });
             } else if (msg.role === 'user') {
-              parts.push({
-                text: msg.content,
-              });
+              // 用户消息：先文字后图片
+              if (msg.content) {
+                parts.push({ text: msg.content });
+              }
               // 添加图片
               if (msg.images && msg.images.length > 0) {
                 msg.images.forEach((img) => {
@@ -355,24 +358,35 @@ export const useAppStore = create<AppState>()(
                 });
               }
             } else {
-              // assistant
+              // assistant 消息
               parts.push({
                 text: msg.content,
               });
+              // 添加图片（如果有）
+              if (msg.images && msg.images.length > 0) {
+                msg.images.forEach((img) => {
+                  parts.push({
+                    inline: img.base64,
+                    mimeType: img.mimeType,
+                  });
+                });
+              }
             }
 
-            return {
+            messages.push({
               id: msg.id,
               role: msg.role as 'user' | 'assistant' | 'system',
               parts,
               createdAt: new Date(msg.created_at),
-            };
-          });
+            });
+          }
 
           set({
             currentConversationId: id,
             messages,
           });
+
+          console.log(`[Conversation] 已加载 ${messages.length} 条消息`);
         } catch (error) {
           console.error('Failed to load conversation:', error);
         }
@@ -388,13 +402,21 @@ export const useAppStore = create<AppState>()(
       },
 
       syncCurrentMessage: async (message) => {
-        const conversationId = get().currentConversationId;
+        // 仅登录用户同步
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        let conversationId = get().currentConversationId;
+        let isNewConversation = false;
+
+        // 没有对话ID，创建新对话
         if (!conversationId) {
-          // 没有对话ID，创建新对话
           try {
             const conv = await createConversation(undefined, get().settings.modelName);
-            set({ currentConversationId: conv.id });
-            await get().loadConversationList();
+            conversationId = conv.id;
+            set({ currentConversationId: conversationId });
+            isNewConversation = true;
+            console.log('[Conversation] 创建新对话:', conversationId);
           } catch (error) {
             console.error('Failed to create conversation:', error);
             return;
@@ -426,7 +448,7 @@ export const useAppStore = create<AppState>()(
           const isThought = !!thoughtPart;
 
           await addMessageApi(
-            get().currentConversationId!,
+            conversationId,
             role,
             content,
             images.length > 0 ? images : undefined,
@@ -434,7 +456,12 @@ export const useAppStore = create<AppState>()(
             message.thinkingDuration
           );
 
-          await get().loadConversationList();
+          // 只在创建新对话后刷新列表，避免频繁刷新
+          if (isNewConversation) {
+            await get().loadConversationList();
+          }
+
+          console.log(`[Conversation] 同步消息: ${role}, 对话: ${conversationId}`);
         } catch (error) {
           console.error('Failed to sync message:', error);
         } finally {

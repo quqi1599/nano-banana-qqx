@@ -47,7 +47,7 @@ const getImageValidationMessage = (error?: ImageValidationError) => {
 };
 
 export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) => {
-  const { addToast } = useUiStore();
+  const { addToast, showDialog } = useUiStore();
   const [mode, setMode] = useState<'serial' | 'parallel' | 'combination'>('serial');
   const [steps, setSteps] = useState<PipelineStep[]>([{
     id: Date.now().toString(),
@@ -126,7 +126,17 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
         try {
           const validation = await validateImageFile(file, totalBytes);
           if (!validation.ok) {
-            addToast(`${file.name}: ${getImageValidationMessage(validation.error)}`, 'error');
+            const errorMsg = getImageValidationMessage(validation.error);
+            // 图片大小超限时使用弹窗提醒
+            if (validation.error === 'file_too_large' || validation.error === 'total_too_large') {
+              showDialog({
+                type: 'alert',
+                title: '图片上传失败',
+                message: `${file.name}\n\n${errorMsg}`,
+              });
+            } else {
+              addToast(`${file.name}: ${errorMsg}`, 'error');
+            }
             continue;
           }
 
@@ -148,7 +158,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
     }
 
     setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, [attachments, addToast]);
+  }, [attachments, addToast, showDialog]);
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));

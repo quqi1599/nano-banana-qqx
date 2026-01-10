@@ -170,6 +170,11 @@ export const ChatInterface: React.FC = () => {
     // Add User Message
     addMessage(userMessage);
 
+    // 同步用户消息到服务器（仅登录用户）
+    if (isAuthenticated) {
+      syncCurrentMessage(userMessage).catch(console.error);
+    }
+
     // Prepare Model Placeholder
     const modelMessageId = (Date.now() + 1).toString();
     const modelMessage: ChatMessage = {
@@ -349,10 +354,12 @@ export const ChatInterface: React.FC = () => {
         }
       }
 
-      // 自动同步对话到服务器（仅登录用户）
+      // 自动同步 AI 回复到服务器（仅登录用户）
       if (isAuthenticated && generationSucceeded) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage) {
+        // 获取最新的消息状态（AI 回复）
+        const latestMessages = useAppStore.getState().messages;
+        const lastMessage = latestMessages[latestMessages.length - 1];
+        if (lastMessage && lastMessage.role === 'model') {
           syncCurrentMessage(lastMessage).catch(console.error);
         }
       }
@@ -596,6 +603,11 @@ export const ChatInterface: React.FC = () => {
     };
     addMessage(userMessage);
 
+    // 同步用户消息到服务器（仅登录用户）
+    if (isAuthenticated) {
+      syncCurrentMessage(userMessage).catch(console.error);
+    }
+
     // 2. 创建模型占位消息
     const modelMessageId = (Date.now() + 1).toString();
     const modelMessage: ChatMessage = {
@@ -723,10 +735,11 @@ export const ChatInterface: React.FC = () => {
     } else {
       addToast(`并行编排完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
 
-      // 自动同步对话到服务器（仅登录用户）
+      // 自动同步 AI 回复到服务器（仅登录用户）
       if (isAuthenticated) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage) {
+        const latestMessages = useAppStore.getState().messages;
+        const lastMessage = latestMessages[latestMessages.length - 1];
+        if (lastMessage && lastMessage.role === 'model') {
           syncCurrentMessage(lastMessage).catch(console.error);
         }
       }
@@ -774,6 +787,11 @@ export const ChatInterface: React.FC = () => {
       timestamp: Date.now()
     };
     addMessage(userMessage);
+
+    // 同步用户消息到服务器（仅登录用户）
+    if (isAuthenticated) {
+      syncCurrentMessage(userMessage).catch(console.error);
+    }
 
     // 2. 创建模型占位消息
     const modelMessageId = (Date.now() + 1).toString();
@@ -919,10 +937,11 @@ export const ChatInterface: React.FC = () => {
     } else {
       addToast(`批量组合完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
 
-      // 自动同步对话到服务器（仅登录用户）
+      // 自动同步 AI 回复到服务器（仅登录用户）
       if (isAuthenticated) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage) {
+        const latestMessages = useAppStore.getState().messages;
+        const lastMessage = latestMessages[latestMessages.length - 1];
+        if (lastMessage && lastMessage.role === 'model') {
           syncCurrentMessage(lastMessage).catch(console.error);
         }
       }

@@ -38,7 +38,7 @@ const getImageValidationMessage = (error?: ImageValidationError) => {
 
 export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArcadeOpen, onOpenPipeline, disabled }) => {
   const { inputText, setInputText } = useAppStore();
-  const { togglePromptLibrary, isPromptLibraryOpen, batchMode, batchCount, setBatchMode, setBatchCount, pendingReferenceImage, setPendingReferenceImage, addToast } = useUiStore();
+  const { togglePromptLibrary, isPromptLibraryOpen, batchMode, batchCount, setBatchMode, setBatchCount, pendingReferenceImage, setPendingReferenceImage, addToast, showDialog } = useUiStore();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isQuickPickerOpen, setIsQuickPickerOpen] = useState(false);
@@ -116,7 +116,17 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         try {
           const validation = await validateImageFile(file, totalBytes);
           if (!validation.ok) {
-            addToast(`${file.name}: ${getImageValidationMessage(validation.error)}`, 'error');
+            const errorMsg = getImageValidationMessage(validation.error);
+            // 图片大小超限时使用弹窗提醒
+            if (validation.error === 'file_too_large' || validation.error === 'total_too_large') {
+              showDialog({
+                type: 'alert',
+                title: '图片上传失败',
+                message: `${file.name}\n\n${errorMsg}`,
+              });
+            } else {
+              addToast(`${file.name}: ${errorMsg}`, 'error');
+            }
             continue;
           }
 
@@ -139,7 +149,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
     }
 
     setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, [attachments, addToast]);
+  }, [attachments, addToast, showDialog]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
