@@ -267,7 +267,9 @@ async def login(
     client_ip = request.client.host
     email_key = f"login_fail:{data.email}"
 
-    await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
+    # 如果提供了验证码票据，进行验证（向后兼容）
+    if data.captcha_ticket:
+        await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
     
     # 检查登录失败次数
     fail_count = await redis_client.get(email_key)
