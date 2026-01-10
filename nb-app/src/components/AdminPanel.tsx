@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2, ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Coins } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import {
     getTokens, addToken, deleteToken, updateToken, checkTokenQuota, TokenInfo,
     getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
@@ -12,6 +13,7 @@ import {
     getDashboardStats, DashboardStats,
 } from '../services/adminService';
 import { formatBalance } from '../services/balanceService';
+import { getApiBaseUrl } from '../utils/endpointUtils';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, getAdminUnreadCount, Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory } from '../services/ticketService';
 
 interface AdminPanelProps {
@@ -23,6 +25,8 @@ type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets
 
 export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const { user } = useAuthStore();
+    const { settings } = useAppStore();
+    const apiBaseUrl = getApiBaseUrl(settings.customEndpoint);
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -34,8 +38,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const [tokens, setTokens] = useState<TokenInfo[]>([]);
     const [newTokenName, setNewTokenName] = useState('');
     const [newTokenKey, setNewTokenKey] = useState('');
+    const [newTokenBaseUrl, setNewTokenBaseUrl] = useState('');
     const [newTokenPriority, setNewTokenPriority] = useState(0);
     const [checkingQuotaTokenId, setCheckingQuotaTokenId] = useState<string | null>(null);
+    const [tokenBaseUrlDrafts, setTokenBaseUrlDrafts] = useState<Record<string, string>>({});
 
     // Model Pricing
     const [pricing, setPricing] = useState<ModelPricingInfo[]>([]);
@@ -146,6 +152,14 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         setPricingDrafts(nextDrafts);
     }, [pricing]);
 
+    useEffect(() => {
+        const nextDrafts: Record<string, string> = {};
+        tokens.forEach((token) => {
+            nextDrafts[token.id] = token.base_url || '';
+        });
+        setTokenBaseUrlDrafts(nextDrafts);
+    }, [tokens]);
+
     const formatQuota = (quota: number) => {
         if (quota === null || quota === undefined || Number.isNaN(quota)) return '--';
         const isUnlimited = !Number.isFinite(quota) || quota === Infinity;
@@ -155,9 +169,15 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const handleAddToken = async () => {
         if (!newTokenName || !newTokenKey) return;
         try {
-            await addToken(newTokenName, newTokenKey, newTokenPriority);
+            await addToken(
+                newTokenName,
+                newTokenKey,
+                newTokenPriority,
+                newTokenBaseUrl.trim() || apiBaseUrl
+            );
             setNewTokenName('');
             setNewTokenKey('');
+            setNewTokenBaseUrl('');
             setNewTokenPriority(0);
             loadData();
         } catch (err) {
@@ -187,13 +207,26 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const handleCheckQuota = async (id: string) => {
         setCheckingQuotaTokenId(id);
         try {
-            const updated = await checkTokenQuota(id);
+            const baseUrl = tokenBaseUrlDrafts[id]?.trim() || apiBaseUrl;
+            const updated = await checkTokenQuota(id, baseUrl);
             // 更新列表中的 token
             setTokens(prev => prev.map(t => t.id === id ? { ...t, remaining_quota: updated.remaining_quota } : t));
         } catch (err) {
             setError((err as Error).message);
         } finally {
             setCheckingQuotaTokenId(null);
+        }
+    };
+
+    const handleSaveTokenBaseUrl = async (id: string) => {
+        const baseUrl = tokenBaseUrlDrafts[id]?.trim() || null;
+        const current = tokens.find(t => t.id === id)?.base_url || null;
+        if ((current || null) === baseUrl) return;
+        try {
+            const updated = await updateToken(id, { base_url: baseUrl });
+            setTokens(prev => prev.map(t => t.id === id ? { ...t, base_url: updated.base_url } : t));
+        } catch (err) {
+            setError((err as Error).message);
         }
     };
 
@@ -438,6 +471,13 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                 className="flex-[2] min-w-[200px] px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm font-mono focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
                                             />
                                             <input
+                                                type="text"
+                                                value={newTokenBaseUrl}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTokenBaseUrl(e.currentTarget.value)}
+                                                placeholder="查询接口 (可选)"
+                                                className="flex-[2] min-w-[200px] px-4 py-2.5 rounded-2xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
+                                            />
+                                            <input
                                                 type="number"
                                                 value={newTokenPriority}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTokenPriority(Number(e.currentTarget.value))}
@@ -465,6 +505,23 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                         <span className="text-[10px] font-bold bg-cream-100 text-cream-700 dark:bg-cream-900/30 dark:text-cream-300 px-2 py-1 rounded-lg">优先级 {token.priority}</span>
                                                     </div>
                                                     <div className="text-xs text-cream-400 truncate font-mono bg-cream-50 dark:bg-gray-900/50 p-1.5 rounded-lg select-all">{token.api_key}</div>
+                                                    <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={tokenBaseUrlDrafts[token.id] || ''}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                                setTokenBaseUrlDrafts(prev => ({ ...prev, [token.id]: e.currentTarget.value }))
+                                                            }
+                                                            placeholder="查询接口 (可选)"
+                                                            className="flex-1 min-w-[180px] px-3 py-2 rounded-xl border border-cream-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-cream-500 outline-none transition-all placeholder:text-cream-300"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleSaveTokenBaseUrl(token.id)}
+                                                            className="px-4 py-2 text-xs font-bold text-cream-600 bg-cream-100 dark:bg-cream-900/20 rounded-xl hover:bg-cream-200 dark:hover:bg-cream-900/30 transition"
+                                                        >
+                                                            保存接口
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center justify-between sm:justify-end gap-6 text-sm">
                                                     <div className="flex flex-col items-center gap-1">

@@ -56,6 +56,7 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
     setError('');
     setChallenge(null);
     setDragX(0);
+    dragXRef.current = 0;
     traceRef.current = [];
 
     try {
@@ -92,6 +93,7 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
       const trackRect = trackRef.current?.getBoundingClientRect();
       const handleLeft = dragX;
       dragOffsetRef.current = trackRect ? e.clientX - (trackRect.left + handleLeft) : 0;
+      dragXRef.current = dragX;
 
       startTimeRef.current = performance.now();
       lastSampleRef.current = 0;
@@ -179,7 +181,7 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
     <div className="w-full space-y-3">
       <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div
-          className="relative"
+          className="relative mx-auto"
           style={{ width: `${trackWidth}px`, height: `${challenge?.h ?? 160}px` }}
         >
           {challenge ? (
@@ -221,7 +223,7 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
 
       <div
         ref={trackRef}
-        className="relative rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/60 overflow-hidden"
+        className="relative mx-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/60 overflow-hidden"
         style={{ width: `${trackWidth}px`, height: `${TRACK_HEIGHT}px` }}
       >
         <div

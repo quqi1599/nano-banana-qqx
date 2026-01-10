@@ -90,12 +90,14 @@ async def add_token(
         name=data.name,
         api_key=data.api_key,
         priority=data.priority,
+        base_url=data.base_url.strip() if data.base_url else None,
     )
     
     # 尝试查询额度
     try:
         settings = get_settings()
-        quota = await check_api_key_quota(data.api_key, settings.newapi_base_url)
+        base_url = data.base_url.strip() if data.base_url else None
+        quota = await check_api_key_quota(data.api_key, base_url or settings.newapi_base_url)
         if quota is not None:
             token.remaining_quota = quota
             token.last_checked_at = datetime.utcnow()
@@ -113,6 +115,7 @@ async def add_token(
 @router.post("/tokens/{token_id}/check-quota", response_model=TokenPoolResponse)
 async def check_token_quota(
     token_id: str,
+    base_url: Optional[str] = Query(default=None),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -129,7 +132,12 @@ async def check_token_quota(
     # 查询额度（使用完整的 API Key）
     try:
         settings = get_settings()
-        quota = await check_api_key_quota(token.api_key, settings.newapi_base_url)
+        resolved_base_url = base_url.strip() if base_url else None
+        token_base_url = token.base_url.strip() if token.base_url else None
+        quota = await check_api_key_quota(
+            token.api_key,
+            resolved_base_url or token_base_url or settings.newapi_base_url,
+        )
         if quota is not None:
             token.remaining_quota = quota
             token.last_checked_at = datetime.utcnow()
@@ -181,6 +189,8 @@ async def update_token(
         token.is_active = data.is_active
     if data.priority is not None:
         token.priority = data.priority
+    if data.base_url is not None:
+        token.base_url = data.base_url.strip() or None
     
     await db.commit()
     await db.refresh(token)
@@ -730,4 +740,3 @@ async def test_send_email(
         "success": success,
         "message": "测试邮件发送成功" if success else "测试邮件发送失败，请检查SMTP配置"
     }
-

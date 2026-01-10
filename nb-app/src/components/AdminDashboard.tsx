@@ -8,6 +8,7 @@ import {
     TrendingUp, Activity, Home, LogOut, Menu, ChevronRight
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { useAppStore } from '../store/useAppStore';
 import {
     getTokens, addToken, deleteToken, updateToken, TokenInfo,
     getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
@@ -16,6 +17,7 @@ import {
     getDashboardStats, DashboardStats, checkTokenQuota,
 } from '../services/adminService';
 import { formatBalance } from '../services/balanceService';
+import { getApiBaseUrl } from '../utils/endpointUtils';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage } from '../services/ticketService';
 
 interface AdminDashboardProps {
@@ -26,6 +28,8 @@ type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets
 
 export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const { user, logout } = useAuthStore();
+    const { settings } = useAppStore();
+    const apiBaseUrl = getApiBaseUrl(settings.customEndpoint);
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -38,7 +42,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const [tokens, setTokens] = useState<TokenInfo[]>([]);
     const [newTokenName, setNewTokenName] = useState('');
     const [newTokenKey, setNewTokenKey] = useState('');
+    const [newTokenBaseUrl, setNewTokenBaseUrl] = useState('');
     const [newTokenPriority, setNewTokenPriority] = useState(0);
+    const [tokenBaseUrlDrafts, setTokenBaseUrlDrafts] = useState<Record<string, string>>({});
     const [checkingQuotaTokenId, setCheckingQuotaTokenId] = useState<string | null>(null);
 
     // Model Pricing
@@ -123,12 +129,26 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         setPricingDrafts(nextDrafts);
     }, [pricing]);
 
+    useEffect(() => {
+        const nextDrafts: Record<string, string> = {};
+        tokens.forEach((token) => {
+            nextDrafts[token.id] = token.base_url || '';
+        });
+        setTokenBaseUrlDrafts(nextDrafts);
+    }, [tokens]);
+
     const handleAddToken = async () => {
         if (!newTokenName || !newTokenKey) return;
         try {
-            await addToken(newTokenName, newTokenKey, newTokenPriority);
+            await addToken(
+                newTokenName,
+                newTokenKey,
+                newTokenPriority,
+                newTokenBaseUrl.trim() || apiBaseUrl
+            );
             setNewTokenName('');
             setNewTokenKey('');
+            setNewTokenBaseUrl('');
             setNewTokenPriority(0);
             loadData();
         } catch (err) {
@@ -158,12 +178,25 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const handleCheckQuota = async (id: string) => {
         setCheckingQuotaTokenId(id);
         try {
-            const updated = await checkTokenQuota(id);
+            const baseUrl = tokenBaseUrlDrafts[id]?.trim() || apiBaseUrl;
+            const updated = await checkTokenQuota(id, baseUrl);
             setTokens(prev => prev.map(t => t.id === id ? { ...t, remaining_quota: updated.remaining_quota } : t));
         } catch (err) {
             setError((err as Error).message);
         } finally {
             setCheckingQuotaTokenId(null);
+        }
+    };
+
+    const handleSaveTokenBaseUrl = async (id: string) => {
+        const baseUrl = tokenBaseUrlDrafts[id]?.trim() || null;
+        const current = tokens.find(t => t.id === id)?.base_url || null;
+        if ((current || null) === baseUrl) return;
+        try {
+            const updated = await updateToken(id, { base_url: baseUrl });
+            setTokens(prev => prev.map(t => t.id === id ? { ...t, base_url: updated.base_url } : t));
+        } catch (err) {
+            setError((err as Error).message);
         }
     };
 
@@ -545,8 +578,8 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                             {/* Tokens */}
                             {activeTab === 'tokens' && (
                                 <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                                        <h4 className="font-bold text-blue-600 dark:text-blue-400 mb-4 flex items-center gap-2">
+                                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-6 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-2">
                                             <Plus className="w-5 h-5" />
                                             添加新 API Token
                                         </h4>
@@ -556,26 +589,33 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 value={newTokenName}
                                                 onChange={(e) => setNewTokenName(e.currentTarget.value)}
                                                 placeholder="名称 (如 Gemini-Pro-1)"
-                                                className="flex-1 min-w-[180px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                                className="flex-1 min-w-[180px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition"
                                             />
                                             <input
                                                 type="text"
                                                 value={newTokenKey}
                                                 onChange={(e) => setNewTokenKey(e.currentTarget.value)}
                                                 placeholder="API Key"
-                                                className="flex-[2] min-w-[280px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                                className="flex-[2] min-w-[280px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 font-mono text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                            />
+                                            <input
+                                                type="text"
+                                                value={newTokenBaseUrl}
+                                                onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
+                                                placeholder="查询接口 (可选)"
+                                                className="flex-[2] min-w-[240px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                                             />
                                             <input
                                                 type="number"
                                                 value={newTokenPriority}
                                                 onChange={(e) => setNewTokenPriority(Number(e.currentTarget.value))}
                                                 placeholder="优先级"
-                                                className="w-24 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-blue-500 outline-none transition"
+                                                className="w-24 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition"
                                             />
                                             <button
                                                 onClick={handleAddToken}
                                                 disabled={!newTokenName || !newTokenKey}
-                                                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition font-bold shadow-lg shadow-blue-500/30"
+                                                className="px-8 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30"
                                             >
                                                 添加
                                             </button>
@@ -597,6 +637,23 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                         <div className="text-sm text-gray-400 truncate font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded-lg select-all">
                                                             {token.api_key}
                                                         </div>
+                                                        <div className="mt-3 flex flex-col lg:flex-row gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={tokenBaseUrlDrafts[token.id] || ''}
+                                                                onChange={(e) =>
+                                                                    setTokenBaseUrlDrafts(prev => ({ ...prev, [token.id]: e.currentTarget.value }))
+                                                                }
+                                                                placeholder="查询接口 (可选)"
+                                                                className="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                            />
+                                                            <button
+                                                                onClick={() => handleSaveTokenBaseUrl(token.id)}
+                                                                className="px-4 py-2 text-xs font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/40 transition"
+                                                            >
+                                                                保存接口
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     <div className="flex items-center gap-6">
                                                         <div className="text-center">
@@ -605,7 +662,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                             </span>
                                                             <button
                                                                 onClick={() => handleToggleToken(token.id, token.is_active)}
-                                                                className="mt-1 text-xs text-blue-500 hover:text-blue-600 font-medium bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-lg transition"
+                                                                className="mt-1 text-xs text-amber-600 hover:text-amber-700 font-medium bg-amber-50 dark:bg-amber-900/20 px-3 py-1 rounded-lg transition"
                                                             >
                                                                 {token.is_active ? '停止' : '激活'}
                                                             </button>
@@ -617,7 +674,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                                 <button
                                                                     onClick={() => handleCheckQuota(token.id)}
                                                                     disabled={checkingQuotaTokenId === token.id}
-                                                                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition disabled:opacity-50"
+                                                                    className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition disabled:opacity-50"
                                                                     title="刷新额度"
                                                                 >
                                                                     <RefreshCw className={`w-3.5 h-3.5 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
@@ -826,7 +883,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                             onChange={(e) => setUserSearch(e.currentTarget.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && loadData()}
                                             placeholder="按邮箱或昵称搜索用户..."
-                                            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 outline-none transition text-lg"
+                                            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 outline-none transition text-lg"
                                         />
                                     </div>
 
@@ -836,14 +893,14 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                             <div key={u.id} className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center font-bold text-white text-lg shadow-lg">
+                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center font-bold text-white text-lg shadow-lg">
                                                             {u.nickname?.[0] || u.email[0].toUpperCase()}
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-bold text-gray-900 dark:text-white">{u.nickname || '未设置昵称'}</span>
                                                                 {u.is_admin && (
-                                                                    <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-bold">ADMIN</span>
+                                                                    <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded-full font-bold">ADMIN</span>
                                                                 )}
                                                             </div>
                                                             <div className="text-sm text-gray-400">{u.email}</div>
@@ -883,7 +940,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                                     setAdjustAmount(0);
                                                                     setEditingNoteUserId(null);
                                                                 }}
-                                                                className={`p-3 rounded-xl transition ${editingUserId === u.id ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-blue-500 hover:bg-blue-100'}`}
+                                                                className={`p-3 rounded-xl transition ${editingUserId === u.id ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-amber-600 hover:bg-amber-100'}`}
                                                                 title="调整次数"
                                                             >
                                                                 <UserCog className="w-5 h-5" />
@@ -900,19 +957,19 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 )}
 
                                                 {editingUserId === u.id && (
-                                                    <div className="mt-4 p-5 bg-blue-50 dark:bg-blue-900/10 rounded-xl">
-                                                        <p className="text-xs font-bold text-blue-600 mb-3 uppercase">调整剩余次数</p>
+                                                    <div className="mt-4 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-xl">
+                                                        <p className="text-xs font-bold text-amber-600 mb-3 uppercase">调整剩余次数</p>
                                                         <div className="flex gap-3">
                                                             <input
                                                                 type="number"
                                                                 value={adjustAmount}
                                                                 onChange={(e) => setAdjustAmount(Number(e.currentTarget.value))}
                                                                 placeholder="数量 (正加负减)"
-                                                                className="flex-1 px-4 py-3 rounded-xl border border-blue-200 dark:border-blue-900/30 dark:bg-gray-800 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                                                                className="flex-1 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-900/30 dark:bg-gray-800 font-bold focus:ring-2 focus:ring-amber-500 outline-none"
                                                             />
                                                             <button
                                                                 onClick={() => handleAdjustCredits(u.id)}
-                                                                className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"
+                                                                className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition shadow-lg shadow-amber-500/30"
                                                             >
                                                                 保存修改
                                                             </button>
@@ -963,7 +1020,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                     key={status}
                                                     onClick={() => setTicketStatusFilter(status)}
                                                     className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition ${ticketStatusFilter === status
-                                                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                                                        ? 'bg-amber-600 text-white shadow-lg shadow-amber-500/30'
                                                         : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
                                                         }`}
                                                 >
@@ -981,7 +1038,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 <div
                                                     key={t.id}
                                                     onClick={() => loadTicketDetail(t.id)}
-                                                    className={`p-5 border-b border-gray-50 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${selectedTicket?.id === t.id ? 'bg-purple-50 dark:bg-purple-900/10 border-l-4 border-l-purple-500' : ''
+                                                    className={`p-5 border-b border-gray-50 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${selectedTicket?.id === t.id ? 'bg-amber-50 dark:bg-amber-900/10 border-l-4 border-l-amber-500' : ''
                                                         }`}
                                                 >
                                                     <div className="flex justify-between items-start mb-2">
@@ -990,7 +1047,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                         </h4>
                                                         <span className={`text-xs px-2 py-1 rounded-lg font-medium ${t.status === 'open' ? 'bg-green-100 text-green-600' :
                                                             t.status === 'pending' ? 'bg-amber-100 text-amber-600' :
-                                                                t.status === 'resolved' ? 'bg-blue-100 text-blue-600' :
+                                                                t.status === 'resolved' ? 'bg-yellow-100 text-yellow-600' :
                                                                     'bg-gray-100 text-gray-400'
                                                             }`}>
                                                             {t.status === 'open' ? '待处理' : t.status === 'pending' ? '待回复' : t.status === 'resolved' ? '已解决' : '已关闭'}

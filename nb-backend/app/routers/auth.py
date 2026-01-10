@@ -52,6 +52,7 @@ class SendCodeRequest(BaseModel):
     """发送验证码请求"""
     email: EmailStr
     purpose: str = "register"  # register 或 reset
+    captcha_ticket: str  # 滑块验证票据
 
 
 class UserRegisterWithCode(BaseModel):
@@ -112,7 +113,7 @@ async def send_code(
 ):
     """发送邮箱验证码"""
     from app.models.email_whitelist import EmailWhitelist
-    
+
     client_ip = request.client.host
     
     # 检查 IP 注册次数限制（仅注册时）
@@ -124,6 +125,15 @@ async def send_code(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
             )
+
+    if data.purpose not in {"register", "reset"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="验证码用途无效",
+        )
+
+    # 验证滑块验证码
+    await consume_captcha_ticket(data.captcha_ticket, data.purpose, redis_client)
     
     # 检查邮箱后缀白名单
     whitelist_result = await db.execute(
@@ -267,9 +277,7 @@ async def login(
     client_ip = request.client.host
     email_key = f"login_fail:{data.email}"
 
-    # 如果提供了验证码票据，进行验证（向后兼容）
-    if data.captcha_ticket:
-        await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
+    await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
     
     # 检查登录失败次数
     fail_count = await redis_client.get(email_key)

@@ -149,7 +149,19 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (registerCodeCooldown > 0 || registerCodeSending) return;
         setError('');
         setSuccess('');
-        sendRegisterCode();
+        // 先弹出滑块验证
+        openCaptcha('register', async (ticket) => {
+            setRegisterCodeSending(true);
+            try {
+                await sendCode(email.trim(), 'register', ticket);
+                setSuccess('验证码已发送，请查收邮箱');
+                setRegisterCodeCooldown(60);
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setRegisterCodeSending(false);
+            }
+        });
     };
 
     const initiateResetCode = () => {
@@ -160,33 +172,19 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (codeCooldown > 0 || codeSending) return;
         setError('');
         setSuccess('');
-        sendResetCode();
-    };
-
-    const sendRegisterCode = async () => {
-        setRegisterCodeSending(true);
-        try {
-            await sendCode(email.trim(), 'register');
-            setSuccess('验证码已发送，请查收邮箱');
-            setRegisterCodeCooldown(60);
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setRegisterCodeSending(false);
-        }
-    };
-
-    const sendResetCode = async () => {
-        setCodeSending(true);
-        try {
-            await sendCode(resetEmail.trim(), 'reset');
-            setSuccess('验证码已发送，请查收邮箱');
-            setCodeCooldown(60);
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setCodeSending(false);
-        }
+        // 先弹出滑块验证
+        openCaptcha('reset', async (ticket) => {
+            setCodeSending(true);
+            try {
+                await sendCode(resetEmail.trim(), 'reset', ticket);
+                setSuccess('验证码已发送，请查收邮箱');
+                setCodeCooldown(60);
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setCodeSending(false);
+            }
+        });
     };
 
     const handleCaptchaVerify = async (ticket: string) => {
@@ -195,7 +193,11 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         const action = pendingCaptchaActionRef.current;
         pendingCaptchaActionRef.current = null;
         if (!action) return;
-        await action(ticket);
+        try {
+            await action(ticket);
+        } catch (err) {
+            setError((err as Error).message || '操作失败，请重试');
+        }
     };
 
     const handleCaptchaCancel = () => {

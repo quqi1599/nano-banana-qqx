@@ -12,6 +12,7 @@ class TokenPoolCreate(BaseModel):
     name: str
     api_key: str
     priority: int = 0
+    base_url: Optional[str] = None
 
 
 class TokenPoolResponse(BaseModel):
@@ -19,6 +20,7 @@ class TokenPoolResponse(BaseModel):
     id: str
     name: str
     api_key: str  # 仅显示部分
+    base_url: Optional[str] = None
     remaining_quota: float
     is_active: bool
     priority: int
@@ -35,6 +37,7 @@ class TokenPoolUpdate(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None
+    base_url: Optional[str] = None
 
 
 # 模型计费
@@ -162,4 +165,3 @@ class SmtpConfigUpdate(BaseModel):
     smtp_port: Optional[int] = None
     smtp_password: Optional[str] = None
     from_name: Optional[str] = None
-

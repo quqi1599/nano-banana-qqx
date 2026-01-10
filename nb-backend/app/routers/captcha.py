@@ -12,7 +12,7 @@ import secrets
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw, ImageFilter
 

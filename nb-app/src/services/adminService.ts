@@ -43,6 +43,7 @@ export interface TokenInfo {
     id: string;
     name: string;
     api_key: string;
+    base_url?: string | null;
     remaining_quota: number;
     is_active: boolean;
     priority: number;
@@ -63,14 +64,18 @@ export const getTokens = async (): Promise<TokenInfo[]> => {
     return request('/tokens');
 };
 
-export const addToken = async (name: string, apiKey: string, priority: number = 0): Promise<TokenInfo> => {
+export const addToken = async (name: string, apiKey: string, priority: number = 0, baseUrl?: string): Promise<TokenInfo> => {
+    const payload: Record<string, unknown> = { name, api_key: apiKey, priority };
+    if (baseUrl) {
+        payload.base_url = baseUrl;
+    }
     return request('/tokens', {
         method: 'POST',
-        body: JSON.stringify({ name, api_key: apiKey, priority }),
+        body: JSON.stringify(payload),
     });
 };
 
-export const updateToken = async (id: string, data: { name?: string; is_active?: boolean; priority?: number }): Promise<TokenInfo> => {
+export const updateToken = async (id: string, data: { name?: string; is_active?: boolean; priority?: number; base_url?: string | null }): Promise<TokenInfo> => {
     return request(`/tokens/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -81,8 +86,13 @@ export const deleteToken = async (id: string): Promise<void> => {
     return request(`/tokens/${id}`, { method: 'DELETE' });
 };
 
-export const checkTokenQuota = async (id: string): Promise<TokenInfo> => {
-    return request(`/tokens/${id}/check-quota`, { method: 'POST' });
+export const checkTokenQuota = async (id: string, baseUrl?: string): Promise<TokenInfo> => {
+    const params = new URLSearchParams();
+    if (baseUrl) {
+        params.set('base_url', baseUrl);
+    }
+    const query = params.toString();
+    return request(`/tokens/${id}/check-quota${query ? `?${query}` : ''}`, { method: 'POST' });
 };
 
 // ========== 模型计费 ==========
