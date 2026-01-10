@@ -108,8 +108,11 @@ uvicorn app.main:app --reload --port 8000
 ### VPS 部署
 
 ```bash
+# 进入项目目录
+cd ~/nano-banana-qqx
+
 # 拉取最新代码
-cd ~/nano-banana-qqx && git pull
+git pull
 
 # 重新构建并启动
 docker-compose down
@@ -118,6 +121,16 @@ docker-compose up -d --build
 # 查看日志
 docker-compose logs -f
 ```
+
+> [!WARNING]
+> **遇到数据库密码错误？**
+> 
+> 如果看到 `password authentication failed for user "postgres"`，执行：
+> ```bash
+> cd ~/nano-banana-qqx
+> docker-compose down -v  # ⚠️ 删除所有数据
+> docker-compose up -d
+> ```
 
 ### 环境变量
 
