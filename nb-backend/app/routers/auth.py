@@ -2,6 +2,7 @@
 认证路由：注册、登录、验证码、密码管理
 """
 from datetime import datetime, timedelta
+import time
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -20,6 +21,7 @@ from app.utils.security import (
     get_current_user,
 )
 from app.config import get_settings
+from app.utils.captcha import verify_captcha_ticket, hash_captcha_ticket
 from app.utils.rate_limiter import RateLimiter
 from app.services.email_service import generate_code, send_verification_code
 
@@ -43,6 +45,7 @@ async def get_redis():
 IP_REGISTER_LIMIT = 5  # 每 IP 24小时最多注册次数
 LOGIN_FAIL_LIMIT = 10  # 登录失败锁定次数
 LIMIT_EXPIRE_SECONDS = 86400  # 24小时
+CAPTCHA_TICKET_USED_PREFIX = "captcha:ticket:used:"
 
 
 class SendCodeRequest(BaseModel):
@@ -57,6 +60,7 @@ class UserRegisterWithCode(BaseModel):
     password: str
     nickname: str | None = None
     code: str
+    captcha_ticket: str
 
 
 class ResetPasswordRequest(BaseModel):
@@ -64,6 +68,32 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     code: str
     new_password: str
+    captcha_ticket: str
+
+
+async def consume_captcha_ticket(
+    ticket: str,
+    purpose: str,
+    redis_client: redis.Redis
+) -> None:
+    payload = verify_captcha_ticket(ticket, settings.captcha_secret_key)
+    if payload.get("typ") != "captcha_ticket" or payload.get("use") != purpose:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="验证码票据无效",
+        )
+
+    ticket_hash = hash_captcha_ticket(ticket)
+    used_key = f"{CAPTCHA_TICKET_USED_PREFIX}{ticket_hash}"
+    if await redis_client.get(used_key):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="验证码票据已使用",
+        )
+
+    exp = int(payload.get("exp", 0))
+    ttl = max(1, exp - int(time.time()))
+    await redis_client.set(used_key, "1", ex=ttl)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -167,6 +197,8 @@ async def register(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
         )
+
+    await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
     
     # 检查邮箱是否已存在
     result = await db.execute(select(User).where(User.email == data.email))
@@ -234,6 +266,8 @@ async def login(
     """用户登录"""
     client_ip = request.client.host
     email_key = f"login_fail:{data.email}"
+
+    await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
     
     # 检查登录失败次数
     fail_count = await redis_client.get(email_key)
@@ -301,6 +335,7 @@ async def reset_password(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """通过验证码重置密码"""
+    await consume_captcha_ticket(data.captcha_ticket, "reset", redis_client)
     # 验证验证码
     now = datetime.utcnow()
     result = await db.execute(

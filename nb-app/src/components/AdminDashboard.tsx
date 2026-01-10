@@ -13,7 +13,7 @@ import {
     getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
     generateRedeemCodes, getRedeemCodes, RedeemCodeInfo,
     getUsers, adjustUserCredits, updateUserNote, AdminUser,
-    getDashboardStats, DashboardStats,
+    getDashboardStats, DashboardStats, checkTokenQuota,
 } from '../services/adminService';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketMessage } from '../services/ticketService';
 
@@ -38,6 +38,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const [newTokenName, setNewTokenName] = useState('');
     const [newTokenKey, setNewTokenKey] = useState('');
     const [newTokenPriority, setNewTokenPriority] = useState(0);
+    const [checkingQuotaTokenId, setCheckingQuotaTokenId] = useState<string | null>(null);
 
     // Model Pricing
     const [pricing, setPricing] = useState<ModelPricingInfo[]>([]);
@@ -151,6 +152,24 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         } catch (err) {
             setError((err as Error).message);
         }
+    };
+
+    const handleCheckQuota = async (id: string) => {
+        setCheckingQuotaTokenId(id);
+        try {
+            const updated = await checkTokenQuota(id);
+            setTokens(prev => prev.map(t => t.id === id ? { ...t, remaining_quota: updated.remaining_quota } : t));
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setCheckingQuotaTokenId(null);
+        }
+    };
+
+    const formatQuota = (quota: number) => {
+        if (Number.isNaN(quota)) return '未查询';
+        if (!Number.isFinite(quota)) return '无限';
+        return `$${quota.toFixed(2)}`;
     };
 
     const handleAddPricing = async () => {
@@ -589,6 +608,20 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                             >
                                                                 {token.is_active ? '停止' : '激活'}
                                                             </button>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-xs text-gray-400">额度</div>
+                                                            <div className="font-bold text-amber-600 text-lg flex items-center gap-1 justify-end">
+                                                                {formatQuota(token.remaining_quota)}
+                                                                <button
+                                                                    onClick={() => handleCheckQuota(token.id)}
+                                                                    disabled={checkingQuotaTokenId === token.id}
+                                                                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition disabled:opacity-50"
+                                                                    title="刷新额度"
+                                                                >
+                                                                    <RefreshCw className={`w-3.5 h-3.5 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                         <div className="text-right">
                                                             <div className="text-xs text-gray-400">已处理</div>

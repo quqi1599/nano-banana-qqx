@@ -33,6 +33,38 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface SliderChallenge {
+  challenge_id: string;
+  bg: string;
+  piece: string;
+  w: number;
+  h: number;
+  piece_size: number;
+  piece_y: number;
+  expires_in: number;
+}
+
+export interface SliderTracePoint {
+  t: number;
+  x: number;
+  y: number;
+  pt?: string;
+  it?: boolean;
+}
+
+export interface SliderVerifyRequest {
+  challenge_id: string;
+  final_x: number;
+  trace: SliderTracePoint[];
+  dpr?: number;
+  use: 'register' | 'login' | 'reset';
+}
+
+export interface SliderVerifyResponse {
+  ok: boolean;
+  ticket?: string;
+}
+
 export interface CreditBalance {
   balance: number;
 }
@@ -118,6 +150,19 @@ const request = async <T>(
   return response.json();
 };
 
+export const getSliderChallenge = async (): Promise<SliderChallenge> => {
+  return request<SliderChallenge>('/captcha/slider/challenge');
+};
+
+export const verifySliderCaptcha = async (
+  payload: SliderVerifyRequest
+): Promise<SliderVerifyResponse> => {
+  return request<SliderVerifyResponse>('/captcha/slider/verify', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+};
+
 /**
  * 发送验证码
  */
@@ -137,12 +182,13 @@ export const sendCode = async (
 export const register = async (
   email: string,
   password: string,
-  nickname?: string,
-  code?: string
+  nickname: string | undefined,
+  code: string,
+  captchaTicket: string
 ): Promise<AuthResponse> => {
   const data = await request<AuthResponse>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, nickname, code }),
+    body: JSON.stringify({ email, password, nickname, code, captcha_ticket: captchaTicket }),
   });
 
   saveToken(data.access_token);
@@ -156,11 +202,12 @@ export const register = async (
  */
 export const login = async (
   email: string,
-  password: string
+  password: string,
+  captchaTicket: string
 ): Promise<AuthResponse> => {
   const data = await request<AuthResponse>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, captcha_ticket: captchaTicket }),
   });
 
   saveToken(data.access_token);
@@ -207,11 +254,12 @@ export const redeemCode = async (code: string): Promise<{
 export const resetPassword = async (
   email: string,
   code: string,
-  newPassword: string
+  newPassword: string,
+  captchaTicket: string
 ): Promise<{ message: string }> => {
   return request('/auth/reset-password', {
     method: 'POST',
-    body: JSON.stringify({ email, code, new_password: newPassword }),
+    body: JSON.stringify({ email, code, new_password: newPassword, captcha_ticket: captchaTicket }),
   });
 };
 

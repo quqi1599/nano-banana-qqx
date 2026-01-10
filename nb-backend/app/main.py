@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket
+from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha
 
 
 @asynccontextmanager
@@ -48,6 +48,7 @@ app.include_router(proxy.router, prefix="/api/proxy", tags=["API代理"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])
 app.include_router(stats.router, prefix="/api/stats", tags=["统计"])
 app.include_router(ticket.router, prefix="/api/tickets", tags=["工单"])
+app.include_router(captcha.router, prefix="/api/captcha", tags=["验证码"])
 
 
 @app.get("/api/health")
