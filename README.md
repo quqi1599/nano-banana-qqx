@@ -140,6 +140,82 @@ docker-compose logs -f
 - 新用户注册赠送 50 积分
 - 兑换码由管理员后台生成
 
+## 🔍 故障排查
+
+### 数据库迁移问题
+
+**问题描述：** 在使用 `docker-compose down -v` 重建数据库后，运行 `alembic upgrade head` 时报错：
+
+```
+asyncpg.exceptions.DuplicateColumnError: column "pro3_credits" already exists
+```
+
+**原因分析：**
+- 后端的 `init_db()` 函数会在启动时自动创建表结构（包括所有字段）
+- Alembic 迁移脚本尝试在已存在字段的基础上再次添加同名字段
+- 这是因为初始化代码和迁移脚本都定义了相同的字段
+
+**解决方法：**
+
+```bash
+cd ~/nano-banana-qqx
+
+# 1. 先启动服务让后端自动创建表结构
+sudo docker-compose up -d
+
+# 2. 等待后端完成初始化（15秒）
+sleep 15
+
+# 3. 标记迁移为已完成（不实际执行）
+sudo docker-compose exec backend alembic stamp head
+
+# 4. 重启后端
+sudo docker-compose restart backend
+
+# 5. 验证服务状态
+sudo docker logs nbnb-backend --tail 20
+```
+
+**预期输出：**
+```
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
+✅ Admin user created: admin@example.com
+```
+
+### 常见部署问题
+
+**1. 容器无法启动 (`ContainerConfig` 错误)**
+
+这是 docker-compose 版本兼容性问题：
+
+```bash
+# 手动删除旧容器
+sudo docker rm -f nbnb-backend nbnb-frontend
+
+# 重新启动
+sudo docker-compose up -d
+```
+
+**2. 数据库密码验证失败**
+
+如果看到 `password authentication failed for user "postgres"`：
+
+```bash
+# 完全重建（会删除所有数据）
+sudo docker-compose down -v
+sudo docker-compose up -d
+```
+
+**3. API 返回 404**
+
+检查后端路由是否正确注册，确保 `main.py` 中包含了所有 router：
+
+```bash
+# 查看后端日志
+sudo docker logs nbnb-backend --tail 50
+```
+
 ## 📄 License
 
 AGPL-3.0
