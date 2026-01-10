@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatMessage, Part } from '../types';
-import { User, Sparkles, ChevronDown, ChevronRight, BrainCircuit, Trash2, RotateCcw, Download, Edit, PackageOpen } from 'lucide-react';
+import { User, Sparkles, ChevronDown, ChevronRight, BrainCircuit, Trash2, RotateCcw, Download, Edit, PackageOpen, MessageCircle } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { downloadImage, openImageInNewTab, downloadDatasetZip } from '../utils/imageUtils';
+import { WeChatQRModal } from './WeChatQRModal';
 
 interface Props {
   message: ChatMessage;
@@ -177,6 +178,7 @@ const ThinkingBlock: React.FC<{ parts: Part[], duration?: number, isFinished: bo
 export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, onDelete, onRegenerate }) => {
   const isUser = message.role === 'user';
   const [showActions, setShowActions] = useState(false);
+  const [showWeChatQR, setShowWeChatQR] = useState(false);
   const actionsDisabled = isGenerating;
   const { showDialog, addToast } = useUiStore();
 
@@ -320,10 +322,22 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
           {groupedParts.map((item, i) => renderContent(item, i))}
 
           {message.isError && (
-            <div className="mt-2 text-xs text-red-300 font-medium">
-              生成响应失败。请检查您的 API Key 或网络连接。
+            <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
+              <div className="text-xs text-red-600 dark:text-red-300 font-medium mb-2">
+                生成响应失败。请检查您的 API Key 或网络连接。
+              </div>
+              <button
+                onClick={() => setShowWeChatQR(true)}
+                className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium transition-colors"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                遇到问题？加入交流群获取帮助
+              </button>
             </div>
           )}
+
+          {/* 交流群弹窗 */}
+          <WeChatQRModal isOpen={showWeChatQR} onClose={() => setShowWeChatQR(false)} />
 
           {/* 数据集下载按钮 */}
           {isDatasetMessage && !actionsDisabled && (
