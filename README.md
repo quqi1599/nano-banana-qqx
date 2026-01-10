@@ -109,7 +109,7 @@ uvicorn app.main:app --reload --port 8000
 
 ```bash
 # 拉取最新代码
-cd ~/nbnb-pro && git pull
+cd ~/nano-banana-qqx && git pull
 
 # 重新构建并启动
 docker-compose down
