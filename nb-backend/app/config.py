@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # 管理员
     admin_email: str = "admin@example.com"
     admin_password: str = "admin123"
+    admin_emails: str = ""  # 管理员邮箱列表，多个用逗号分隔（只有这些邮箱可以成为管理员）
     admin_notification_emails: str = ""  # 管理员通知邮箱，多个用逗号分隔
     
     # 阿里云邮件推送 (DirectMail SMTP)

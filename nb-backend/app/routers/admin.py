@@ -34,12 +34,65 @@ from app.schemas.admin import (
     SmtpConfigUpdate,
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
-from app.utils.security import get_admin_user
+from app.utils.security import get_admin_user, get_current_user
 from app.utils.balance_utils import check_api_key_quota
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 router = APIRouter()
+
+
+# ============ 初始化管理员 ============
+
+@router.post("/init-admin")
+async def init_first_admin(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    将当前用户设置为管理员
+    要求：
+    1. 用户邮箱必须在配置的管理员邮箱列表中 (admin_emails)
+    2. 数据库中尚未有管理员（首次初始化）
+    """
+    # 获取配置的管理员邮箱列表
+    allowed_emails = [e.strip().lower() for e in settings.admin_emails.split(',') if e.strip()]
+
+    if not allowed_emails:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="系统未配置管理员邮箱列表，请联系系统管理员",
+        )
+
+    # 检查当前用户邮箱是否在白名单中
+    if current_user.email.lower() not in allowed_emails:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"您的邮箱无权成为管理员。如有疑问，请联系系统管理员。",
+        )
+
+    # 检查是否已有管理员
+    admin_result = await db.execute(select(User).where(User.is_admin == True))
+    existing_admin = admin_result.scalar_one_or_none()
+
+    if existing_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"管理员已存在 ({existing_admin.email})，无法初始化",
+        )
+
+    # 将当前用户设为管理员
+    current_user.is_admin = True
+    await db.commit()
+
+    logger.info(f"用户 {current_user.email} 已初始化为管理员")
+    return {
+        "message": "已设置为管理员",
+        "email": current_user.email,
+        "is_admin": True
+    }
 
 
 # ============ Token 池管理 ============
