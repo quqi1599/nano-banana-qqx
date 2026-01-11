@@ -2,15 +2,7 @@
  * 认证服务 - 处理用户注册、登录、Token 管理
  */
 
-// 后端 API 地址
-const getBackendUrl = (): string => {
-  // 开发环境使用本地后端，生产环境使用同域名
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  if (isDev && window.location.port === '3000') {
-    return 'http://localhost:8000';
-  }
-  return window.location.origin;
-};
+import { getBackendUrl } from '../utils/backendUrl';
 
 const API_BASE = `${getBackendUrl()}/api`;
 

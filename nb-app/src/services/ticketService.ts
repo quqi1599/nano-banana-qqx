@@ -3,15 +3,7 @@
  */
 
 import { getToken } from './authService';
-
-// 后端 API 地址
-const getBackendUrl = (): string => {
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isDev && window.location.port === '3000') {
-        return 'http://localhost:8000';
-    }
-    return window.location.origin;
-};
+import { getBackendUrl } from '../utils/backendUrl';
 
 const API_BASE = `${getBackendUrl()}/api/tickets`;
 

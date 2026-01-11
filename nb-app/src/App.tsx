@@ -15,11 +15,12 @@ import { TicketModal } from './components/TicketModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
+import { getToken } from './services/authService';
 import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, Crown, X } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
-import { getApiBaseUrl } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
+import { getBackendUrl } from './utils/backendUrl';
 
 // Lazy load components
 const ApiKeyModal = lazyWithRetry(() => import('./components/ApiKeyModal').then(module => ({ default: module.ApiKeyModal })));
@@ -180,13 +181,13 @@ const App: React.FC = () => {
   const handleInitAdmin = async () => {
     setIsInitializingAdmin(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = getToken();
       if (!token) {
         addToast('请先登录', 'error');
         return;
       }
 
-      const response = await fetch(`${getApiBaseUrl(settings.customEndpoint)}/admin/init-admin`, {
+      const response = await fetch(`${getBackendUrl()}/api/admin/init-admin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

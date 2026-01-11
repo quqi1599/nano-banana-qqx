@@ -5,15 +5,8 @@
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
 import { getToken } from './authService';
-
-// 后端 API 地址
-const getBackendUrl = (): string => {
-    const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isDev && window.location.port === '3000') {
-        return 'http://localhost:8000';
-    }
-    return window.location.origin;
-};
+import { getBackendUrl } from '../utils/backendUrl';
+import { compressHistoryImages } from '../utils/historyUtils';
 
 const API_BASE = `${getBackendUrl()}/api`;
 
@@ -141,12 +134,15 @@ export const generateContentViaProxy = async (
         return item;
     }).filter(item => item.parts.length > 0);
 
+    // 压缩历史图片到 2MB 以内
+    const compressedHistory = await compressHistoryImages(cleanHistory);
+
     const currentUserContent = constructUserContent(prompt, images);
 
     // 构建请求体
     const requestBody = {
         model: settings.modelName || "gemini-3-pro-image-preview",
-        contents: [...cleanHistory, currentUserContent],
+        contents: [...compressedHistory, currentUserContent],
         config: {
             imageConfig: {
                 ...(settings.modelName?.includes('gemini-3') ? { imageSize: settings.resolution } : {}),
@@ -234,11 +230,14 @@ export const streamContentViaProxy = async function* (
         return item;
     }).filter(item => item.parts.length > 0);
 
+    // 压缩历史图片到 2MB 以内
+    const compressedHistory = await compressHistoryImages(cleanHistory);
+
     const currentUserContent = constructUserContent(prompt, images);
 
     const requestBody = {
         model: settings.modelName || "gemini-3-pro-image-preview",
-        contents: [...cleanHistory, currentUserContent],
+        contents: [...compressedHistory, currentUserContent],
         config: {
             imageConfig: {
                 ...(settings.modelName?.includes('gemini-3') ? { imageSize: settings.resolution } : {}),

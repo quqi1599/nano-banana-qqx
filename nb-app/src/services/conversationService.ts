@@ -2,11 +2,14 @@
  * 对话历史服务
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+import { getBackendUrl } from '../utils/backendUrl';
+import { getToken } from './authService';
+
+const API_BASE = getBackendUrl();
 
 // 获取认证头
 function getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('auth_token');
+    const token = getToken();
     return {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),

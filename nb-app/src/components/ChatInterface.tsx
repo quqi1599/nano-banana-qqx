@@ -12,6 +12,8 @@ import { convertMessagesToHistory } from '../utils/messageUtils';
 import { ChatMessage, Attachment, Part } from '../types';
 import { Sparkles } from 'lucide-react';
 import { lazyWithRetry } from '../utils/lazyLoadUtils';
+import { NewConversationModal } from './NewConversationModal';
+import { checkConversationLimit } from '../utils/historyUtils';
 
 // Lazy load components
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
@@ -33,6 +35,7 @@ export const ChatInterface: React.FC = () => {
     incrementUsageCount,
     usageCount,
     syncCurrentMessage,
+    clearHistory,
   } = useAppStore();
 
   const { isAuthenticated, refreshCredits } = useAuthStore();
@@ -44,6 +47,8 @@ export const ChatInterface: React.FC = () => {
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModalData, setLimitModalData] = useState({ messageCount: 0, imageSizeMB: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pipelineAbortControllerRef = useRef<AbortController | null>(null);
@@ -94,6 +99,19 @@ export const ChatInterface: React.FC = () => {
 
     if (isPipelineRunning) {
       addToast('编排进行中，请先停止或等待完成', 'info');
+      return;
+    }
+
+    // 检查对话限制：消息数 >= 10 且 图片总大小 >= 100MB
+    const currentMessages = useAppStore.getState().messages;
+    const history = convertMessagesToHistory(currentMessages);
+    const limitCheck = checkConversationLimit(history);
+    if (limitCheck.needNewConversation) {
+      setLimitModalData({
+        messageCount: limitCheck.messageCount,
+        imageSizeMB: limitCheck.imageSizeMB,
+      });
+      setShowLimitModal(true);
       return;
     }
 
@@ -1030,6 +1048,19 @@ export const ChatInterface: React.FC = () => {
         onClose={() => setIsPipelineModalOpen(false)}
         onExecute={handleExecutePipeline}
       />
+
+      {/* 对话限制弹窗 */}
+      {showLimitModal && (
+        <NewConversationModal
+          messageCount={limitModalData.messageCount}
+          imageSizeMB={limitModalData.imageSizeMB}
+          onNewConversation={() => {
+            clearHistory();
+            setShowLimitModal(false);
+            addToast('已开启新对话，您可以继续创作了', 'success');
+          }}
+        />
+      )}
     </div>
   );
 };
