@@ -32,6 +32,11 @@ from app.schemas.admin import (
     EmailConfigUpdate,
     SmtpConfigResponse,
     SmtpConfigUpdate,
+    UserStatsResponse,
+    UserStatusUpdate,
+    BatchStatusUpdate,
+    BatchCreditsUpdate,
+    CreditHistoryResponse,
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
 from app.utils.security import get_admin_user, get_current_user
@@ -197,6 +202,7 @@ async def add_token(
     await db.commit()
     await db.refresh(token)
     await delete_cache(TOKEN_POOL_CACHE_KEY)
+    logger.info("Admin %s added token %s", admin.email, token.id)
     
     return token_response(token)
 
@@ -287,6 +293,7 @@ async def update_token(
     await db.commit()
     await db.refresh(token)
     await delete_cache(TOKEN_POOL_CACHE_KEY)
+    logger.info("Admin %s updated token %s", admin.email, token.id)
     
     return token_response(token)
 
@@ -310,6 +317,7 @@ async def delete_token(
     await db.delete(token)
     await db.commit()
     await delete_cache(TOKEN_POOL_CACHE_KEY)
+    logger.info("Admin %s deleted token %s", admin.email, token.id)
     
     return {"message": "删除成功"}
 
@@ -461,35 +469,125 @@ async def list_redeem_codes(
 @router.get("/users", response_model=UserListResponse)
 async def list_users(
     search: Optional[str] = None,
+    is_admin: Optional[bool] = None,
+    is_active: Optional[bool] = None,
+    min_balance: Optional[int] = None,
+    max_balance: Optional[int] = None,
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
+    login_after: Optional[str] = None,
+    login_before: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取用户列表"""
+    """获取用户列表（支持高级筛选）"""
     # 构建查询
     query = select(User)
-    
+
+    # 搜索筛选
     if search:
         query = query.where(
             (User.email.ilike(f"%{search}%")) |
             (User.nickname.ilike(f"%{search}%"))
         )
-    
-    # 获取总数
+
+    # 角色筛选
+    if is_admin is not None:
+        query = query.where(User.is_admin == is_admin)
+
+    # 状态筛选
+    if is_active is not None:
+        query = query.where(User.is_active == is_active)
+
+    # 余额区间筛选
+    if min_balance is not None:
+        query = query.where(User.credit_balance >= min_balance)
+    if max_balance is not None:
+        query = query.where(User.credit_balance <= max_balance)
+
+    # 注册时间筛选
+    if created_after:
+        try:
+            after_date = datetime.strptime(created_after, "%Y-%m-%d")
+            query = query.where(User.created_at >= after_date)
+        except ValueError:
+            pass
+    if created_before:
+        try:
+            before_date = datetime.strptime(created_before, "%Y-%m-%d")
+            # 包含当天，所以加一天
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            query = query.where(User.created_at <= before_date)
+        except ValueError:
+            pass
+
+    # 登录时间筛选
+    if login_after:
+        try:
+            after_date = datetime.strptime(login_after, "%Y-%m-%d")
+            query = query.where(User.last_login_at >= after_date)
+        except ValueError:
+            pass
+    if login_before:
+        try:
+            before_date = datetime.strptime(login_before, "%Y-%m-%d")
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            query = query.where(User.last_login_at <= before_date)
+        except ValueError:
+            pass
+
+    # 获取总数（应用相同的筛选条件）
     count_query = select(func.count(User.id))
+
     if search:
         count_query = count_query.where(
             (User.email.ilike(f"%{search}%")) |
             (User.nickname.ilike(f"%{search}%"))
         )
+    if is_admin is not None:
+        count_query = count_query.where(User.is_admin == is_admin)
+    if is_active is not None:
+        count_query = count_query.where(User.is_active == is_active)
+    if min_balance is not None:
+        count_query = count_query.where(User.credit_balance >= min_balance)
+    if max_balance is not None:
+        count_query = count_query.where(User.credit_balance <= max_balance)
+    if created_after:
+        try:
+            after_date = datetime.strptime(created_after, "%Y-%m-%d")
+            count_query = count_query.where(User.created_at >= after_date)
+        except ValueError:
+            pass
+    if created_before:
+        try:
+            before_date = datetime.strptime(created_before, "%Y-%m-%d")
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            count_query = count_query.where(User.created_at <= before_date)
+        except ValueError:
+            pass
+    if login_after:
+        try:
+            after_date = datetime.strptime(login_after, "%Y-%m-%d")
+            count_query = count_query.where(User.last_login_at >= after_date)
+        except ValueError:
+            pass
+    if login_before:
+        try:
+            before_date = datetime.strptime(login_before, "%Y-%m-%d")
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            count_query = count_query.where(User.last_login_at <= before_date)
+        except ValueError:
+            pass
+
     count_result = await db.execute(count_query)
     total = count_result.scalar() or 0
-    
-    # 分页
+
+    # 分页和排序
     query = query.order_by(User.created_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
-    
+
     result = await db.execute(query)
     users = result.scalars().all()
 
@@ -503,15 +601,14 @@ async def list_users(
         )
         usage_map = {row[0]: row[1] for row in usage_result.all()}
 
-    # 获取每个用户的使用次数
+    # 构建响应
     user_responses = []
     for user in users:
         total_usage = usage_map.get(user.id, 0)
-
         user_dict = AdminUserResponse.model_validate(user).model_dump()
         user_dict["total_usage"] = total_usage
         user_responses.append(AdminUserResponse(**user_dict))
-    
+
     return UserListResponse(
         users=user_responses,
         total=total,
@@ -566,17 +663,345 @@ async def update_user_note(
     """更新用户备注"""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
         )
-    
+
     user.note = data.note
     await db.commit()
-    
+
     return {"message": "备注更新成功"}
+
+
+@router.get("/users/stats", response_model=UserStatsResponse)
+async def get_users_stats(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户统计概览"""
+    # 总用户数
+    total_result = await db.execute(select(func.count(User.id)))
+    total_users = total_result.scalar() or 0
+
+    # 今日新增用户
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_result = await db.execute(
+        select(func.count(User.id)).where(User.created_at >= today)
+    )
+    new_today = today_result.scalar() or 0
+
+    # 禁用用户数
+    disabled_result = await db.execute(
+        select(func.count(User.id)).where(User.is_active == False)
+    )
+    disabled_count = disabled_result.scalar() or 0
+
+    # 有余额用户数（付费用户）
+    paid_result = await db.execute(
+        select(func.count(User.id)).where(User.credit_balance > 0)
+    )
+    paid_users = paid_result.scalar() or 0
+
+    return UserStatsResponse(
+        total_users=total_users,
+        new_today=new_today,
+        disabled_count=disabled_count,
+        paid_users=paid_users,
+    )
+
+
+@router.get("/users/{user_id}/credit-history", response_model=CreditHistoryResponse)
+async def get_user_credit_history(
+    user_id: str,
+    limit: int = Query(3, ge=1, le=50),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户积分调整历史"""
+    from app.models.credit import CreditTransaction
+
+    # 验证用户存在
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    # 获取总数
+    count_result = await db.execute(
+        select(func.count(CreditTransaction.id)).where(CreditTransaction.user_id == user_id)
+    )
+    total = count_result.scalar() or 0
+
+    # 获取历史记录
+    result = await db.execute(
+        select(CreditTransaction)
+        .where(CreditTransaction.user_id == user_id)
+        .order_by(CreditTransaction.created_at.desc())
+        .limit(limit)
+    )
+    items = result.scalars().all()
+
+    return CreditHistoryResponse(items=items, total=total)
+
+
+@router.put("/users/{user_id}/active")
+async def set_user_active_status(
+    user_id: str,
+    data: UserStatusUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """设置用户激活状态"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    # 防止管理员禁用自己
+    if user.id == admin.id and not data.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不能禁用自己的账号",
+        )
+
+    # 防止禁用其他管理员（除非有更高权限）
+    if user.is_admin and user.id != admin.id:
+        logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="不能禁用其他管理员账号",
+        )
+
+    user.is_active = data.is_active
+    await db.commit()
+
+    logger.info(
+        f"Admin {admin.email} set user {user.email} is_active={data.is_active}, reason: {data.reason}"
+    )
+
+    return {
+        "message": "状态已更新",
+        "user_id": user.id,
+        "is_active": user.is_active,
+    }
+
+
+@router.post("/users/batch/status")
+async def batch_set_user_status(
+    data: BatchStatusUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """批量设置用户状态"""
+    if not data.user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户ID列表不能为空",
+        )
+
+    # 获取目标用户
+    result = await db.execute(
+        select(User).where(User.id.in_(data.user_ids))
+    )
+    users = result.scalars().all()
+
+    if not users:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="未找到任何有效用户",
+        )
+
+    updated_count = 0
+    for user in users:
+        # 防止管理员禁用自己
+        if user.id == admin.id and not data.is_active:
+            continue
+
+        # 防止禁用其他管理员
+        if user.is_admin and user.id != admin.id:
+            logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
+            continue
+
+        user.is_active = data.is_active
+        updated_count += 1
+
+    await db.commit()
+
+    logger.info(
+        f"Admin {admin.email} batch updated {updated_count} users to is_active={data.is_active}, reason: {data.reason}"
+    )
+
+    return {
+        "message": f"已更新 {updated_count} 个用户的状态",
+        "updated_count": updated_count,
+    }
+
+
+@router.post("/users/batch/credits")
+async def batch_adjust_credits(
+    data: BatchCreditsUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """批量调整用户积分"""
+    from app.models.credit import CreditTransaction, TransactionType
+
+    if not data.user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户ID列表不能为空",
+        )
+
+    if data.amount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="调整金额不能为0",
+        )
+
+    # 获取目标用户
+    result = await db.execute(
+        select(User).where(User.id.in_(data.user_ids))
+    )
+    users = result.scalars().all()
+
+    if not users:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="未找到任何有效用户",
+        )
+
+    updated_count = 0
+    for user in users:
+        old_balance = user.credit_balance
+        user.credit_balance += data.amount
+
+        # 防止余额为负
+        if user.credit_balance < 0:
+            user.credit_balance = 0
+
+        # 记录交易
+        transaction = CreditTransaction(
+            user_id=user.id,
+            amount=data.amount,
+            type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
+            description=data.reason,
+            balance_after=user.credit_balance,
+        )
+        db.add(transaction)
+        updated_count += 1
+
+    await db.commit()
+
+    logger.info(
+        f"Admin {admin.email} batch adjusted credits for {updated_count} users, amount={data.amount}, reason: {data.reason}"
+    )
+
+    return {
+        "message": f"已调整 {updated_count} 个用户的积分",
+        "updated_count": updated_count,
+    }
+
+
+@router.get("/users/export")
+async def export_users(
+    search: Optional[str] = None,
+    is_admin: Optional[bool] = None,
+    is_active: Optional[bool] = None,
+    min_balance: Optional[int] = None,
+    max_balance: Optional[int] = None,
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """导出用户数据为 CSV"""
+    from fastapi.responses import StreamingResponse
+    import io
+    import csv
+
+    # 构建查询（复用筛选逻辑）
+    query = select(User)
+
+    if search:
+        query = query.where(
+            (User.email.ilike(f"%{search}%")) |
+            (User.nickname.ilike(f"%{search}%"))
+        )
+    if is_admin is not None:
+        query = query.where(User.is_admin == is_admin)
+    if is_active is not None:
+        query = query.where(User.is_active == is_active)
+    if min_balance is not None:
+        query = query.where(User.credit_balance >= min_balance)
+    if max_balance is not None:
+        query = query.where(User.credit_balance <= max_balance)
+    if created_after:
+        try:
+            after_date = datetime.strptime(created_after, "%Y-%m-%d")
+            query = query.where(User.created_at >= after_date)
+        except ValueError:
+            pass
+    if created_before:
+        try:
+            before_date = datetime.strptime(created_before, "%Y-%m-%d")
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            query = query.where(User.created_at <= before_date)
+        except ValueError:
+            pass
+
+    query = query.order_by(User.created_at.desc())
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    # 创建 CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # 写入 BOM 以支持 Excel 中文
+    output.write('\ufeff')
+
+    # 写入表头
+    writer.writerow([
+        '用户ID', '邮箱', '昵称', '管理员', '状态', '余额',
+        '注册时间', '最后登录', '登录IP', '备注'
+    ])
+
+    # 写入数据
+    for user in users:
+        writer.writerow([
+            user.id,
+            user.email,
+            user.nickname or '',
+            '是' if user.is_admin else '否',
+            '启用' if user.is_active else '禁用',
+            user.credit_balance,
+            user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else '',
+            user.last_login_at.strftime('%Y-%m-%d %H:%M:%S') if user.last_login_at else '',
+            user.last_login_ip or '',
+            user.note or '',
+        ])
+
+    # 记录导出操作
+    logger.info(f"Admin {admin.email} exported {len(users)} users")
+
+    # 返回 CSV 文件
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename=users_export_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+        }
+    )
 
 
 # ============ 邮箱白名单管理 ============

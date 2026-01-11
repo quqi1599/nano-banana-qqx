@@ -1,11 +1,12 @@
 /**
  * 管理员专属全屏后台页面
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2,
     ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Image, Coins,
-    TrendingUp, Activity, Home, LogOut, Menu, ChevronRight, Clock, Search
+    TrendingUp, Activity, Home, LogOut, Menu, ChevronRight, Clock, Search,
+    ArrowUpDown, ChevronDown, ChevronUp, Eye, EyeOff, Power
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
@@ -33,6 +34,7 @@ interface AdminDashboardProps {
 }
 
 type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations';
+type SortKey = 'priority' | 'remaining_quota' | 'last_used_at';
 
 export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const { user, logout } = useAuthStore();
@@ -58,6 +60,17 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     const [newTokenPriority, setNewTokenPriority] = useState(0);
     const [tokenBaseUrlDrafts, setTokenBaseUrlDrafts] = useState<Record<string, string>>({});
     const [checkingQuotaTokenId, setCheckingQuotaTokenId] = useState<string | null>(null);
+    const [addingToken, setAddingToken] = useState(false);
+    const [savingTokenUrl, setSavingTokenUrl] = useState<Record<string, boolean>>({});
+    const [isTokenDrawerOpen, setIsTokenDrawerOpen] = useState(false);
+    const [tokenSecrets, setTokenSecrets] = useState<Record<string, string>>({});
+    const [revealedTokenIds, setRevealedTokenIds] = useState<Record<string, boolean>>({});
+    const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
+    const [expandedTokens, setExpandedTokens] = useState<Record<string, boolean>>({});
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({
+        key: 'priority',
+        direction: 'desc',
+    });
 
     // Model Pricing
     const [pricing, setPricing] = useState<ModelPricingInfo[]>([]);
@@ -209,20 +222,25 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
     const handleAddToken = async () => {
         if (!newTokenName || !newTokenKey) return;
+        setAddingToken(true);
         try {
-            await addToken(
+            const created = await addToken(
                 newTokenName,
                 newTokenKey,
                 newTokenPriority,
                 newTokenBaseUrl.trim() || apiBaseUrl
             );
+            setTokenSecrets((prev) => ({ ...prev, [created.id]: newTokenKey }));
             setNewTokenName('');
             setNewTokenKey('');
             setNewTokenBaseUrl('');
             setNewTokenPriority(0);
+            setIsTokenDrawerOpen(false);
             loadData();
         } catch (err) {
             setError((err as Error).message);
+        } finally {
+            setAddingToken(false);
         }
     };
 
@@ -262,18 +280,148 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         const baseUrl = tokenBaseUrlDrafts[id]?.trim() || null;
         const current = tokens.find(t => t.id === id)?.base_url || null;
         if ((current || null) === baseUrl) return;
+        setSavingTokenUrl((prev) => ({ ...prev, [id]: true }));
         try {
             const updated = await updateToken(id, { base_url: baseUrl });
             setTokens(prev => prev.map(t => t.id === id ? { ...t, base_url: updated.base_url } : t));
         } catch (err) {
             setError((err as Error).message);
+        } finally {
+            setSavingTokenUrl((prev) => ({ ...prev, [id]: false }));
         }
     };
 
-    const formatQuota = (quota: number) => {
-        if (quota === null || quota === undefined || Number.isNaN(quota)) return '--';
-        const isUnlimited = !Number.isFinite(quota) || quota === Infinity;
-        return formatBalance(Number(quota), isUnlimited);
+    const lowBalanceThreshold = 10;
+
+    const parseQuota = (quota?: number | null) => {
+        const value = Number(quota);
+        return Number.isNaN(value) ? null : value;
+    };
+
+    const formatQuota = (quota?: number | null) => {
+        if (quota === null || quota === undefined || Number.isNaN(Number(quota))) return '--';
+        const value = Number(quota);
+        const isUnlimited = !Number.isFinite(value) || value === Infinity;
+        return formatBalance(value, isUnlimited);
+    };
+
+    const getQuotaProgress = (quota?: number | null) => {
+        const value = parseQuota(quota);
+        if (value === null) return 0;
+        if (!Number.isFinite(value)) return 100;
+        const progress = Math.min(100, (value / lowBalanceThreshold) * 100);
+        return value <= 0 ? 0 : Math.max(6, progress);
+    };
+
+    const isCooling = (token: TokenInfo) => {
+        if (!token.cooldown_until || !token.is_active) return false;
+        const cooldownTime = new Date(token.cooldown_until).getTime();
+        return Number.isFinite(cooldownTime) && cooldownTime > Date.now();
+    };
+
+    const isLowBalance = (token: TokenInfo) => {
+        const value = parseQuota(token.remaining_quota);
+        if (value === null || !Number.isFinite(value)) return false;
+        return value <= lowBalanceThreshold;
+    };
+
+    const formatDateTime = (value?: string | null) => {
+        if (!value) return '--';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '--';
+        return date.toLocaleString();
+    };
+
+    const getTokenStatus = (token: TokenInfo) => {
+        if (!token.is_active) {
+            return {
+                label: '停用',
+                dot: 'bg-gray-400',
+                text: 'text-gray-500 dark:text-gray-400',
+                detail: '已停用',
+            };
+        }
+        if (isCooling(token)) {
+            return {
+                label: '冷却中',
+                dot: 'bg-amber-500',
+                text: 'text-amber-600 dark:text-amber-400',
+                detail: `冷却至 ${formatDateTime(token.cooldown_until)}`,
+            };
+        }
+        const failureNote = token.failure_count ? `失败 ${token.failure_count}` : '正常';
+        return {
+            label: '可用',
+            dot: 'bg-green-500',
+            text: 'text-green-600 dark:text-green-400',
+            detail: failureNote,
+        };
+    };
+
+    const tokenSummary = useMemo(() => {
+        const coolingCount = tokens.filter(isCooling).length;
+        const availableCount = tokens.filter((token) => token.is_active && !isCooling(token)).length;
+        const lowBalanceCount = tokens.filter((token) => token.is_active && isLowBalance(token)).length;
+        return {
+            total: tokens.length,
+            available: availableCount,
+            cooling: coolingCount,
+            lowBalance: lowBalanceCount,
+        };
+    }, [tokens]);
+
+    const sortedTokens = useMemo(() => {
+        const sorted = [...tokens];
+        const direction = sortConfig.direction === 'asc' ? 1 : -1;
+        sorted.sort((a, b) => {
+            const getSortValue = (token: TokenInfo) => {
+                if (sortConfig.key === 'priority') return token.priority ?? 0;
+                if (sortConfig.key === 'remaining_quota') return parseQuota(token.remaining_quota) ?? -Infinity;
+                if (sortConfig.key === 'last_used_at') {
+                    return token.last_used_at ? new Date(token.last_used_at).getTime() : 0;
+                }
+                return 0;
+            };
+            const aValue = getSortValue(a);
+            const bValue = getSortValue(b);
+            if (aValue === bValue) return 0;
+            return aValue > bValue ? direction : -direction;
+        });
+        return sorted;
+    }, [tokens, sortConfig]);
+
+    const handleSort = (key: SortKey) => {
+        setSortConfig((prev) => {
+            if (prev.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: 'desc' };
+        });
+    };
+
+    const handleCopyTokenKey = async (tokenId: string, value: string) => {
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopiedTokenId(tokenId);
+            setTimeout(() => setCopiedTokenId((current) => (current === tokenId ? null : current)), 2000);
+        } catch (err) {
+            setError('复制失败，请手动复制');
+        }
+    };
+
+    const handleRevealTokenKey = (tokenId: string) => {
+        const secret = tokenSecrets[tokenId];
+        if (!secret) {
+            setError('完整 Key 仅创建时可见');
+            return;
+        }
+        if (!confirm('将在短时间内显示完整 Key，确认继续？')) return;
+        setRevealedTokenIds((prev) => ({ ...prev, [tokenId]: true }));
+        setTimeout(
+            () => setRevealedTokenIds((prev) => ({ ...prev, [tokenId]: false })),
+            10000
+        );
     };
 
     const handleAddPricing = async () => {
@@ -730,145 +878,398 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                             {/* Tokens */}
                             {activeTab === 'tokens' && (
                                 <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-3 lg:mb-4 flex items-center gap-2 text-sm lg:text-base">
-                                            <Plus className="w-4 h-4 lg:w-5 lg:h-5" />
-                                            添加新 API Token
-                                        </h4>
-                                        <div className="flex flex-col gap-2 lg:gap-3">
-                                            <input
-                                                type="text"
-                                                value={newTokenName}
-                                                onChange={(e) => setNewTokenName(e.currentTarget.value)}
-                                                placeholder="名称 (如 Gemini-Pro-1)"
-                                                className="w-full px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm lg:text-base"
-                                            />
-                                            <input
-                                                type="text"
-                                                inputMode="text"
-                                                autoCapitalize="off"
-                                                autoCorrect="off"
-                                                spellCheck="false"
-                                                value={newTokenKey}
-                                                onChange={(e) => setNewTokenKey(e.currentTarget.value)}
-                                                placeholder="API Key"
-                                                className="w-full px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 font-mono text-xs lg:text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
-                                            />
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="url"
-                                                    inputMode="url"
-                                                    value={newTokenBaseUrl}
-                                                    onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
-                                                    placeholder="查询接口 (可选)"
-                                                    className="flex-1 min-w-0 px-3 lg:px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs lg:text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
-                                                />
-                                                <input
-                                                    type="number"
-                                                    inputMode="numeric"
-                                                    value={newTokenPriority}
-                                                    onChange={(e) => setNewTokenPriority(Number(e.currentTarget.value))}
-                                                    placeholder="优先级"
-                                                    className="w-20 lg:w-24 px-3 lg:px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition text-sm lg:text-base"
-                                                />
-                                            </div>
-                                            <button
-                                                onClick={handleAddToken}
-                                                disabled={!newTokenName || !newTokenKey}
-                                                className="w-full sm:w-auto sm:min-w-[120px] px-6 lg:px-8 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30 text-sm lg:text-base"
-                                            >
-                                                添加 Token
-                                            </button>
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <h3 className="text-base lg:text-lg font-bold text-gray-900 dark:text-white">Token 池</h3>
+                                            <p className="text-xs lg:text-sm text-gray-500 dark:text-gray-400">
+                                                统一查看状态、额度与使用情况
+                                            </p>
                                         </div>
+                                        <button
+                                            onClick={() => setIsTokenDrawerOpen(true)}
+                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            新增 Token
+                                        </button>
                                     </div>
 
-                                    <div className="space-y-2 lg:space-y-3">
-                                        <h4 className="font-bold text-gray-400 uppercase text-xs lg:text-sm tracking-wider">Token 列表 ({tokens.length})</h4>
-                                        {tokens.map(token => (
-                                            <div key={token.id} className="bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-5 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
-                                                <div className="flex flex-col gap-3">
-                                                    {/* Header Row */}
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 mb-1.5">
-                                                                <span className="font-bold text-gray-900 dark:text-white text-sm lg:text-base">{token.name}</span>
-                                                                <span className="text-[10px] lg:text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-lg">
-                                                                    P{token.priority}
-                                                                </span>
-                                                                <span className={`text-[10px] lg:text-xs font-bold px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-lg ${token.is_active ? 'bg-green-100 text-green-600 dark:bg-green-900/30' : 'bg-red-100 text-red-600 dark:bg-red-900/30'}`}>
-                                                                    {token.is_active ? 'ACTIVE' : 'DISABLED'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-xs lg:text-sm text-gray-400 truncate font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded-lg select-all">
-                                                                {token.api_key}
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => handleDeleteToken(token.id)}
-                                                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition min-h-[36px] min-w-[36px] flex items-center justify-center"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                        <TokenSummaryCard label="总数" value={tokenSummary.total} tone="neutral" />
+                                        <TokenSummaryCard label="可用" value={tokenSummary.available} tone="ok" />
+                                        <TokenSummaryCard label="冷却中" value={tokenSummary.cooling} tone="warn" />
+                                        <TokenSummaryCard label="低余额" value={tokenSummary.lowBalance} tone="low" helper={`≤${lowBalanceThreshold}`} />
+                                    </div>
 
-                                                    {/* Base URL Input Row */}
-                                                    <div className="flex flex-col sm:flex-row gap-2">
-                                                        <input
-                                                            type="url"
-                                                            inputMode="url"
-                                                            value={tokenBaseUrlDrafts[token.id] || ''}
-                                                            onChange={(e) =>
-                                                                setTokenBaseUrlDrafts(prev => ({ ...prev, [token.id]: e.currentTarget.value }))
-                                                            }
-                                                            placeholder="查询接口 (可选)"
-                                                            className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
-                                                        />
-                                                        <button
-                                                            onClick={() => handleSaveTokenBaseUrl(token.id)}
-                                                            className="px-3 lg:px-4 py-2 text-xs font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/40 transition min-h-[36px] whitespace-nowrap"
-                                                        >
-                                                            保存接口
-                                                        </button>
-                                                    </div>
+                                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                                        <div className="hidden md:block">
+                                            <div className="overflow-auto max-h-[60vh]">
+                                                <table className="w-full text-left text-sm">
+                                                    <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800">
+                                                        <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                                            <th className="px-4 py-3 font-semibold">名称 / Key</th>
+                                                            <th className="px-4 py-3 font-semibold">状态</th>
+                                                            <th className="px-4 py-3 font-semibold text-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSort('priority')}
+                                                                    className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                                                                >
+                                                                    优先级
+                                                                    {sortConfig.key === 'priority' ? (
+                                                                        sortConfig.direction === 'asc' ? (
+                                                                            <ChevronUp className="w-3.5 h-3.5" />
+                                                                        ) : (
+                                                                            <ChevronDown className="w-3.5 h-3.5" />
+                                                                        )
+                                                                    ) : (
+                                                                        <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />
+                                                                    )}
+                                                                </button>
+                                                            </th>
+                                                            <th className="px-4 py-3 font-semibold">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSort('remaining_quota')}
+                                                                    className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                                                                >
+                                                                    余额
+                                                                    {sortConfig.key === 'remaining_quota' ? (
+                                                                        sortConfig.direction === 'asc' ? (
+                                                                            <ChevronUp className="w-3.5 h-3.5" />
+                                                                        ) : (
+                                                                            <ChevronDown className="w-3.5 h-3.5" />
+                                                                        )
+                                                                    ) : (
+                                                                        <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />
+                                                                    )}
+                                                                </button>
+                                                            </th>
+                                                            <th className="px-4 py-3 font-semibold">Base URL</th>
+                                                            <th className="px-4 py-3 font-semibold">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSort('last_used_at')}
+                                                                    className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
+                                                                >
+                                                                    最后使用
+                                                                    {sortConfig.key === 'last_used_at' ? (
+                                                                        sortConfig.direction === 'asc' ? (
+                                                                            <ChevronUp className="w-3.5 h-3.5" />
+                                                                        ) : (
+                                                                            <ChevronDown className="w-3.5 h-3.5" />
+                                                                        )
+                                                                    ) : (
+                                                                        <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />
+                                                                    )}
+                                                                </button>
+                                                            </th>
+                                                            <th className="px-4 py-3 font-semibold text-center">请求数</th>
+                                                            <th className="px-4 py-3 font-semibold text-right">操作</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                                        {sortedTokens.map((token) => {
+                                                            const status = getTokenStatus(token);
+                                                            const baseUrlDraft = tokenBaseUrlDrafts[token.id] ?? '';
+                                                            const baseUrlCurrent = token.base_url ?? '';
+                                                            const baseUrlDirty = baseUrlDraft.trim() !== baseUrlCurrent.trim();
+                                                            const secretKey = tokenSecrets[token.id];
+                                                            const isRevealed = revealedTokenIds[token.id] && !!secretKey;
+                                                            const displayKey = isRevealed ? secretKey : token.api_key;
+                                                            return (
+                                                                <tr key={token.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/60">
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="font-semibold text-gray-900 dark:text-gray-100">{token.name}</div>
+                                                                        <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                                            <span className="font-mono truncate max-w-[160px]">{displayKey}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleCopyTokenKey(token.id, displayKey)}
+                                                                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                                                title="复制"
+                                                                            >
+                                                                                {copiedTokenId === token.id ? (
+                                                                                    <Check className="w-3.5 h-3.5 text-green-600" />
+                                                                                ) : (
+                                                                                    <Copy className="w-3.5 h-3.5 text-gray-400" />
+                                                                                )}
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleRevealTokenKey(token.id)}
+                                                                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40"
+                                                                                title={secretKey ? '显示完整 Key' : '完整 Key 仅创建时可见'}
+                                                                                disabled={!secretKey}
+                                                                            >
+                                                                                {isRevealed ? (
+                                                                                    <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                                                                                ) : (
+                                                                                    <Eye className="w-3.5 h-3.5 text-gray-400" />
+                                                                                )}
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="flex items-center gap-2" title={status.detail}>
+                                                                            <span className={`h-2.5 w-2.5 rounded-full ${status.dot}`} />
+                                                                            <span className={`text-xs font-semibold ${status.text}`}>{status.label}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-center">
+                                                                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 tabular-nums">{token.priority}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="flex flex-col gap-1">
+                                                                            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200 tabular-nums">
+                                                                                {formatQuota(token.remaining_quota)}
+                                                                            </div>
+                                                                            <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                                                                                <div
+                                                                                    className={`h-1.5 rounded-full ${isLowBalance(token) ? 'bg-amber-500' : 'bg-amber-300'}`}
+                                                                                    style={{ width: `${getQuotaProgress(token.remaining_quota)}%` }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="url"
+                                                                                inputMode="url"
+                                                                                value={baseUrlDraft}
+                                                                                onChange={(e) =>
+                                                                                    setTokenBaseUrlDrafts((prev) => ({ ...prev, [token.id]: e.currentTarget.value }))
+                                                                                }
+                                                                                placeholder="默认"
+                                                                                className="w-full min-w-[180px] px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                                            />
+                                                                            {baseUrlDirty && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleSaveTokenBaseUrl(token.id)}
+                                                                                    disabled={savingTokenUrl[token.id]}
+                                                                                    className="p-2 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40 transition disabled:opacity-50"
+                                                                                >
+                                                                                    {savingTokenUrl[token.id] ? (
+                                                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                                    ) : (
+                                                                                        <Check className="w-3.5 h-3.5" />
+                                                                                    )}
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs">
+                                                                        {formatDateTime(token.last_used_at)}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-200 font-semibold tabular-nums">
+                                                                        {token.total_requests}
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <div className="flex items-center justify-end gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleCheckQuota(token.id)}
+                                                                                disabled={checkingQuotaTokenId === token.id}
+                                                                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                                                                                title="刷新额度"
+                                                                            >
+                                                                                <RefreshCw className={`w-4 h-4 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleToggleToken(token.id, token.is_active)}
+                                                                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                                title={token.is_active ? '停用' : '启用'}
+                                                                            >
+                                                                                <Power className={`w-4 h-4 ${token.is_active ? 'text-gray-500' : 'text-green-600'}`} />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDeleteToken(token.id)}
+                                                                                className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                                title="删除"
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4 text-red-500" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                        {sortedTokens.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan={8} className="py-16 text-center text-gray-400">
+                                                                    <Key className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                                                    暂无 Token，请点击右上角新增
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
 
-                                                    {/* Stats Row */}
-                                                    <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
-                                                        <div className="flex items-center gap-4 lg:gap-6">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] lg:text-xs text-gray-400">额度</span>
-                                                                <div className="font-bold text-amber-600 text-sm lg:text-lg flex items-center gap-1">
-                                                                    {formatQuota(token.remaining_quota)}
-                                                                    <button
-                                                                        onClick={() => handleCheckQuota(token.id)}
-                                                                        disabled={checkingQuotaTokenId === token.id}
-                                                                        className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition disabled:opacity-50"
-                                                                        title="刷新额度"
-                                                                    >
-                                                                        <RefreshCw className={`w-3 h-3 lg:w-3.5 lg:h-3.5 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
-                                                                    </button>
+                                        <div className="md:hidden p-3 space-y-3">
+                                            {sortedTokens.map((token) => {
+                                                const status = getTokenStatus(token);
+                                                const baseUrlDraft = tokenBaseUrlDrafts[token.id] ?? '';
+                                                const baseUrlCurrent = token.base_url ?? '';
+                                                const baseUrlDirty = baseUrlDraft.trim() !== baseUrlCurrent.trim();
+                                                const secretKey = tokenSecrets[token.id];
+                                                const isRevealed = revealedTokenIds[token.id] && !!secretKey;
+                                                const displayKey = isRevealed ? secretKey : token.api_key;
+                                                const isExpanded = expandedTokens[token.id];
+                                                return (
+                                                    <div key={token.id} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div>
+                                                                <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">{token.name}</div>
+                                                                <div className="mt-1 flex items-center gap-2 text-xs">
+                                                                    <span className={`inline-flex items-center gap-1 ${status.text}`} title={status.detail}>
+                                                                        <span className={`h-2 w-2 rounded-full ${status.dot}`} />
+                                                                        {status.label}
+                                                                    </span>
+                                                                    <span className="text-gray-400">P{token.priority}</span>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] lg:text-xs text-gray-400">已处理</span>
-                                                                <span className="font-bold text-gray-700 dark:text-gray-300 text-sm lg:text-lg">{token.total_requests}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setExpandedTokens((prev) => ({ ...prev, [token.id]: !prev[token.id] }))
+                                                                }
+                                                                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                            >
+                                                                <ChevronDown className={`w-4 h-4 text-gray-400 transition ${isExpanded ? 'rotate-180' : ''}`} />
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                            <span className="font-mono truncate">{displayKey}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCopyTokenKey(token.id, displayKey)}
+                                                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                title="复制"
+                                                            >
+                                                                {copiedTokenId === token.id ? (
+                                                                    <Check className="w-3.5 h-3.5 text-green-600" />
+                                                                ) : (
+                                                                    <Copy className="w-3.5 h-3.5 text-gray-400" />
+                                                                )}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRevealTokenKey(token.id)}
+                                                                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+                                                                title={secretKey ? '显示完整 Key' : '完整 Key 仅创建时可见'}
+                                                                disabled={!secretKey}
+                                                            >
+                                                                {isRevealed ? (
+                                                                    <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                                                                ) : (
+                                                                    <Eye className="w-3.5 h-3.5 text-gray-400" />
+                                                                )}
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="mt-3">
+                                                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                                                <span>余额</span>
+                                                                <span className="font-semibold text-gray-800 dark:text-gray-200 tabular-nums">
+                                                                    {formatQuota(token.remaining_quota)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                                                                <div
+                                                                    className={`h-1.5 rounded-full ${isLowBalance(token) ? 'bg-amber-500' : 'bg-amber-300'}`}
+                                                                    style={{ width: `${getQuotaProgress(token.remaining_quota)}%` }}
+                                                                />
                                                             </div>
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleToggleToken(token.id, token.is_active)}
-                                                            className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg transition min-h-[36px]"
-                                                        >
-                                                            {token.is_active ? '停用' : '启用'}
-                                                        </button>
+
+                                                        {isExpanded && (
+                                                            <div className="mt-3 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-3 text-xs text-gray-500 dark:text-gray-400">
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <div className="text-[10px] uppercase text-gray-400">最后使用</div>
+                                                                        <div className="text-gray-700 dark:text-gray-200">{formatDateTime(token.last_used_at)}</div>
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-[10px] uppercase text-gray-400">请求数</div>
+                                                                        <div className="text-gray-700 dark:text-gray-200 tabular-nums">{token.total_requests}</div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="url"
+                                                                        inputMode="url"
+                                                                        value={baseUrlDraft}
+                                                                        onChange={(e) =>
+                                                                            setTokenBaseUrlDrafts((prev) => ({ ...prev, [token.id]: e.currentTarget.value }))
+                                                                        }
+                                                                        placeholder="默认"
+                                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                                    />
+                                                                    {baseUrlDirty && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleSaveTokenBaseUrl(token.id)}
+                                                                            disabled={savingTokenUrl[token.id]}
+                                                                            className="p-2 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/40 transition disabled:opacity-50"
+                                                                        >
+                                                                            {savingTokenUrl[token.id] ? (
+                                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                            ) : (
+                                                                                <Check className="w-3.5 h-3.5" />
+                                                                            )}
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleCheckQuota(token.id)}
+                                                                            disabled={checkingQuotaTokenId === token.id}
+                                                                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                                                                            title="刷新额度"
+                                                                        >
+                                                                            <RefreshCw className={`w-4 h-4 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleToken(token.id, token.is_active)}
+                                                                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                            title={token.is_active ? '停用' : '启用'}
+                                                                        >
+                                                                            <Power className={`w-4 h-4 ${token.is_active ? 'text-gray-500' : 'text-green-600'}`} />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDeleteToken(token.id)}
+                                                                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                            title="删除"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
+                                                );
+                                            })}
+                                            {sortedTokens.length === 0 && (
+                                                <div className="py-12 text-center text-gray-400">
+                                                    <Key className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                                    暂无 Token，请点击新增
                                                 </div>
-                                            </div>
-                                        ))}
-                                        {tokens.length === 0 && (
-                                            <div className="text-center py-20 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-                                                <Key className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-                                                <p className="text-gray-400">暂无 Token，请在上方添加</p>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -1442,6 +1843,86 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                     )}
                 </div>
             </main>
+
+            {isTokenDrawerOpen && (
+                <div className="fixed inset-0 z-50">
+                    <div
+                        className="absolute inset-0 bg-black/40"
+                        onClick={() => setIsTokenDrawerOpen(false)}
+                    />
+                    <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-xl flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white">新增 Token</h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsTokenDrawerOpen(false)}
+                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                            >
+                                <X className="w-4 h-4 text-gray-500" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-gray-500">名称</label>
+                                <input
+                                    type="text"
+                                    value={newTokenName}
+                                    onChange={(e) => setNewTokenName(e.currentTarget.value)}
+                                    placeholder="名称 (如 Gemini-Pro-1)"
+                                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-gray-500">API Key</label>
+                                <input
+                                    type="text"
+                                    inputMode="text"
+                                    autoCapitalize="off"
+                                    autoCorrect="off"
+                                    spellCheck="false"
+                                    value={newTokenKey}
+                                    onChange={(e) => setNewTokenKey(e.currentTarget.value)}
+                                    placeholder="API Key"
+                                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 font-mono text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-gray-500">Base URL (可选)</label>
+                                <input
+                                    type="url"
+                                    inputMode="url"
+                                    value={newTokenBaseUrl}
+                                    onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
+                                    placeholder="留空则使用默认接口"
+                                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold text-gray-500">优先级</label>
+                                <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    value={newTokenPriority}
+                                    onChange={(e) => setNewTokenPriority(Number(e.currentTarget.value))}
+                                    placeholder="优先级"
+                                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+                            <button
+                                type="button"
+                                onClick={handleAddToken}
+                                disabled={!newTokenName || !newTokenKey || addingToken}
+                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition"
+                            >
+                                {addingToken ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                {addingToken ? '添加中...' : '确认新增'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1478,6 +1959,37 @@ const StatCard = ({ label, value, suffix, icon: Icon, color }: StatCardProps) =>
                 <span>{label}</span>
                 {suffix && <span className="opacity-75">{suffix}</span>}
             </div>
+        </div>
+    );
+};
+
+interface TokenSummaryCardProps {
+    label: string;
+    value: number;
+    tone: 'neutral' | 'ok' | 'warn' | 'low';
+    helper?: string;
+}
+
+const TokenSummaryCard = ({ label, value, tone, helper }: TokenSummaryCardProps) => {
+    const toneMap = {
+        neutral: 'bg-gray-400',
+        ok: 'bg-green-500',
+        warn: 'bg-amber-500',
+        low: 'bg-orange-500',
+    };
+
+    return (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <span className={`h-2 w-2 rounded-full ${toneMap[tone]}`} />
+                <span>{label}</span>
+            </div>
+            <div className="mt-2 text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+                {value.toLocaleString()}
+            </div>
+            {helper && (
+                <div className="text-[10px] text-gray-400 mt-1">{helper}</div>
+            )}
         </div>
     );
 };

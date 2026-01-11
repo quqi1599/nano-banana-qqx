@@ -1,9 +1,8 @@
 """
 对话历史路由
 """
-import json
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func
@@ -59,8 +58,8 @@ async def get_conversations(
     response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    page: int | None = Query(None, ge=1),
-    page_size: int | None = Query(None, ge=1, le=100),
+    page: Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=100),
 ):
     """获取当前用户的对话列表"""
     query = (
@@ -119,9 +118,9 @@ async def get_conversation(
 @router.get("/{conversation_id}/messages", response_model=ConversationMessagesResponse)
 async def get_conversation_messages(
     conversation_id: str,
+    response: Response,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

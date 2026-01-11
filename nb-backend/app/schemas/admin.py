@@ -23,6 +23,9 @@ class TokenPoolResponse(BaseModel):
     base_url: Optional[str] = None
     remaining_quota: float
     is_active: bool
+    failure_count: int = 0
+    cooldown_until: Optional[datetime] = None
+    last_failure_at: Optional[datetime] = None
     priority: int
     total_requests: int
     last_used_at: Optional[datetime]
@@ -173,3 +176,52 @@ class SmtpConfigUpdate(BaseModel):
     smtp_port: Optional[int] = None
     smtp_password: Optional[str] = None
     from_name: Optional[str] = None
+
+
+# ============ 用户管理扩展 Schemas ============
+
+class UserStatsResponse(BaseModel):
+    """用户统计概览"""
+    total_users: int
+    new_today: int
+    disabled_count: int
+    paid_users: int  # 有余额的用户数
+
+
+class UserStatusUpdate(BaseModel):
+    """用户状态更新请求"""
+    is_active: bool
+    reason: str  # 必填：操作原因
+
+
+class BatchStatusUpdate(BaseModel):
+    """批量状态更新请求"""
+    user_ids: List[str]
+    is_active: bool
+    reason: str  # 必填：操作原因
+
+
+class BatchCreditsUpdate(BaseModel):
+    """批量积分调整请求"""
+    user_ids: List[str]
+    amount: int
+    reason: str  # 必填：操作原因
+
+
+class CreditHistoryItem(BaseModel):
+    """积分调整历史项"""
+    id: str
+    amount: int
+    type: str
+    description: Optional[str]
+    balance_after: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CreditHistoryResponse(BaseModel):
+    """积分调整历史响应"""
+    items: List[CreditHistoryItem]
+    total: int

@@ -4,6 +4,7 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import List
+from cryptography.fernet import Fernet
 
 
 class Settings(BaseSettings):
@@ -82,6 +83,11 @@ class Settings(BaseSettings):
             problems.append("ADMIN_PASSWORD 太弱或仍为默认值")
         if not self.token_encryption_key:
             problems.append("TOKEN_ENCRYPTION_KEY 未配置")
+        else:
+            try:
+                Fernet(self.token_encryption_key.encode())
+            except Exception:
+                problems.append("TOKEN_ENCRYPTION_KEY 格式无效")
 
         if problems:
             raise RuntimeError("生产环境配置不安全: " + "; ".join(problems))

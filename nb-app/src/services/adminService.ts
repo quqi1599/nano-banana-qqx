@@ -38,6 +38,9 @@ export interface TokenInfo {
     base_url?: string | null;
     remaining_quota: number;
     is_active: boolean;
+    failure_count?: number;
+    cooldown_until?: string | null;
+    last_failure_at?: string | null;
     priority: number;
     total_requests: number;
     last_used_at: string | null;
@@ -179,15 +182,135 @@ export interface UserListResult {
     page_size: number;
 }
 
+// 高级筛选参数接口
+export interface UserFilters {
+    search?: string;
+    is_admin?: boolean;
+    is_active?: boolean;
+    min_balance?: number;
+    max_balance?: number;
+    created_after?: string;
+    created_before?: string;
+    login_after?: string;
+    login_before?: string;
+}
+
 export const getUsers = async (page: number = 1, search?: string): Promise<UserListResult> => {
     const params = new URLSearchParams({ page: String(page) });
     if (search) params.set('search', search);
     return request(`/users?${params.toString()}`);
 };
 
+// 高级筛选获取用户列表
+export const getUsersAdvanced = async (page: number = 1, filters: UserFilters = {}): Promise<UserListResult> => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (filters.search) params.set('search', filters.search);
+    if (filters.is_admin !== undefined) params.set('is_admin', String(filters.is_admin));
+    if (filters.is_active !== undefined) params.set('is_active', String(filters.is_active));
+    if (filters.min_balance !== undefined) params.set('min_balance', String(filters.min_balance));
+    if (filters.max_balance !== undefined) params.set('max_balance', String(filters.max_balance));
+    if (filters.created_after) params.set('created_after', filters.created_after);
+    if (filters.created_before) params.set('created_before', filters.created_before);
+    if (filters.login_after) params.set('login_after', filters.login_after);
+    if (filters.login_before) params.set('login_before', filters.login_before);
+    return request(`/users?${params.toString()}`);
+};
+
+// 用户统计概览
+export interface UserStats {
+    total_users: number;
+    new_today: number;
+    disabled_count: number;
+    paid_users: number;
+}
+
+export const getUsersStats = async (): Promise<UserStats> => {
+    return request('/users/stats');
+};
+
+// 用户状态管理
+export const setUserActiveStatus = async (userId: string, isActive: boolean, reason: string): Promise<{ message: string; user_id: string; is_active: boolean }> => {
+    return request(`/users/${userId}/active`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: isActive, reason }),
+    });
+};
+
+// 批量状态更新
+export const batchUpdateUserStatus = async (userIds: string[], isActive: boolean, reason: string): Promise<{ message: string; updated_count: number }> => {
+    return request('/users/batch/status', {
+        method: 'POST',
+        body: JSON.stringify({ user_ids: userIds, is_active: isActive, reason }),
+    });
+};
+
+// 批量积分调整
+export const batchAdjustCredits = async (userIds: string[], amount: number, reason: string): Promise<{ message: string; updated_count: number }> => {
+    return request('/users/batch/credits', {
+        method: 'POST',
+        body: JSON.stringify({ user_ids: userIds, amount, reason }),
+    });
+};
+
+// 积分调整历史
+export interface CreditHistoryItem {
+    id: string;
+    amount: number;
+    type: string;
+    description: string | null;
+    balance_after: number;
+    created_at: string;
+}
+
+export interface CreditHistoryResult {
+    items: CreditHistoryItem[];
+    total: number;
+}
+
+export const getUserCreditHistory = async (userId: string, limit: number = 3): Promise<CreditHistoryResult> => {
+    return request(`/users/${userId}/credit-history?limit=${limit}`);
+};
+
+// 导出用户数据
+export const exportUsers = async (filters: UserFilters = {}): Promise<void> => {
+    const token = getToken();
+    if (!token) throw new Error('请先登录');
+
+    const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
+    if (filters.is_admin !== undefined) params.set('is_admin', String(filters.is_admin));
+    if (filters.is_active !== undefined) params.set('is_active', String(filters.is_active));
+    if (filters.min_balance !== undefined) params.set('min_balance', String(filters.min_balance));
+    if (filters.max_balance !== undefined) params.set('max_balance', String(filters.max_balance));
+    if (filters.created_after) params.set('created_after', filters.created_after);
+    if (filters.created_before) params.set('created_before', filters.created_before);
+
+    const query = params.toString();
+    const response = await fetch(`${API_BASE}/users/export${query ? `?${query}` : ''}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: '导出失败' }));
+        throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+
+    // 下载文件
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 export const adjustUserCredits = async (userId: string, amount: number, reason?: string): Promise<void> => {
     const params = new URLSearchParams({ amount: String(amount) });
-    if (reason) params.set('reason', reason);
     if (reason) params.set('reason', reason);
     return request(`/users/${userId}/credits?${params.toString()}`, { method: 'PUT' });
 };

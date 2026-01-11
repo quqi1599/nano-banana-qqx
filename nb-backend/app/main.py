@@ -1,18 +1,28 @@
 """
 FastAPI 主入口
 """
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
+from app.config import get_settings
 from app.database import init_db
 from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations
+from app.utils.request_context import request_id_ctx_var, RequestIdFilter, JsonFormatter
+from app.utils.metrics import REQUEST_COUNT, REQUEST_LATENCY, IN_PROGRESS, get_route_name
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时初始化数据库
+    settings.validate_secrets()
     await init_db()
     yield
     # 关闭时清理资源
@@ -24,6 +34,31 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+@app.middleware("http")
+async def request_context_middleware(request, call_next):
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+    request.state.request_id = request_id
+    token = request_id_ctx_var.set(request_id)
+    response = None
+    start = time.perf_counter()
+    if settings.metrics_enabled:
+        IN_PROGRESS.inc()
+
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        duration = time.perf_counter() - start
+        path = get_route_name(request.scope)
+        status_code = response.status_code if response else 500
+        if settings.metrics_enabled:
+            REQUEST_COUNT.labels(request.method, path, str(status_code)).inc()
+            REQUEST_LATENCY.labels(request.method, path).observe(duration)
+            IN_PROGRESS.dec()
+        request_id_ctx_var.reset(token)
+        if response is not None:
+            response.headers["X-Request-ID"] = request_id
 
 # CORS 配置
 app.add_middleware(
@@ -57,6 +92,11 @@ async def health_check():
     """健康检查"""
     return {"status": "ok", "service": "nbnb-backend"}
 
+@app.get("/metrics")
+async def metrics():
+    if not settings.metrics_enabled:
+        raise HTTPException(status_code=404, detail="Metrics disabled")
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/api/prompts")
 async def get_prompts():
@@ -72,3 +112,35 @@ async def get_prompts():
     
     # Fallback default
     return {"categories": []}
+settings = get_settings()
+
+
+def configure_logging() -> None:
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonFormatter())
+    handler.addFilter(RequestIdFilter())
+
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(settings.log_level)
+
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        logger = logging.getLogger(name)
+        logger.handlers = [handler]
+        logger.setLevel(settings.log_level)
+        logger.propagate = False
+
+
+def init_sentry() -> None:
+    if settings.sentry_dsn:
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            integrations=[FastApiIntegration()],
+            traces_sample_rate=settings.sentry_traces_sample_rate,
+            profiles_sample_rate=settings.sentry_profiles_sample_rate,
+        )
+
+
+configure_logging()
+init_sentry()

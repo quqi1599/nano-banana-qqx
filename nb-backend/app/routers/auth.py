@@ -4,6 +4,7 @@
 from datetime import datetime, timedelta
 import time
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from pydantic import BaseModel, EmailStr
@@ -59,7 +60,7 @@ class UserRegisterWithCode(BaseModel):
     """带验证码的注册请求"""
     email: EmailStr
     password: str
-    nickname: str | None = None
+    nickname: Optional[str] = None
     code: str
     captcha_ticket: str
 
