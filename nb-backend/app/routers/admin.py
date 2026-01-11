@@ -36,12 +36,38 @@ from app.schemas.admin import (
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
 from app.utils.security import get_admin_user, get_current_user
 from app.utils.balance_utils import check_api_key_quota
+from app.utils.token_security import (
+    build_key_parts,
+    decrypt_api_key,
+    encrypt_api_key,
+    hash_api_key,
+    mask_key_parts,
+)
+from app.utils.cache import get_cached_json, set_cached_json, delete_cache
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter()
+
+TOKEN_POOL_CACHE_KEY = "token_pool:list:v1"
+TOKEN_POOL_CACHE_TTL_SECONDS = 60
+
+def token_response(token: TokenPool) -> TokenPoolResponse:
+    token_dict = TokenPoolResponse.model_validate(token).model_dump()
+    if token.api_key_prefix or token.api_key_suffix:
+        token_dict["api_key"] = mask_key_parts(
+            token.api_key_prefix or "", token.api_key_suffix or ""
+        )
+    else:
+        try:
+            plain_key = decrypt_api_key(token.api_key)
+            prefix, suffix = build_key_parts(plain_key)
+            token_dict["api_key"] = mask_key_parts(prefix, suffix)
+        except Exception:
+            token_dict["api_key"] = "***"
+    return TokenPoolResponse(**token_dict)
 
 
 # ============ 初始化管理员 ============
@@ -103,21 +129,21 @@ async def list_tokens(
     db: AsyncSession = Depends(get_db),
 ):
     """获取所有 Token"""
+    cached = await get_cached_json(TOKEN_POOL_CACHE_KEY)
+    if cached is not None:
+        return cached
+
     result = await db.execute(
         select(TokenPool).order_by(TokenPool.priority.desc())
     )
     tokens = result.scalars().all()
-    
-    # 隐藏部分 API Key
-    response = []
-    for token in tokens:
-        token_dict = TokenPoolResponse.model_validate(token).model_dump()
-        # 只显示前8位和后4位
-        api_key = token.api_key
-        if len(api_key) > 12:
-            token_dict["api_key"] = f"{api_key[:8]}...{api_key[-4:]}"
-        response.append(TokenPoolResponse(**token_dict))
-    
+    response = [token_response(token) for token in tokens]
+
+    await set_cached_json(
+        TOKEN_POOL_CACHE_KEY,
+        [item.model_dump(mode="json") for item in response],
+        TOKEN_POOL_CACHE_TTL_SECONDS,
+    )
     return response
 
 
@@ -129,8 +155,11 @@ async def add_token(
 ):
     """添加新 Token"""
     # 检查是否已存在
+    key_hash = hash_api_key(data.api_key)
     result = await db.execute(
-        select(TokenPool).where(TokenPool.api_key == data.api_key)
+        select(TokenPool).where(
+            (TokenPool.api_key_hash == key_hash) | (TokenPool.api_key == data.api_key)
+        )
     )
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -139,9 +168,13 @@ async def add_token(
         )
     
     # 创建 Token
+    prefix, suffix = build_key_parts(data.api_key)
     token = TokenPool(
         name=data.name,
-        api_key=data.api_key,
+        api_key=encrypt_api_key(data.api_key),
+        api_key_hash=key_hash,
+        api_key_prefix=prefix,
+        api_key_suffix=suffix,
         priority=data.priority,
         base_url=data.base_url.strip() if data.base_url else None,
     )
@@ -150,7 +183,9 @@ async def add_token(
     try:
         settings = get_settings()
         base_url = data.base_url.strip() if data.base_url else None
-        quota = await check_api_key_quota(data.api_key, base_url or settings.newapi_base_url)
+        quota = await check_api_key_quota(
+            data.api_key, base_url or settings.newapi_base_url
+        )
         if quota is not None:
             token.remaining_quota = quota
             token.last_checked_at = datetime.utcnow()
@@ -161,8 +196,9 @@ async def add_token(
     db.add(token)
     await db.commit()
     await db.refresh(token)
+    await delete_cache(TOKEN_POOL_CACHE_KEY)
     
-    return TokenPoolResponse.model_validate(token)
+    return token_response(token)
 
 
 @router.post("/tokens/{token_id}/check-quota", response_model=TokenPoolResponse)
@@ -187,15 +223,16 @@ async def check_token_quota(
         settings = get_settings()
         resolved_base_url = base_url.strip() if base_url else None
         token_base_url = token.base_url.strip() if token.base_url else None
+        plain_key = decrypt_api_key(token.api_key)
         quota = await check_api_key_quota(
-            token.api_key,
-            resolved_base_url or token_base_url or settings.newapi_base_url,
+            plain_key, resolved_base_url or token_base_url or settings.newapi_base_url
         )
         if quota is not None:
             token.remaining_quota = quota
             token.last_checked_at = datetime.utcnow()
             await db.commit()
             await db.refresh(token)
+            await delete_cache(TOKEN_POOL_CACHE_KEY)
             logger.info(f"Token {token.name} 额度更新为: {quota}")
         else:
             raise HTTPException(
@@ -204,6 +241,12 @@ async def check_token_quota(
             )
     except HTTPException:
         raise
+    except RuntimeError as e:
+        logger.error(f"Token {token.name} 额度查询失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Token 解密失败，请检查密钥配置",
+        )
     except Exception as e:
         logger.error(f"Token {token.name} 额度查询失败: {e}")
         raise HTTPException(
@@ -212,11 +255,7 @@ async def check_token_quota(
         )
     
     # 返回时隐藏部分 API Key
-    token_dict = TokenPoolResponse.model_validate(token).model_dump()
-    api_key = token.api_key
-    if len(api_key) > 12:
-        token_dict["api_key"] = f"{api_key[:8]}...{api_key[-4:]}"
-    return TokenPoolResponse(**token_dict)
+    return token_response(token)
 
 
 @router.put("/tokens/{token_id}", response_model=TokenPoolResponse)
@@ -247,8 +286,9 @@ async def update_token(
     
     await db.commit()
     await db.refresh(token)
+    await delete_cache(TOKEN_POOL_CACHE_KEY)
     
-    return TokenPoolResponse.model_validate(token)
+    return token_response(token)
 
 
 @router.delete("/tokens/{token_id}")
@@ -269,6 +309,7 @@ async def delete_token(
     
     await db.delete(token)
     await db.commit()
+    await delete_cache(TOKEN_POOL_CACHE_KEY)
     
     return {"message": "删除成功"}
 
@@ -451,15 +492,22 @@ async def list_users(
     
     result = await db.execute(query)
     users = result.scalars().all()
-    
+
+    user_ids = [user.id for user in users]
+    usage_map: dict[str, int] = {}
+    if user_ids:
+        usage_result = await db.execute(
+            select(UsageLog.user_id, func.count(UsageLog.id))
+            .where(UsageLog.user_id.in_(user_ids))
+            .group_by(UsageLog.user_id)
+        )
+        usage_map = {row[0]: row[1] for row in usage_result.all()}
+
     # 获取每个用户的使用次数
     user_responses = []
     for user in users:
-        usage_result = await db.execute(
-            select(func.count(UsageLog.id)).where(UsageLog.user_id == user.id)
-        )
-        total_usage = usage_result.scalar() or 0
-        
+        total_usage = usage_map.get(user.id, 0)
+
         user_dict = AdminUserResponse.model_validate(user).model_dump()
         user_dict["total_usage"] = total_usage
         user_responses.append(AdminUserResponse(**user_dict))
@@ -813,7 +861,10 @@ async def list_conversations(
 ):
     """获取所有用户的对话列表"""
     # 构建查询
-    query = select(Conversation)
+    query = (
+        select(Conversation, User.email, User.nickname)
+        .outerjoin(User, Conversation.user_id == User.id)
+    )
 
     if user_id:
         query = query.where(Conversation.user_id == user_id)
@@ -827,18 +878,14 @@ async def list_conversations(
     query = query.offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
-    conversations = result.scalars().all()
+    rows = result.all()
 
     # 获取用户信息
     response = []
-    for conv in conversations:
-        # 获取对话所属用户
-        user_result = await db.execute(select(User).where(User.id == conv.user_id))
-        user = user_result.scalar_one_or_none()
-
+    for conv, user_email, user_nickname in rows:
         conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
-        conv_dict["user_email"] = user.email if user else "未知用户"
-        conv_dict["user_nickname"] = user.nickname if user else None
+        conv_dict["user_email"] = user_email or "未知用户"
+        conv_dict["user_nickname"] = user_nickname
         response.append(AdminConversationResponse(**conv_dict))
 
     return response
@@ -852,25 +899,23 @@ async def get_conversation_detail(
 ):
     """管理员查看对话详情"""
     result = await db.execute(
-        select(Conversation)
+        select(Conversation, User.email, User.nickname)
+        .outerjoin(User, Conversation.user_id == User.id)
         .options(selectinload(Conversation.messages))
         .where(Conversation.id == conversation_id)
     )
-    conversation = result.scalar_one_or_none()
-
-    if not conversation:
+    row = result.first()
+    
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="对话不存在",
         )
-
-    # 获取用户信息
-    user_result = await db.execute(select(User).where(User.id == conversation.user_id))
-    user = user_result.scalar_one_or_none()
-
+    
+    conversation, user_email, user_nickname = row
     conv_dict = AdminConversationDetailResponse.model_validate(conversation).model_dump()
-    conv_dict["user_email"] = user.email if user else "未知用户"
-    conv_dict["user_nickname"] = user.nickname if user else None
+    conv_dict["user_email"] = user_email or "未知用户"
+    conv_dict["user_nickname"] = user_nickname
     return AdminConversationDetailResponse(**conv_dict)
 
 

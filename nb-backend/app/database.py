@@ -1,6 +1,10 @@
 """
 数据库连接模块
 """
+import asyncio
+from pathlib import Path
+from alembic import command
+from alembic.config import Config
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.config import get_settings
@@ -47,10 +51,16 @@ async def get_db():
             await session.close()
 
 
+def run_migrations() -> None:
+    """运行 Alembic 数据库迁移"""
+    config_path = Path(__file__).resolve().parents[1] / "alembic.ini"
+    alembic_cfg = Config(str(config_path))
+    command.upgrade(alembic_cfg, "head")
+
+
 async def init_db():
     """初始化数据库表"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await asyncio.to_thread(run_migrations)
     await seed_model_pricing()
     await seed_admin_user()
 
@@ -61,6 +71,15 @@ async def seed_admin_user():
     from app.models.user import User
     from app.utils.security import get_password_hash
     
+    if (
+        not settings.admin_email
+        or not settings.admin_password
+        or settings.admin_email == "admin@example.com"
+        or settings.admin_password == "admin123"
+    ):
+        print("WARNING: Skipping admin seed; configure ADMIN_EMAIL and ADMIN_PASSWORD.")
+        return
+
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(User).where(User.email == settings.admin_email)
@@ -99,4 +118,3 @@ async def seed_model_pricing():
                 continue
             session.add(ModelPricing(model_name=model_name, credits_per_request=credits))
         await session.commit()
-

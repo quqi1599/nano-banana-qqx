@@ -3,10 +3,16 @@
 """
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import List
 
 
 class Settings(BaseSettings):
     """应用配置"""
+
+    # 运行环境
+    environment: str = "development"
+    log_level: str = "INFO"
+    metrics_enabled: bool = True
     
     # 数据库
     database_url: str = "postgresql://postgres:postgres@localhost:5432/nbnb"
@@ -16,6 +22,12 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "your-super-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 10080  # 7 天
+
+    # Token 安全
+    token_encryption_key: str = ""  # Fernet key (base64, 32 bytes)
+    token_failure_threshold: int = 3
+    token_cooldown_seconds: int = 300
+    token_disable_threshold: int = 10
     
     # NewAPI
     newapi_base_url: str = "https://nanobanana2.peacedejiai.cc"
@@ -47,6 +59,32 @@ class Settings(BaseSettings):
     captcha_challenge_ttl_seconds: int = 120
     captcha_ticket_ttl_seconds: int = 600
     captcha_challenge_max_attempts: int = 5
+
+    # Sentry
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    sentry_profiles_sample_rate: float = 0.0
+
+    def is_production(self) -> bool:
+        return self.environment.lower() in {"production", "prod"}
+
+    def validate_secrets(self) -> None:
+        if not self.is_production():
+            return
+
+        problems: List[str] = []
+
+        if not self.jwt_secret_key or self.jwt_secret_key == "your-super-secret-key-change-in-production" or len(self.jwt_secret_key) < 32:
+            problems.append("JWT_SECRET_KEY 太弱或仍为默认值")
+        if not self.captcha_secret_key or self.captcha_secret_key == "your-captcha-secret-key-change-in-production" or len(self.captcha_secret_key) < 32:
+            problems.append("CAPTCHA_SECRET_KEY 太弱或仍为默认值")
+        if not self.admin_password or self.admin_password == "admin123" or len(self.admin_password) < 12:
+            problems.append("ADMIN_PASSWORD 太弱或仍为默认值")
+        if not self.token_encryption_key:
+            problems.append("TOKEN_ENCRYPTION_KEY 未配置")
+
+        if problems:
+            raise RuntimeError("生产环境配置不安全: " + "; ".join(problems))
     
     class Config:
         env_file = ".env"

@@ -31,6 +31,26 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     return response.json();
 }
 
+async function requestWithMeta<T>(url: string, options?: RequestInit): Promise<{ data: T; total: number | null }> {
+    const response = await fetch(`${API_BASE}${url}`, {
+        ...options,
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || '请求失败');
+    }
+
+    const totalHeader = response.headers.get('x-total-count');
+    const total = totalHeader ? Number(totalHeader) : null;
+    const data = await response.json();
+    return {
+        data,
+        total: Number.isFinite(total) ? total : null,
+    };
+}
+
 // 类型定义
 export interface MessageImage {
     base64: string;
@@ -61,6 +81,14 @@ export interface ConversationDetail extends Conversation {
     messages: ConversationMessage[];
 }
 
+export interface ConversationMessagesPage {
+    conversation_id: string;
+    messages: ConversationMessage[];
+    total: number;
+    page: number;
+    page_size: number;
+}
+
 export interface AdminConversation extends Conversation {
     user_email: string;
     user_nickname: string | null;
@@ -88,10 +116,43 @@ export async function getConversations(): Promise<Conversation[]> {
 }
 
 /**
+ * 获取当前用户的对话列表（分页）
+ */
+export async function getConversationsPage(
+    page: number = 1,
+    pageSize: number = 20
+): Promise<{ conversations: Conversation[]; total: number | null }> {
+    const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+    });
+    const { data, total } = await requestWithMeta<Conversation[]>(`/api/conversations?${params}`);
+    return { conversations: data, total };
+}
+
+/**
  * 获取对话详情
  */
 export async function getConversation(id: string): Promise<ConversationDetail> {
     return request<ConversationDetail>(`/api/conversations/${id}`);
+}
+
+/**
+ * 获取对话消息分页
+ */
+export async function getConversationMessages(
+    conversationId: string,
+    page: number = 1,
+    pageSize: number = 50
+): Promise<ConversationMessagesPage> {
+    const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+    });
+    const { data, total } = await requestWithMeta<ConversationMessagesPage>(
+        `/api/conversations/${conversationId}/messages?${params}`
+    );
+    return total !== null ? { ...data, total } : data;
 }
 
 /**

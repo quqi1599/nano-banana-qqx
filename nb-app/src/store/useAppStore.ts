@@ -4,8 +4,8 @@ import { get as getVal, set as setVal, del as delVal } from 'idb-keyval';
 import { fetchBalance, BalanceInfo } from '../services/balanceService';
 import {
     createConversation,
-    getConversations,
-    getConversation,
+    getConversationsPage,
+    getConversationMessages,
     addMessage as addMessageApi,
     updateConversationTitle,
     deleteConversation as deleteConversationApi,
@@ -46,6 +46,12 @@ interface AppState {
   // 对话历史相关
   currentConversationId: string | null;
   conversationList: Conversation[];
+  conversationListTotal: number;
+  conversationListPage: number;
+  conversationListPageSize: number;
+  messagesPage: number;
+  messagesPageSize: number;
+  messagesTotal: number;
   isSyncing: boolean;
 
   setInstallPrompt: (prompt: any) => void;
@@ -71,8 +77,8 @@ interface AppState {
 
   // 对话历史方法
   createNewConversation: (title?: string) => Promise<string | null>;
-  loadConversation: (id: string) => Promise<void>;
-  loadConversationList: () => Promise<void>;
+  loadConversation: (id: string, page?: number) => Promise<void>;
+  loadConversationList: (page?: number, pageSize?: number) => Promise<void>;
   syncCurrentMessage: (message: ChatMessage) => Promise<void>;
   updateConversationTitle: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
@@ -106,6 +112,12 @@ export const useAppStore = create<AppState>()(
       // 对话历史状态
       currentConversationId: null,
       conversationList: [],
+      conversationListTotal: 0,
+      conversationListPage: 1,
+      conversationListPageSize: 20,
+      messagesPage: 1,
+      messagesPageSize: 50,
+      messagesTotal: 0,
       isSyncing: false,
 
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
@@ -291,7 +303,7 @@ export const useAppStore = create<AppState>()(
 
       toggleSettings: () => set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
 
-      clearHistory: () => set({ messages: [] }),
+      clearHistory: () => set({ messages: [], messagesTotal: 0, messagesPage: 1 }),
 
       removeApiKey: () => set({ apiKey: null }),
 
@@ -318,7 +330,7 @@ export const useAppStore = create<AppState>()(
       createNewConversation: async (title) => {
         try {
           // 清空当前对话ID，这样下一条消息会创建新对话
-          set({ currentConversationId: null, messages: [] });
+          set({ currentConversationId: null, messages: [], messagesTotal: 0, messagesPage: 1 });
           console.log('[Conversation] 已清空，等待下条消息创建新对话');
           return null;
         } catch (error) {
@@ -327,10 +339,22 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      loadConversation: async (id) => {
+      loadConversation: async (id, page) => {
         try {
           console.log('[Conversation] 加载对话:', id);
-          const data = await getConversation(id);
+          const pageSize = get().messagesPageSize;
+          let targetPage = page ?? 1;
+          let data = await getConversationMessages(id, targetPage, pageSize);
+          const total = Number.isFinite(data.total) ? data.total : data.messages.length;
+          const resolvedPageSize = data.page_size || pageSize;
+          const totalPages = Math.max(1, Math.ceil(total / resolvedPageSize));
+
+          if (page === undefined) {
+            targetPage = totalPages;
+            if (targetPage !== data.page) {
+              data = await getConversationMessages(id, targetPage, resolvedPageSize);
+            }
+          }
 
           // 转换消息格式
           const messages: ChatMessage[] = [];
@@ -384,6 +408,9 @@ export const useAppStore = create<AppState>()(
           set({
             currentConversationId: id,
             messages,
+            messagesTotal: total,
+            messagesPage: targetPage,
+            messagesPageSize: resolvedPageSize,
           });
 
           console.log(`[Conversation] 已加载 ${messages.length} 条消息`);
@@ -392,10 +419,32 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      loadConversationList: async () => {
+      loadConversationList: async (page, pageSize) => {
         try {
-          const list = await getConversations();
-          set({ conversationList: list });
+          const resolvedPage = page ?? get().conversationListPage;
+          const resolvedPageSize = pageSize ?? get().conversationListPageSize;
+          const { conversations, total } = await getConversationsPage(resolvedPage, resolvedPageSize);
+          const totalCount = total ?? conversations.length;
+          const totalPages = Math.max(1, Math.ceil(totalCount / resolvedPageSize));
+          const nextPage = resolvedPage > totalPages ? totalPages : resolvedPage;
+
+          if (nextPage !== resolvedPage) {
+            const retry = await getConversationsPage(nextPage, resolvedPageSize);
+            set({
+              conversationList: retry.conversations,
+              conversationListTotal: retry.total ?? retry.conversations.length,
+              conversationListPage: nextPage,
+              conversationListPageSize: resolvedPageSize,
+            });
+            return;
+          }
+
+          set({
+            conversationList: conversations,
+            conversationListTotal: totalCount,
+            conversationListPage: resolvedPage,
+            conversationListPageSize: resolvedPageSize,
+          });
         } catch (error) {
           console.error('Failed to load conversation list:', error);
         }
@@ -461,6 +510,12 @@ export const useAppStore = create<AppState>()(
             await get().loadConversationList();
           }
 
+          set((state) => {
+            if (state.currentConversationId !== conversationId) return {};
+            const nextTotal = Math.max(state.messagesTotal + 1, state.messages.length);
+            return { messagesTotal: nextTotal };
+          });
+
           console.log(`[Conversation] 同步消息: ${role}, 对话: ${conversationId}`);
         } catch (error) {
           console.error('Failed to sync message:', error);
@@ -484,7 +539,7 @@ export const useAppStore = create<AppState>()(
 
           // 如果删除的是当前对话，清空消息
           if (get().currentConversationId === id) {
-            set({ currentConversationId: null, messages: [] });
+            set({ currentConversationId: null, messages: [], messagesTotal: 0, messagesPage: 1 });
           }
 
           await get().loadConversationList();

@@ -4,7 +4,7 @@
 import json
 from datetime import datetime
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func
 from sqlalchemy.orm import selectinload
@@ -17,6 +17,7 @@ from app.schemas.conversation import (
     ConversationUpdate,
     ConversationResponse,
     ConversationDetailResponse,
+    ConversationMessagesResponse,
     MessageCreate,
     MessageResponse,
 )
@@ -55,15 +56,34 @@ async def create_conversation(
 
 @router.get("", response_model=List[ConversationResponse])
 async def get_conversations(
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    page: int | None = Query(None, ge=1),
+    page_size: int | None = Query(None, ge=1, le=100),
 ):
     """获取当前用户的对话列表"""
-    result = await db.execute(
+    query = (
         select(Conversation)
         .where(Conversation.user_id == current_user.id)
         .order_by(desc(Conversation.updated_at))
     )
+
+    if page is not None or page_size is not None:
+        resolved_page = page or 1
+        resolved_page_size = page_size or 20
+        count_result = await db.execute(
+            select(func.count(Conversation.id)).where(
+                Conversation.user_id == current_user.id
+            )
+        )
+        total = count_result.scalar() or 0
+        response.headers["X-Total-Count"] = str(total)
+        query = query.offset(
+            (resolved_page - 1) * resolved_page_size
+        ).limit(resolved_page_size)
+
+    result = await db.execute(query)
     conversations = result.scalars().all()
     return conversations
 
@@ -94,6 +114,56 @@ async def get_conversation(
         )
 
     return conversation
+
+
+@router.get("/{conversation_id}/messages", response_model=ConversationMessagesResponse)
+async def get_conversation_messages(
+    conversation_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取对话消息分页"""
+    exists_result = await db.execute(
+        select(Conversation.id).where(
+            and_(
+                Conversation.id == conversation_id,
+                Conversation.user_id == current_user.id,
+            )
+        )
+    )
+    if not exists_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="对话不存在",
+        )
+
+    count_result = await db.execute(
+        select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.conversation_id == conversation_id
+        )
+    )
+    total = count_result.scalar() or 0
+    response.headers["X-Total-Count"] = str(total)
+
+    result = await db.execute(
+        select(ConversationMessage)
+        .where(ConversationMessage.conversation_id == conversation_id)
+        .order_by(ConversationMessage.created_at.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    messages = result.scalars().all()
+
+    return ConversationMessagesResponse(
+        conversation_id=conversation_id,
+        messages=messages,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)

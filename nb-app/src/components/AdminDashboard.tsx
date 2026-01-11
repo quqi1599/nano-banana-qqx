@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2,
     ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Image, Coins,
-    TrendingUp, Activity, Home, LogOut, Menu, ChevronRight, Clock
+    TrendingUp, Activity, Home, LogOut, Menu, ChevronRight, Clock, Search
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
@@ -45,6 +45,10 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
     // Dashboard
     const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [modelStatsLoaded, setModelStatsLoaded] = useState(false);
+    const [dailyStatsLoaded, setDailyStatsLoaded] = useState(false);
+    const [modelStatsLoading, setModelStatsLoading] = useState(false);
+    const [dailyStatsLoading, setDailyStatsLoading] = useState(false);
 
     // Tokens
     const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -93,8 +97,13 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         setError('');
         try {
             if (activeTab === 'dashboard') {
-                const data = await getDashboardStats();
+                const data = await getDashboardStats(undefined, undefined, {
+                    includeDailyStats: false,
+                    includeModelStats: false,
+                });
                 setStats(data);
+                setDailyStatsLoaded(false);
+                setModelStatsLoaded(false);
             } else if (activeTab === 'tokens') {
                 const data = await getTokens();
                 setTokens(data);
@@ -121,6 +130,42 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
         }
     };
 
+    const loadModelStats = async () => {
+        if (!stats || modelStatsLoading) return;
+        setModelStatsLoading(true);
+        setError('');
+        try {
+            const data = await getDashboardStats(undefined, undefined, {
+                includeDailyStats: false,
+                includeModelStats: true,
+            });
+            setStats((prev) => prev ? { ...prev, ...data, daily_stats: prev.daily_stats } : data);
+            setModelStatsLoaded(true);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setModelStatsLoading(false);
+        }
+    };
+
+    const loadDailyStats = async () => {
+        if (!stats || dailyStatsLoading) return;
+        setDailyStatsLoading(true);
+        setError('');
+        try {
+            const data = await getDashboardStats(undefined, undefined, {
+                includeDailyStats: true,
+                includeModelStats: false,
+            });
+            setStats((prev) => prev ? { ...prev, ...data, model_stats: prev.model_stats } : data);
+            setDailyStatsLoaded(true);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setDailyStatsLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'tickets') {
             loadData();
@@ -128,16 +173,10 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     }, [ticketStatusFilter]);
 
     useEffect(() => {
-        if (activeTab === 'conversations' && conversationSearch) {
+        if (activeTab === 'conversations') {
             loadData();
         }
-    }, [conversationSearch]);
-
-    useEffect(() => {
-        if (activeTab === 'tickets') {
-            loadData();
-        }
-    }, [ticketStatusFilter]);
+    }, [activeTab, conversationSearch]);
 
     useEffect(() => {
         if (selectedTicket && messagesEndRef.current) {
@@ -146,6 +185,9 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     }, [selectedTicket?.messages]);
 
     useEffect(() => {
+        if (activeTab === 'conversations') {
+            return;
+        }
         loadData();
     }, [activeTab]);
 
@@ -364,6 +406,41 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                 />
             )}
 
+            {/* Mobile Bottom Navigation */}
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 safe-area-bottom">
+                <div className="flex items-center justify-around py-1">
+                    {menuItems.map(item => {
+                        const isActive = activeTab === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => {
+                                    setActiveTab(item.id);
+                                    setError('');
+                                    setGeneratedCodes([]);
+                                    setSelectedTicket(null);
+                                    setSelectedConversation(null);
+                                }}
+                                className={`flex flex-col items-center justify-center py-2 px-3 min-w-0 flex-1 transition-all duration-200 ${isActive
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-gray-400 dark:text-gray-500'
+                                    }`}
+                            >
+                                <div className={`relative p-1.5 rounded-xl transition-all duration-200 ${isActive ? 'bg-amber-50 dark:bg-amber-900/20' : ''}`}>
+                                    <item.icon className="w-5 h-5" />
+                                    {isActive && (
+                                        <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-amber-500 rounded-full" />
+                                    )}
+                                </div>
+                                <span className={`text-[10px] font-medium mt-1 truncate w-full text-center ${isActive ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>
+                                    {item.label}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </nav>
+
             {/* Sidebar */}
             <aside className={`
                 fixed lg:relative z-50 h-full
@@ -448,31 +525,32 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
             {/* Main Content */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Top Bar */}
-                <header className="h-16 flex items-center justify-between px-4 lg:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
-                    <div className="flex items-center gap-3">
+                <header className="h-14 lg:h-16 flex items-center justify-between px-3 lg:px-6 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
+                    <div className="flex items-center gap-2 lg:gap-3">
                         {/* Mobile Menu Toggle */}
                         <button
                             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                             className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                         >
-                            <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                            <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                         </button>
-                        <h2 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-white">
+                        <h2 className="text-base lg:text-xl font-bold text-gray-900 dark:text-white">
                             {menuItems.find(m => m.id === activeTab)?.label || '仪表盘'}
                         </h2>
                     </div>
                     <button
                         onClick={loadData}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium text-sm ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium text-xs lg:text-sm ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         disabled={isLoading}
                     >
-                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        刷新数据
+                        <RefreshCw className={`w-3.5 lg:w-4 h-3.5 lg:h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">刷新</span>
+                        <span className="sm:hidden">刷新</span>
                     </button>
                 </header>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-auto p-6">
+                <div className="flex-1 overflow-auto p-3 lg:p-6 pb-20 lg:pb-6">
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm flex items-center gap-3">
                             <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500"></span>
@@ -492,56 +570,64 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                         <>
                             {/* Dashboard */}
                             {activeTab === 'dashboard' && stats && (
-                                <div className="space-y-6 animate-in fade-in duration-300">
-                                    {/* Stats Cards */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        <StatCard
-                                            label="今日消耗"
-                                            value={stats.today_credits_used}
-                                            suffix="次"
-                                            icon={Coins}
-                                            color="amber"
-                                        />
-                                        <StatCard
-                                            label="图片生成"
-                                            value={stats.today_image_calls}
-                                            suffix="次"
-                                            icon={Image}
-                                            color="orange"
-                                        />
-                                        <StatCard
-                                            label="今日活跃"
-                                            value={stats.active_users_today}
-                                            suffix="人"
-                                            icon={Users}
-                                            color="blue"
-                                        />
-                                        <StatCard
-                                            label="请求总数"
-                                            value={stats.total_requests_today}
-                                            suffix="次"
-                                            icon={Activity}
-                                            color="green"
-                                        />
+                                <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-300">
+                                    {/* Stats Cards - Mobile Horizontal Scroll */}
+                                    <div className="lg:grid lg:grid-cols-4 gap-3 lg:gap-4 flex overflow-x-auto snap-x snap-mandatory pb-2 -mx-3 px-3 lg:mx-0 lg:px-0 scrollbar-hide">
+                                        <div className="snap-start shrink-0 w-[85%] sm:w-[60%] lg:w-auto">
+                                            <StatCard
+                                                label="今日消耗"
+                                                value={stats.today_credits_used}
+                                                suffix="次"
+                                                icon={Coins}
+                                                color="amber"
+                                            />
+                                        </div>
+                                        <div className="snap-start shrink-0 w-[85%] sm:w-[60%] lg:w-auto">
+                                            <StatCard
+                                                label="图片生成"
+                                                value={stats.today_image_calls}
+                                                suffix="次"
+                                                icon={Image}
+                                                color="orange"
+                                            />
+                                        </div>
+                                        <div className="snap-start shrink-0 w-[85%] sm:w-[60%] lg:w-auto">
+                                            <StatCard
+                                                label="今日活跃"
+                                                value={stats.active_users_today}
+                                                suffix="人"
+                                                icon={Users}
+                                                color="blue"
+                                            />
+                                        </div>
+                                        <div className="snap-start shrink-0 w-[85%] sm:w-[60%] lg:w-auto">
+                                            <StatCard
+                                                label="请求总数"
+                                                value={stats.total_requests_today}
+                                                suffix="次"
+                                                icon={Activity}
+                                                color="green"
+                                            />
+                                        </div>
                                     </div>
 
-                                    {/* Secondary Stats */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-                                            <p className="text-xs text-gray-500 mb-1">总用户数</p>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total_users}</p>
+                                    {/* Secondary Stats - Mobile Horizontal Scroll */}
+                                    <div className="lg:grid lg:grid-cols-4 gap-2 lg:gap-4 flex overflow-x-auto snap-x snap-mandatory pb-2 -mx-3 px-3 lg:mx-0 lg:px-0 scrollbar-hide">
+                                        <div className="snap-start shrink-0 w-[45%] lg:w-auto bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-4 border border-gray-100 dark:border-gray-800">
+                                            <p className="text-[10px] lg:text-xs text-gray-500 mb-1">总用户数</p>
+                                            <p className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">{stats.total_users}</p>
                                         </div>
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-                                            <p className="text-xs text-gray-500 mb-1">总消耗次数</p>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total_credits_consumed.toLocaleString()}</p>
+                                        <div className="snap-start shrink-0 w-[45%] lg:w-auto bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-4 border border-gray-100 dark:border-gray-800">
+                                            <p className="text-[10px] lg:text-xs text-gray-500 mb-1">总消耗</p>
+                                            <p className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">{stats.total_credits_consumed.toLocaleString()}</p>
                                         </div>
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-                                            <p className="text-xs text-gray-500 mb-1">Token池</p>
-                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.available_tokens}/{stats.token_pool_count}</p>
+                                        <div className="snap-start shrink-0 w-[45%] lg:w-auto bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-4 border border-gray-100 dark:border-gray-800">
+                                            <p className="text-[10px] lg:text-xs text-gray-500 mb-1">Token池</p>
+                                            <p className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">{stats.available_tokens}/{stats.token_pool_count}</p>
                                         </div>
-                                        <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-                                            <p className="text-xs text-gray-500 mb-1">可用Token</p>
-                                            <p className="text-2xl font-bold text-green-600">{stats.available_tokens}</p>
+                                        <div className="snap-start shrink-0 w-[45%] lg:w-auto bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-4 border border-gray-100 dark:border-gray-800">
+                                            <p className="text-[10px] lg:text-xs text-gray-500 mb-1">可用</p>
+                                            <p className="text-xl lg:text-2xl font-bold text-green-600">{stats.available_tokens}</p>
                                         </div>
                                     </div>
 
@@ -553,30 +639,44 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 <BarChart3 className="w-5 h-5 text-amber-500" />
                                                 模型使用占比
                                             </h3>
-                                            {stats.model_stats.length > 0 ? (
-                                                <div className="space-y-4">
-                                                    {stats.model_stats.map((m, idx) => {
-                                                        const colors = ['bg-amber-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-emerald-500'];
-                                                        return (
-                                                            <div key={m.model_name}>
-                                                                <div className="flex justify-between text-sm mb-2">
-                                                                    <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
-                                                                    <span className="text-gray-500">{m.total_requests} 次 / {m.total_credits_used} 次</span>
+                                            {modelStatsLoaded ? (
+                                                stats.model_stats.length > 0 ? (
+                                                    <div className="space-y-4">
+                                                        {stats.model_stats.map((m, idx) => {
+                                                            const colors = ['bg-amber-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-emerald-500'];
+                                                            return (
+                                                                <div key={m.model_name}>
+                                                                    <div className="flex justify-between text-sm mb-2">
+                                                                        <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
+                                                                        <span className="text-gray-500">{m.total_requests} 次 / {m.total_credits_used} 次</span>
+                                                                    </div>
+                                                                    <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full ${colors[idx % colors.length]} transition-all duration-500`}
+                                                                            style={{ width: `${Math.min(100, (m.total_requests / Math.max(1, stats.total_requests_today)) * 100)}%` }}
+                                                                        />
+                                                                    </div>
                                                                 </div>
-                                                                <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={`h-full ${colors[idx % colors.length]} transition-all duration-500`}
-                                                                        style={{ width: `${Math.min(100, (m.total_requests / Math.max(1, stats.total_requests_today)) * 100)}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-12 text-gray-400">
+                                                        <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                                        <p>今日暂无使用记录</p>
+                                                    </div>
+                                                )
                                             ) : (
-                                                <div className="text-center py-12 text-gray-400">
-                                                    <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                                    <p>今日暂无使用记录</p>
+                                                <div className="text-center py-10 text-gray-400">
+                                                    <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={loadModelStats}
+                                                        disabled={modelStatsLoading}
+                                                        className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                                                    >
+                                                        {modelStatsLoading ? '加载中...' : '加载模型统计'}
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -587,25 +687,39 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                                                 <TrendingUp className="w-5 h-5 text-green-500" />
                                                 近7天趋势
                                             </h3>
-                                            {stats.daily_stats.length > 0 ? (
-                                                <div className="space-y-3">
-                                                    {stats.daily_stats.map(day => (
-                                                        <div key={day.date} className="flex items-center gap-4">
-                                                            <span className="w-20 text-sm text-gray-500 font-mono">{day.date.slice(5)}</span>
-                                                            <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden relative">
-                                                                <div
-                                                                    className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
-                                                                    style={{ width: `${Math.min(100, (day.total_requests / Math.max(1, ...stats.daily_stats.map(d => d.total_requests))) * 100)}%` }}
-                                                                />
+                                            {dailyStatsLoaded ? (
+                                                stats.daily_stats.length > 0 ? (
+                                                    <div className="space-y-3">
+                                                        {stats.daily_stats.map(day => (
+                                                            <div key={day.date} className="flex items-center gap-4">
+                                                                <span className="w-20 text-sm text-gray-500 font-mono">{day.date.slice(5)}</span>
+                                                                <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden relative">
+                                                                    <div
+                                                                        className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500"
+                                                                        style={{ width: `${Math.min(100, (day.total_requests / Math.max(1, ...stats.daily_stats.map(d => d.total_requests))) * 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="w-16 text-right text-sm font-medium text-gray-600 dark:text-gray-400">{day.total_requests}</span>
                                                             </div>
-                                                            <span className="w-16 text-right text-sm font-medium text-gray-600 dark:text-gray-400">{day.total_requests}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-12 text-gray-400">
+                                                        <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                                                        <p>暂无历史数据</p>
+                                                    </div>
+                                                )
                                             ) : (
-                                                <div className="text-center py-12 text-gray-400">
-                                                    <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                                    <p>暂无历史数据</p>
+                                                <div className="text-center py-10 text-gray-400">
+                                                    <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={loadDailyStats}
+                                                        disabled={dailyStatsLoading}
+                                                        className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                                                    >
+                                                        {dailyStatsLoading ? '加载中...' : '加载近7天统计'}
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -615,119 +729,135 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
                             {/* Tokens */}
                             {activeTab === 'tokens' && (
-                                <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-6 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-2">
-                                            <Plus className="w-5 h-5" />
+                                <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-300">
+                                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-3 lg:mb-4 flex items-center gap-2 text-sm lg:text-base">
+                                            <Plus className="w-4 h-4 lg:w-5 lg:h-5" />
                                             添加新 API Token
                                         </h4>
-                                        <div className="flex gap-3 flex-wrap lg:flex-nowrap">
+                                        <div className="flex flex-col gap-2 lg:gap-3">
                                             <input
                                                 type="text"
                                                 value={newTokenName}
                                                 onChange={(e) => setNewTokenName(e.currentTarget.value)}
                                                 placeholder="名称 (如 Gemini-Pro-1)"
-                                                className="flex-1 min-w-[180px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                className="w-full px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm lg:text-base"
                                             />
                                             <input
                                                 type="text"
+                                                inputMode="text"
+                                                autoCapitalize="off"
+                                                autoCorrect="off"
+                                                spellCheck="false"
                                                 value={newTokenKey}
                                                 onChange={(e) => setNewTokenKey(e.currentTarget.value)}
                                                 placeholder="API Key"
-                                                className="flex-[2] min-w-[280px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 font-mono text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                className="w-full px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 font-mono text-xs lg:text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
                                             />
-                                            <input
-                                                type="text"
-                                                value={newTokenBaseUrl}
-                                                onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
-                                                placeholder="查询接口 (可选)"
-                                                className="flex-[2] min-w-[240px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
-                                            />
-                                            <input
-                                                type="number"
-                                                value={newTokenPriority}
-                                                onChange={(e) => setNewTokenPriority(Number(e.currentTarget.value))}
-                                                placeholder="优先级"
-                                                className="w-24 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition"
-                                            />
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="url"
+                                                    inputMode="url"
+                                                    value={newTokenBaseUrl}
+                                                    onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
+                                                    placeholder="查询接口 (可选)"
+                                                    className="flex-1 min-w-0 px-3 lg:px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs lg:text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    inputMode="numeric"
+                                                    value={newTokenPriority}
+                                                    onChange={(e) => setNewTokenPriority(Number(e.currentTarget.value))}
+                                                    placeholder="优先级"
+                                                    className="w-20 lg:w-24 px-3 lg:px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition text-sm lg:text-base"
+                                                />
+                                            </div>
                                             <button
                                                 onClick={handleAddToken}
                                                 disabled={!newTokenName || !newTokenKey}
-                                                className="px-8 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30"
+                                                className="w-full sm:w-auto sm:min-w-[120px] px-6 lg:px-8 py-3 min-h-[48px] bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30 text-sm lg:text-base"
                                             >
-                                                添加
+                                                添加 Token
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <h4 className="font-bold text-gray-400 uppercase text-sm tracking-wider">Token 列表 ({tokens.length})</h4>
+                                    <div className="space-y-2 lg:space-y-3">
+                                        <h4 className="font-bold text-gray-400 uppercase text-xs lg:text-sm tracking-wider">Token 列表 ({tokens.length})</h4>
                                         {tokens.map(token => (
-                                            <div key={token.id} className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
-                                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <span className="font-bold text-gray-900 dark:text-white">{token.name}</span>
-                                                            <span className="text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-lg">
-                                                                优先级 {token.priority}
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-sm text-gray-400 truncate font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded-lg select-all">
-                                                            {token.api_key}
-                                                        </div>
-                                                        <div className="mt-3 flex flex-col lg:flex-row gap-2">
-                                                            <input
-                                                                type="text"
-                                                                value={tokenBaseUrlDrafts[token.id] || ''}
-                                                                onChange={(e) =>
-                                                                    setTokenBaseUrlDrafts(prev => ({ ...prev, [token.id]: e.currentTarget.value }))
-                                                                }
-                                                                placeholder="查询接口 (可选)"
-                                                                className="flex-1 min-w-[220px] px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
-                                                            />
-                                                            <button
-                                                                onClick={() => handleSaveTokenBaseUrl(token.id)}
-                                                                className="px-4 py-2 text-xs font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/40 transition"
-                                                            >
-                                                                保存接口
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-6">
-                                                        <div className="text-center">
-                                                            <span className={`block text-xs font-bold uppercase ${token.is_active ? 'text-green-500' : 'text-red-400'}`}>
-                                                                {token.is_active ? 'ACTIVE' : 'DISABLED'}
-                                                            </span>
-                                                            <button
-                                                                onClick={() => handleToggleToken(token.id, token.is_active)}
-                                                                className="mt-1 text-xs text-amber-600 hover:text-amber-700 font-medium bg-amber-50 dark:bg-amber-900/20 px-3 py-1 rounded-lg transition"
-                                                            >
-                                                                {token.is_active ? '停止' : '激活'}
-                                                            </button>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-xs text-gray-400">额度</div>
-                                                            <div className="font-bold text-amber-600 text-lg flex items-center gap-1 justify-end">
-                                                                {formatQuota(token.remaining_quota)}
-                                                                <button
-                                                                    onClick={() => handleCheckQuota(token.id)}
-                                                                    disabled={checkingQuotaTokenId === token.id}
-                                                                    className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition disabled:opacity-50"
-                                                                    title="刷新额度"
-                                                                >
-                                                                    <RefreshCw className={`w-3.5 h-3.5 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
-                                                                </button>
+                                            <div key={token.id} className="bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-5 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
+                                                <div className="flex flex-col gap-3">
+                                                    {/* Header Row */}
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                <span className="font-bold text-gray-900 dark:text-white text-sm lg:text-base">{token.name}</span>
+                                                                <span className="text-[10px] lg:text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-lg">
+                                                                    P{token.priority}
+                                                                </span>
+                                                                <span className={`text-[10px] lg:text-xs font-bold px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-lg ${token.is_active ? 'bg-green-100 text-green-600 dark:bg-green-900/30' : 'bg-red-100 text-red-600 dark:bg-red-900/30'}`}>
+                                                                    {token.is_active ? 'ACTIVE' : 'DISABLED'}
+                                                                </span>
                                                             </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-xs text-gray-400">已处理</div>
-                                                            <div className="font-bold text-gray-700 dark:text-gray-300 text-lg">{token.total_requests}</div>
+                                                            <div className="text-xs lg:text-sm text-gray-400 truncate font-mono bg-gray-50 dark:bg-gray-800 p-2 rounded-lg select-all">
+                                                                {token.api_key}
+                                                            </div>
                                                         </div>
                                                         <button
                                                             onClick={() => handleDeleteToken(token.id)}
-                                                            className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition"
+                                                            className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition min-h-[36px] min-w-[36px] flex items-center justify-center"
                                                         >
-                                                            <Trash2 className="w-5 h-5" />
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Base URL Input Row */}
+                                                    <div className="flex flex-col sm:flex-row gap-2">
+                                                        <input
+                                                            type="url"
+                                                            inputMode="url"
+                                                            value={tokenBaseUrlDrafts[token.id] || ''}
+                                                            onChange={(e) =>
+                                                                setTokenBaseUrlDrafts(prev => ({ ...prev, [token.id]: e.currentTarget.value }))
+                                                            }
+                                                            placeholder="查询接口 (可选)"
+                                                            className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleSaveTokenBaseUrl(token.id)}
+                                                            className="px-3 lg:px-4 py-2 text-xs font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/40 transition min-h-[36px] whitespace-nowrap"
+                                                        >
+                                                            保存接口
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Stats Row */}
+                                                    <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
+                                                        <div className="flex items-center gap-4 lg:gap-6">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] lg:text-xs text-gray-400">额度</span>
+                                                                <div className="font-bold text-amber-600 text-sm lg:text-lg flex items-center gap-1">
+                                                                    {formatQuota(token.remaining_quota)}
+                                                                    <button
+                                                                        onClick={() => handleCheckQuota(token.id)}
+                                                                        disabled={checkingQuotaTokenId === token.id}
+                                                                        className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition disabled:opacity-50"
+                                                                        title="刷新额度"
+                                                                    >
+                                                                        <RefreshCw className={`w-3 h-3 lg:w-3.5 lg:h-3.5 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] lg:text-xs text-gray-400">已处理</span>
+                                                                <span className="font-bold text-gray-700 dark:text-gray-300 text-sm lg:text-lg">{token.total_requests}</span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleToggleToken(token.id, token.is_active)}
+                                                            className="px-3 py-1.5 text-xs font-medium text-amber-600 hover:text-amber-700 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg transition min-h-[36px]"
+                                                        >
+                                                            {token.is_active ? '停用' : '启用'}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -745,62 +875,66 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
 
                             {/* Model Pricing */}
                             {activeTab === 'pricing' && (
-                                <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-4 flex items-center gap-2">
-                                            <Coins className="w-5 h-5" />
+                                <div className="space-y-4 lg:space-y-6 animate-in fade-in duration-300">
+                                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                                        <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-3 lg:mb-4 flex items-center gap-2 text-sm lg:text-base">
+                                            <Coins className="w-4 h-4 lg:w-5 lg:h-5" />
                                             新增模型计费
                                         </h4>
-                                        <div className="flex gap-3 flex-wrap lg:flex-nowrap">
+                                        <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
                                             <input
                                                 type="text"
                                                 value={newModelName}
                                                 onChange={(e) => setNewModelName(e.currentTarget.value)}
                                                 placeholder="模型名称 (如 gemini-3-pro-image-preview)"
-                                                className="flex-1 min-w-[220px] px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                className="flex-1 min-w-0 px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm lg:text-base"
                                             />
                                             <input
                                                 type="number"
+                                                inputMode="numeric"
                                                 min="1"
                                                 value={newModelCredits}
                                                 onChange={(e) => setNewModelCredits(Number(e.currentTarget.value))}
-                                                placeholder="扣点次数"
-                                                className="w-28 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                                placeholder="扣点"
+                                                className="w-24 lg:w-28 px-4 py-3 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-amber-500 outline-none transition text-sm lg:text-base"
                                             />
                                             <button
                                                 onClick={handleAddPricing}
                                                 disabled={!newModelName.trim() || newModelCredits <= 0}
-                                                className="px-8 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30"
+                                                className="w-full sm:w-auto px-6 lg:px-8 py-3 min-h-[48px] bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 transition font-bold shadow-lg shadow-amber-500/30 text-sm lg:text-base"
                                             >
                                                 添加
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <h4 className="font-bold text-gray-400 uppercase text-sm tracking-wider">模型计费列表 ({pricing.length})</h4>
+                                    <div className="space-y-2 lg:space-y-3">
+                                        <h4 className="font-bold text-gray-400 uppercase text-xs lg:text-sm tracking-wider">模型计费列表 ({pricing.length})</h4>
                                         {pricing.map(item => (
-                                            <div key={item.id} className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
-                                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                            <div key={item.id} className="bg-white dark:bg-gray-900 rounded-xl lg:rounded-2xl p-3 lg:p-5 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="font-bold text-gray-900 dark:text-white truncate">{item.model_name}</div>
-                                                        <div className="text-xs text-gray-400 mt-1">更新于 {new Date(item.updated_at).toLocaleString()}</div>
+                                                        <div className="font-bold text-gray-900 dark:text-white truncate text-sm lg:text-base">{item.model_name}</div>
+                                                        <div className="text-[10px] lg:text-xs text-gray-400 mt-0.5">更新于 {new Date(item.updated_at).toLocaleString()}</div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            value={pricingDrafts[item.id] ?? item.credits_per_request}
-                                                            onChange={(e) => {
-                                                                const nextValue = Number(e.currentTarget.value);
-                                                                setPricingDrafts(prev => ({ ...prev, [item.id]: nextValue }));
-                                                            }}
-                                                            className="w-24 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-amber-500 outline-none"
-                                                        />
-                                                        <span className="text-xs text-gray-400">次/次</span>
+                                                    <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                                                        <div className="flex items-center gap-2 flex-1 sm:flex-none">
+                                                            <input
+                                                                type="number"
+                                                                inputMode="numeric"
+                                                                min="1"
+                                                                value={pricingDrafts[item.id] ?? item.credits_per_request}
+                                                                onChange={(e) => {
+                                                                    const nextValue = Number(e.currentTarget.value);
+                                                                    setPricingDrafts(prev => ({ ...prev, [item.id]: nextValue }));
+                                                                }}
+                                                                className="w-24 sm:w-20 lg:w-24 px-3 py-2 min-h-[44px] rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm text-center focus:ring-2 focus:ring-amber-500 outline-none"
+                                                            />
+                                                            <span className="text-xs text-gray-400">次</span>
+                                                        </div>
                                                         <button
                                                             onClick={() => handleUpdatePricing(item.id)}
-                                                            className="px-3 py-2 text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition"
+                                                            className="px-4 py-2 text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition min-h-[44px] flex-1 sm:flex-none"
                                                         >
                                                             保存
                                                         </button>

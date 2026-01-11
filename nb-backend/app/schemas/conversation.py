@@ -65,6 +65,15 @@ class ConversationDetailResponse(ConversationResponse):
     messages: List[MessageResponse] = []
 
 
+class ConversationMessagesResponse(BaseModel):
+    """对话消息分页响应"""
+    conversation_id: str
+    messages: List[MessageResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 class AdminConversationResponse(ConversationResponse):
     """管理员对话响应（含用户信息）"""
     user_email: str

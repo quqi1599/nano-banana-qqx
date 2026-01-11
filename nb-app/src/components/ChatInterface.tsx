@@ -14,6 +14,7 @@ import { Sparkles } from 'lucide-react';
 import { lazyWithRetry } from '../utils/lazyLoadUtils';
 import { NewConversationModal } from './NewConversationModal';
 import { checkConversationLimit } from '../utils/historyUtils';
+import { Pagination } from './Pagination';
 
 // Lazy load components
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
@@ -24,6 +25,10 @@ export const ChatInterface: React.FC = () => {
     apiKey,
     messages,
     settings,
+    currentConversationId,
+    messagesPage,
+    messagesPageSize,
+    messagesTotal,
     addMessage,
     updateLastMessage,
     addImageToHistory,
@@ -36,6 +41,7 @@ export const ChatInterface: React.FC = () => {
     usageCount,
     syncCurrentMessage,
     clearHistory,
+    loadConversation,
   } = useAppStore();
 
   const { isAuthenticated, refreshCredits } = useAuthStore();
@@ -81,6 +87,11 @@ export const ChatInterface: React.FC = () => {
     } else if (!showArcade) {
       setShowArcade(true);
     }
+  };
+
+  const handleMessagesPageChange = async (nextPage: number) => {
+    if (!currentConversationId) return;
+    await loadConversation(currentConversationId, nextPage);
   };
 
   useEffect(() => {
@@ -990,6 +1001,16 @@ export const ChatInterface: React.FC = () => {
               />
             </div>
           </div>
+        )}
+
+        {currentConversationId && (
+          <Pagination
+            page={messagesPage}
+            pageSize={messagesPageSize}
+            total={messagesTotal}
+            onPageChange={handleMessagesPageChange}
+            className="mb-2"
+          />
         )}
 
         {messages.length === 0 && (

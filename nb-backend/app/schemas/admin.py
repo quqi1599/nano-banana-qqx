@@ -111,6 +111,13 @@ class ModelStats(BaseModel):
     total_credits_used: int
 
 
+class UserGrowthStats(BaseModel):
+    """用户增长统计"""
+    date: str
+    new_users: int
+    total_users: int
+
+
 class DashboardStats(BaseModel):
     """仪表盘统计"""
     total_users: int
@@ -123,6 +130,7 @@ class DashboardStats(BaseModel):
     today_image_calls: int = 0   # 今日图片调用次数
     daily_stats: List[DailyStats]
     model_stats: List[ModelStats]
+    user_growth: List[UserGrowthStats] = []  # 用户增长趋势
 
 
 # 邮件配置管理

@@ -7,6 +7,7 @@ import { MessageSquare, Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, Chevr
 import { useAppStore } from '../store/useAppStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { Conversation } from '../services/conversationService';
+import { Pagination } from './Pagination';
 
 interface ConversationHistoryPanelProps {
     isOpen: boolean;
@@ -80,6 +81,9 @@ export const ConversationHistoryPanel = ({
     const { isAuthenticated } = useAuthStore();
     const {
         conversationList,
+        conversationListTotal,
+        conversationListPage,
+        conversationListPageSize,
         currentConversationId,
         loadConversationList,
         deleteConversation,
@@ -88,10 +92,11 @@ export const ConversationHistoryPanel = ({
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingTitle, setEditingTitle] = useState('');
+    const totalCount = conversationListTotal || conversationList.length;
 
     useEffect(() => {
         if (isOpen && isAuthenticated) {
-            loadConversationList();
+            loadConversationList(conversationListPage, conversationListPageSize);
         }
     }, [isOpen, isAuthenticated, loadConversationList]);
 
@@ -176,7 +181,7 @@ export const ConversationHistoryPanel = ({
                         <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                             <MessageSquare className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         </div>
-                        <span className="text-xs text-gray-500">{conversationList.length}</span>
+                        <span className="text-xs text-gray-500">{totalCount}</span>
                     </div>
                 </div>
             </>
@@ -211,6 +216,7 @@ export const ConversationHistoryPanel = ({
                         <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-amber-500" />
                             <span>对话历史</span>
+                            <span className="text-xs text-gray-400">{totalCount}</span>
                         </h2>
                         <div className="flex items-center gap-1">
                             {/* 收起按钮 */}
@@ -364,6 +370,16 @@ export const ConversationHistoryPanel = ({
                                     </div>
                                 ) : null
                             )}
+                        </div>
+                    )}
+                    {conversationListTotal > conversationListPageSize && (
+                        <div className="sticky bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur py-2">
+                            <Pagination
+                                page={conversationListPage}
+                                pageSize={conversationListPageSize}
+                                total={conversationListTotal}
+                                onPageChange={(nextPage) => loadConversationList(nextPage, conversationListPageSize)}
+                            />
                         </div>
                     )}
                 </div>

@@ -1,7 +1,7 @@
 """
 API 代理路由 - 代理前端请求到 NewAPI
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.models.usage_log import UsageLog
 from app.models.credit import CreditTransaction, TransactionType
 from app.models.model_pricing import ModelPricing
 from app.utils.security import get_current_user
+from app.utils.token_security import decrypt_api_key, encrypt_api_key, hash_api_key, build_key_parts
 from app.config import get_settings
 
 router = APIRouter()
@@ -38,14 +39,22 @@ async def get_credits_for_model(db: AsyncSession, model_name: str) -> int:
     return settings.credits_gemini_3_pro  # 默认
 
 
-async def get_available_tokens(db: AsyncSession) -> list[TokenPool]:
+async def get_available_tokens(db: AsyncSession, lock: bool = False) -> list[TokenPool]:
     """获取可用的 Token 列表（按优先级轮询）"""
-    result = await db.execute(
+    now = datetime.utcnow()
+    query = (
         select(TokenPool)
         .where(TokenPool.is_active == True)
+        .where(
+            (TokenPool.cooldown_until == None) | (TokenPool.cooldown_until <= now)
+        )
         .order_by(TokenPool.priority.desc())
         .order_by(TokenPool.last_used_at.asc().nullsfirst())
     )
+    if lock:
+        query = query.with_for_update()
+
+    result = await db.execute(query)
     tokens = result.scalars().all()
 
     if not tokens:

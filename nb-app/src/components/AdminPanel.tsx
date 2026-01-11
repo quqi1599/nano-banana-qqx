@@ -2,15 +2,16 @@
  * 管理员后台面板
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2, ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Coins } from 'lucide-react';
+import { X, Users, Key, Gift, BarChart3, Plus, Trash2, RefreshCw, Copy, Check, Loader2, ShieldCheck, MessageSquare, Send, UserCog, User, FileText, Coins, Undo2, Download, Calendar, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
+import { useUiStore } from '../store/useUiStore';
 import {
     getTokens, addToken, deleteToken, updateToken, checkTokenQuota, TokenInfo,
     getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
     generateRedeemCodes, getRedeemCodes, RedeemCodeInfo,
     getUsers, adjustUserCredits, updateUserNote, AdminUser,
-    getDashboardStats, DashboardStats,
+    getDashboardStats, DashboardStats, exportStats,
 } from '../services/adminService';
 import { formatBalance } from '../services/balanceService';
 import { getApiBaseUrl } from '../utils/endpointUtils';
@@ -23,16 +24,49 @@ interface AdminPanelProps {
 
 type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets';
 
+// 积分调整记录接口，用于撤销功能
+interface CreditAdjustmentRecord {
+    userId: string;
+    userName: string;
+    amount: number;
+    timestamp: number;
+}
+
 export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const { user } = useAuthStore();
     const { settings } = useAppStore();
+    const { addToast } = useUiStore();
     const apiBaseUrl = getApiBaseUrl(settings.customEndpoint);
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // 新增：细粒度 loading 状态
+    const [addingToken, setAddingToken] = useState(false);
+    const [savingTokenUrl, setSavingTokenUrl] = useState<Record<string, boolean>>({});
+    const [addingPricing, setAddingPricing] = useState(false);
+    const [savingPricing, setSavingPricing] = useState<string | null>(null);
+    const [adjustingCredits, setAdjustingCredits] = useState(false);
+    const [savingNote, setSavingNote] = useState(false);
+    const [generatingCodes, setGeneratingCodes] = useState(false);
+    const [sendingReply, setSendingReply] = useState(false);
+
+    // 新增：积分调整撤销记录
+    const [lastCreditAdjustment, setLastCreditAdjustment] = useState<CreditAdjustmentRecord | null>(null);
+
     // Dashboard
     const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [modelStatsLoaded, setModelStatsLoaded] = useState(false);
+    const [dailyStatsLoaded, setDailyStatsLoaded] = useState(false);
+    const [modelStatsLoading, setModelStatsLoading] = useState(false);
+    const [dailyStatsLoading, setDailyStatsLoading] = useState(false);
+    const [statsStartDate, setStatsStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 6);
+        return d.toISOString().split('T')[0];
+    });
+    const [statsEndDate, setStatsEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [exportingStats, setExportingStats] = useState(false);
 
     // Tokens
     const [tokens, setTokens] = useState<TokenInfo[]>([]);
@@ -82,8 +116,13 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         setError('');
         try {
             if (activeTab === 'dashboard') {
-                const data = await getDashboardStats();
+                const data = await getDashboardStats(statsStartDate, statsEndDate, {
+                    includeDailyStats: false,
+                    includeModelStats: false,
+                });
                 setStats(data);
+                setDailyStatsLoaded(false);
+                setModelStatsLoaded(false);
             } else if (activeTab === 'tokens') {
                 const data = await getTokens();
                 setTokens(data);
@@ -104,6 +143,42 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             setError((err as Error).message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const loadModelStats = async () => {
+        if (!stats || modelStatsLoading) return;
+        setModelStatsLoading(true);
+        setError('');
+        try {
+            const data = await getDashboardStats(statsStartDate, statsEndDate, {
+                includeDailyStats: false,
+                includeModelStats: true,
+            });
+            setStats((prev) => prev ? { ...prev, ...data, daily_stats: prev.daily_stats } : data);
+            setModelStatsLoaded(true);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setModelStatsLoading(false);
+        }
+    };
+
+    const loadDailyStats = async () => {
+        if (!stats || dailyStatsLoading) return;
+        setDailyStatsLoading(true);
+        setError('');
+        try {
+            const data = await getDashboardStats(statsStartDate, statsEndDate, {
+                includeDailyStats: true,
+                includeModelStats: false,
+            });
+            setStats((prev) => prev ? { ...prev, ...data, model_stats: prev.model_stats } : data);
+            setDailyStatsLoaded(true);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setDailyStatsLoading(false);
         }
     };
 
@@ -166,8 +241,39 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         return formatBalance(Number(quota), isUnlimited);
     };
 
+    // 导出统计数据为 CSV
+    const handleExportStats = async (dataType: 'daily' | 'model' | 'user_growth') => {
+        setExportingStats(true);
+        try {
+            const blob = await exportStats(statsStartDate, statsEndDate, dataType);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${dataType}_stats_${statsStartDate}_to_${statsEndDate}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            addToast('导出成功', 'success');
+        } catch (err) {
+            addToast((err as Error).message, 'error');
+        } finally {
+            setExportingStats(false);
+        }
+    };
+
+    // 快速日期选择
+    const setQuickDateRange = (days: number) => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - days + 1);
+        setStatsStartDate(start.toISOString().split('T')[0]);
+        setStatsEndDate(end.toISOString().split('T')[0]);
+    };
+
     const handleAddToken = async () => {
         if (!newTokenName || !newTokenKey) return;
+        setAddingToken(true);
         try {
             await addToken(
                 newTokenName,
@@ -179,18 +285,22 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             setNewTokenKey('');
             setNewTokenBaseUrl('');
             setNewTokenPriority(0);
+            addToast('Token 添加成功', 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setAddingToken(false);
         }
     };
 
     const handleToggleToken = async (id: string, currentStatus: boolean) => {
         try {
             await updateToken(id, { is_active: !currentStatus });
+            addToast('Token 状态已更新', 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
         }
     };
 
@@ -198,9 +308,10 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         if (!confirm('确定要删除这个 Token 吗？')) return;
         try {
             await deleteToken(id);
+            addToast('Token 已删除', 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
         }
     };
 
@@ -211,8 +322,9 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             const updated = await checkTokenQuota(id, baseUrl);
             // 更新列表中的 token
             setTokens(prev => prev.map(t => t.id === id ? { ...t, remaining_quota: updated.remaining_quota } : t));
+            addToast('额度查询成功', 'success');
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
         } finally {
             setCheckingQuotaTokenId(null);
         }
@@ -222,64 +334,110 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         const baseUrl = tokenBaseUrlDrafts[id]?.trim() || null;
         const current = tokens.find(t => t.id === id)?.base_url || null;
         if ((current || null) === baseUrl) return;
+        setSavingTokenUrl(prev => ({ ...prev, [id]: true }));
         try {
             const updated = await updateToken(id, { base_url: baseUrl });
             setTokens(prev => prev.map(t => t.id === id ? { ...t, base_url: updated.base_url } : t));
+            addToast('接口地址已保存', 'success');
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setSavingTokenUrl(prev => ({ ...prev, [id]: false }));
         }
     };
 
     const handleAddPricing = async () => {
         if (!newModelName.trim() || newModelCredits <= 0) return;
+        setAddingPricing(true);
         try {
             await createModelPricing(newModelName.trim(), newModelCredits);
             setNewModelName('');
             setNewModelCredits(10);
+            addToast('计费模型添加成功', 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setAddingPricing(false);
         }
     };
 
     const handleUpdatePricing = async (id: string) => {
         const nextValue = pricingDrafts[id];
         if (!nextValue || nextValue <= 0) {
-            setError('扣点次数必须大于 0');
+            addToast('扣点次数必须大于 0', 'error');
             return;
         }
+        setSavingPricing(id);
         try {
             await updateModelPricing(id, nextValue);
+            addToast('计费已更新', 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setSavingPricing(null);
         }
     };
 
     const handleAdjustCredits = async (userId: string) => {
         if (adjustAmount === 0) return;
+        const targetUser = users.find(u => u.id === userId);
+        setAdjustingCredits(true);
         try {
             await adjustUserCredits(userId, adjustAmount, '管理员手动调整');
+            // 记录调整，用于撤销
+            setLastCreditAdjustment({
+                userId,
+                userName: targetUser?.nickname || targetUser?.email || userId,
+                amount: adjustAmount,
+                timestamp: Date.now()
+            });
             setEditingUserId(null);
             setAdjustAmount(0);
+            addToast(`积分调整成功 (${adjustAmount > 0 ? '+' : ''}${adjustAmount})`, 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setAdjustingCredits(false);
+        }
+    };
+
+    // 新增：撤销积分调整
+    const handleUndoCredits = async () => {
+        if (!lastCreditAdjustment) return;
+        const { userId, amount, userName } = lastCreditAdjustment;
+        setAdjustingCredits(true);
+        try {
+            await adjustUserCredits(userId, -amount, '撤销调整');
+            addToast(`已撤销对 ${userName} 的积分调整`, 'success');
+            setLastCreditAdjustment(null);
+            loadData();
+        } catch (err) {
+            addToast((err as Error).message, 'error');
+        } finally {
+            setAdjustingCredits(false);
         }
     };
 
     const handleUpdateNote = async (userId: string) => {
+        setSavingNote(true);
         try {
             await updateUserNote(userId, noteContent);
             setEditingNoteUserId(null);
             setNoteContent('');
+            addToast('备注已保存', 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setSavingNote(false);
         }
     };
 
     const handleGenerateCodes = async () => {
+        setGeneratingCodes(true);
         try {
             const result = await generateRedeemCodes(
                 generateCount,
@@ -288,9 +446,12 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                 generateFlashAmount
             );
             setGeneratedCodes(result.codes);
+            addToast(`成功生成 ${result.codes.length} 个兑换码`, 'success');
             loadData();
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setGeneratingCodes(false);
         }
     };
 
@@ -305,18 +466,22 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             const data = await getTicketDetail(id);
             setSelectedTicket(data);
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
         }
     };
 
     const handleAdminReply = async () => {
         if (!selectedTicket || !adminReplyContent.trim()) return;
+        setSendingReply(true);
         try {
             await replyTicket(selectedTicket.id, adminReplyContent);
             setAdminReplyContent('');
+            addToast('回复已发送', 'success');
             await loadTicketDetail(selectedTicket.id);
         } catch (err) {
-            setError((err as Error).message);
+            addToast((err as Error).message, 'error');
+        } finally {
+            setSendingReply(false);
         }
     };
 
@@ -409,7 +574,49 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                         <>
                             {/* Dashboard */}
                             {activeTab === 'dashboard' && stats && (
-                                <div className="space-y-8 animate-in fade-in duration-300">
+                                <div className="space-y-6 animate-in fade-in duration-300">
+                                    {/* 日期选择器和操作区 */}
+                                    <div className="flex flex-wrap items-center gap-3 p-4 bg-cream-50/50 dark:bg-gray-800/30 rounded-2xl border border-cream-100 dark:border-gray-700">
+                                        <Calendar className="w-4 h-4 text-cream-500" />
+                                        <input
+                                            type="date"
+                                            value={statsStartDate}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStatsStartDate(e.currentTarget.value)}
+                                            className="px-3 py-1.5 rounded-lg border border-cream-200 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-cream-500 outline-none"
+                                        />
+                                        <span className="text-cream-400">至</span>
+                                        <input
+                                            type="date"
+                                            value={statsEndDate}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStatsEndDate(e.currentTarget.value)}
+                                            className="px-3 py-1.5 rounded-lg border border-cream-200 dark:border-gray-600 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-cream-500 outline-none"
+                                        />
+                                        <button onClick={loadData} className="px-4 py-1.5 bg-cream-600 text-white rounded-lg text-sm font-bold hover:bg-cream-700 transition flex items-center gap-1.5">
+                                            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                                            查询
+                                        </button>
+                                        <div className="flex gap-1 ml-auto">
+                                            <button onClick={() => setQuickDateRange(1)} className="px-2 py-1 text-xs text-cream-600 hover:bg-cream-100 dark:hover:bg-gray-700 rounded transition">今日</button>
+                                            <button onClick={() => setQuickDateRange(7)} className="px-2 py-1 text-xs text-cream-600 hover:bg-cream-100 dark:hover:bg-gray-700 rounded transition">近7天</button>
+                                            <button onClick={() => setQuickDateRange(30)} className="px-2 py-1 text-xs text-cream-600 hover:bg-cream-100 dark:hover:bg-gray-700 rounded transition">近30天</button>
+                                        </div>
+                                        <div className="relative group">
+                                            <button
+                                                disabled={exportingStats}
+                                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition flex items-center gap-1.5 disabled:opacity-50"
+                                            >
+                                                {exportingStats ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                                导出
+                                            </button>
+                                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-cream-200 dark:border-gray-600 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 min-w-[120px]">
+                                                <button onClick={() => handleExportStats('daily')} className="w-full px-3 py-2 text-left text-sm hover:bg-cream-50 dark:hover:bg-gray-700 rounded-t-lg">每日统计</button>
+                                                <button onClick={() => handleExportStats('model')} className="w-full px-3 py-2 text-left text-sm hover:bg-cream-50 dark:hover:bg-gray-700">模型使用</button>
+                                                <button onClick={() => handleExportStats('user_growth')} className="w-full px-3 py-2 text-left text-sm hover:bg-cream-50 dark:hover:bg-gray-700 rounded-b-lg">用户增长</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 统计卡片 */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         <StatCard label="总用户" value={stats.total_users} onClick={() => setActiveTab('users')} />
                                         <StatCard label="今日活跃" value={stats.active_users_today} onClick={() => setActiveTab('users')} />
@@ -417,35 +624,119 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                         <StatCard label="Token池状态" value={`${stats.available_tokens}/${stats.token_pool_count}`} onClick={() => setActiveTab('tokens')} />
                                     </div>
 
+                                    {/* 图表区 */}
                                     <div className="grid md:grid-cols-2 gap-6">
+                                        {/* 模型使用排行 */}
                                         <div className="bg-cream-50/50 dark:bg-gray-800/50 rounded-2xl p-6 border border-cream-100 dark:border-gray-800">
-                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">模型消耗占比</h3>
-                                            {stats.model_stats.length > 0 ? (
-                                                <div className="space-y-4">
-                                                    {stats.model_stats.map(m => (
-                                                        <div key={m.model_name} className="group">
-                                                            <div className="flex justify-between text-sm mb-1.5">
-                                                                <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
-                                                                <span className="text-gray-500">{m.total_requests} 次 / {m.total_credits_used} 次</span>
-                                                            </div>
-                                                            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">模型使用排行</h3>
+                                            {modelStatsLoaded ? (
+                                                stats.model_stats.length > 0 ? (
+                                                    <div className="space-y-3 max-h-64 overflow-auto">
+                                                        {stats.model_stats.slice(0, 10).map((m, i) => {
+                                                            const maxRequests = stats.model_stats[0]?.total_requests || 1;
+                                                            return (
+                                                                <div key={m.model_name} className="group">
+                                                                    <div className="flex justify-between text-sm mb-1">
+                                                                        <span className="font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                                                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${i < 3 ? 'bg-amber-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'}`}>{i + 1}</span>
+                                                                            <span className="truncate max-w-[150px]">{m.model_name}</span>
+                                                                        </span>
+                                                                        <span className="text-gray-500 text-xs">{m.total_requests}次 / {m.total_credits_used}分</span>
+                                                                    </div>
+                                                                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className="h-full bg-cream-500 group-hover:bg-cream-400 transition-all"
+                                                                            style={{ width: `${(m.total_requests / maxRequests) * 100}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-10 text-gray-500 text-sm italic">该时段暂无使用记录</div>
+                                                )
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500 text-sm">
+                                                    <button
+                                                        type="button"
+                                                        onClick={loadModelStats}
+                                                        disabled={modelStatsLoading}
+                                                        className="px-4 py-2 rounded-lg border border-cream-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-cream-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                                                    >
+                                                        {modelStatsLoading ? '加载中...' : '加载模型统计'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* 用户增长趋势 */}
+                                        <div className="bg-cream-50/50 dark:bg-gray-800/50 rounded-2xl p-6 border border-cream-100 dark:border-gray-800">
+                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                                                <TrendingUp className="w-4 h-4" />
+                                                用户增长趋势
+                                            </h3>
+                                            {stats.user_growth && stats.user_growth.length > 0 ? (
+                                                <div className="space-y-2 max-h-64 overflow-auto">
+                                                    {stats.user_growth.map((d, i) => (
+                                                        <div key={d.date} className="flex items-center gap-3 text-sm">
+                                                            <span className="text-gray-400 w-20 text-xs">{d.date.slice(5)}</span>
+                                                            <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
                                                                 <div
-                                                                    className="h-full bg-cream-500 group-hover:bg-cream-400 transition-all"
-                                                                    style={{ width: `${Math.min(100, (m.total_requests / (stats.total_requests_today || 1)) * 100)}%` }}
+                                                                    className="h-full bg-green-500 rounded-full transition-all"
+                                                                    style={{ width: `${(d.total_users / (stats.user_growth[stats.user_growth.length - 1]?.total_users || 1)) * 100}%` }}
                                                                 />
                                                             </div>
+                                                            <span className="text-gray-600 dark:text-gray-400 w-14 text-right text-xs">
+                                                                +{d.new_users} / {d.total_users}
+                                                            </span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <div className="text-center py-10 text-gray-500 text-sm italic">今日暂无使用记录数据</div>
+                                                <div className="text-center py-10 text-gray-500 text-sm italic">暂无用户增长数据</div>
                                             )}
                                         </div>
+                                    </div>
 
-                                        <div className="bg-cream-50/50 dark:bg-gray-800/50 rounded-2xl p-6 border border-cream-100 dark:border-gray-800 flex flex-col items-center justify-center text-center">
-                                            <BarChart3 className="w-12 h-12 text-cream-200 mb-2" />
-                                            <p className="text-sm text-cream-400">更多细化统计图表正在开发中...</p>
-                                        </div>
+                                    {/* 每日请求趋势 */}
+                                    <div className="bg-cream-50/50 dark:bg-gray-800/50 rounded-2xl p-6 border border-cream-100 dark:border-gray-800">
+                                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">每日请求统计</h3>
+                                        {dailyStatsLoaded ? (
+                                            stats.daily_stats.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {stats.daily_stats.map(d => {
+                                                        const maxRequests = Math.max(...stats.daily_stats.map(s => s.total_requests)) || 1;
+                                                        return (
+                                                            <div key={d.date} className="flex items-center gap-3">
+                                                                <span className="text-gray-400 w-20 text-xs">{d.date.slice(5)}</span>
+                                                                <div className="flex-1 h-5 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+                                                                    <div
+                                                                        className="h-full bg-cream-500 rounded transition-all"
+                                                                        style={{ width: `${(d.total_requests / maxRequests) * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-gray-600 dark:text-gray-400 w-16 text-right text-xs">{d.total_requests}次</span>
+                                                                <span className="text-gray-400 w-12 text-right text-xs">{d.unique_users}人</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-10 text-gray-500 text-sm italic">该时段暂无请求数据</div>
+                                            )
+                                        ) : (
+                                            <div className="text-center py-8 text-gray-500 text-sm">
+                                                <button
+                                                    type="button"
+                                                    onClick={loadDailyStats}
+                                                    disabled={dailyStatsLoading}
+                                                    className="px-4 py-2 rounded-lg border border-cream-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-cream-50 dark:hover:bg-gray-800 disabled:opacity-60"
+                                                >
+                                                    {dailyStatsLoading ? '加载中...' : '加载每日统计'}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -487,10 +778,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                             />
                                             <button
                                                 onClick={handleAddToken}
-                                                disabled={!newTokenName || !newTokenKey}
-                                                className="px-6 py-2.5 bg-cream-600 text-white rounded-2xl hover:bg-cream-700 disabled:opacity-50 transition-all font-bold text-sm shadow-md hover:shadow-lg active:scale-95"
+                                                disabled={!newTokenName || !newTokenKey || addingToken}
+                                                className="px-6 py-2.5 bg-cream-600 text-white rounded-2xl hover:bg-cream-700 disabled:opacity-50 transition-all font-bold text-sm shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
                                             >
-                                                添加
+                                                {addingToken ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                {addingToken ? '添加中...' : '添加'}
                                             </button>
                                         </div>
                                     </div>
@@ -517,9 +809,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                         />
                                                         <button
                                                             onClick={() => handleSaveTokenBaseUrl(token.id)}
-                                                            className="px-4 py-2 text-xs font-bold text-cream-600 bg-cream-100 dark:bg-cream-900/20 rounded-xl hover:bg-cream-200 dark:hover:bg-cream-900/30 transition"
+                                                            disabled={savingTokenUrl[token.id]}
+                                                            className="px-4 py-2 text-xs font-bold text-cream-600 bg-cream-100 dark:bg-cream-900/20 rounded-xl hover:bg-cream-200 dark:hover:bg-cream-900/30 transition flex items-center gap-1.5 disabled:opacity-50"
                                                         >
-                                                            保存接口
+                                                            {savingTokenUrl[token.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                                            {savingTokenUrl[token.id] ? '保存中...' : '保存接口'}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -595,10 +889,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                             />
                                             <button
                                                 onClick={handleAddPricing}
-                                                disabled={!newModelName.trim() || newModelCredits <= 0}
-                                                className="px-6 py-2.5 bg-cream-500 text-white rounded-2xl hover:bg-cream-600 disabled:opacity-50 transition-all font-bold text-sm shadow-md"
+                                                disabled={!newModelName.trim() || newModelCredits <= 0 || addingPricing}
+                                                className="px-6 py-2.5 bg-cream-500 text-white rounded-2xl hover:bg-cream-600 disabled:opacity-50 transition-all font-bold text-sm shadow-md flex items-center gap-2"
                                             >
-                                                添加
+                                                {addingPricing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                {addingPricing ? '添加中...' : '添加'}
                                             </button>
                                         </div>
                                     </div>
@@ -625,9 +920,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                     <span className="text-xs text-cream-400">次/次</span>
                                                     <button
                                                         onClick={() => handleUpdatePricing(item.id)}
-                                                        className="px-3 py-2 text-xs font-bold text-cream-600 bg-cream-100 dark:bg-cream-900/20 rounded-xl hover:bg-cream-200 dark:hover:bg-cream-900/30 transition"
+                                                        disabled={savingPricing === item.id}
+                                                        className="px-3 py-2 text-xs font-bold text-cream-600 bg-cream-100 dark:bg-cream-900/20 rounded-xl hover:bg-cream-200 dark:hover:bg-cream-900/30 transition flex items-center gap-1.5 disabled:opacity-50"
                                                     >
-                                                        保存
+                                                        {savingPricing === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                                        {savingPricing === item.id ? '保存中...' : '保存'}
                                                     </button>
                                                 </div>
                                             </div>
@@ -668,9 +965,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                             </div>
                                             <button
                                                 onClick={handleGenerateCodes}
-                                                className="px-8 py-2.5 bg-cream-500 text-white rounded-2xl hover:bg-cream-600 transition-all font-bold text-sm shadow-md h-[42px] hover:shadow-lg active:scale-95"
+                                                disabled={generatingCodes}
+                                                className="px-8 py-2.5 bg-cream-500 text-white rounded-2xl hover:bg-cream-600 transition-all font-bold text-sm shadow-md h-[42px] hover:shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-50"
                                             >
-                                                一键生成
+                                                {generatingCodes ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                {generatingCodes ? '生成中...' : '一键生成'}
                                             </button>
                                         </div>
                                     </div>
@@ -737,6 +1036,25 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                     </div>
 
                                     <div className="space-y-3">
+                                        {/* 撤销提示卡片 */}
+                                        {lastCreditAdjustment && (
+                                            <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-2xl animate-in slide-in-from-top-2">
+                                                <div className="flex items-center gap-3">
+                                                    <Undo2 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                                    <span className="text-sm text-amber-800 dark:text-amber-300">
+                                                        已对 <strong>{lastCreditAdjustment.userName}</strong> {lastCreditAdjustment.amount > 0 ? '增加' : '减少'} <strong>{Math.abs(lastCreditAdjustment.amount)}</strong> 次积分
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={handleUndoCredits}
+                                                    disabled={adjustingCredits}
+                                                    className="flex items-center gap-2 px-4 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-xl hover:bg-amber-700 transition shadow-sm disabled:opacity-50"
+                                                >
+                                                    {adjustingCredits ? <Loader2 className="w-3 h-3 animate-spin" /> : <Undo2 className="w-3 h-3" />}
+                                                    撤销调整
+                                                </button>
+                                            </div>
+                                        )}
                                         <h4 className="text-xs font-bold text-gray-400 uppercase px-1">匹配用户 ({users.length})</h4>
                                         {users.map(u => (
                                             <div key={u.id} className="flex flex-col p-5 bg-white dark:bg-gray-800 border border-cream-100 dark:border-gray-700 rounded-3xl gap-4 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all">
@@ -817,9 +1135,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                                 />
                                                                 <button
                                                                     onClick={() => handleAdjustCredits(u.id)}
-                                                                    className="px-6 py-2 bg-cream-600 text-white rounded-xl text-sm font-bold hover:bg-cream-700 shadow-sm"
+                                                                    disabled={adjustingCredits || adjustAmount === 0}
+                                                                    className="px-6 py-2 bg-cream-600 text-white rounded-xl text-sm font-bold hover:bg-cream-700 shadow-sm flex items-center gap-2 disabled:opacity-50"
                                                                 >
-                                                                    保存修改
+                                                                    {adjustingCredits ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                                    {adjustingCredits ? '调整中...' : '保存修改'}
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -840,9 +1160,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                                 />
                                                                 <button
                                                                     onClick={() => handleUpdateNote(u.id)}
-                                                                    className="px-6 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600 shadow-sm"
+                                                                    disabled={savingNote}
+                                                                    className="px-6 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600 shadow-sm flex items-center gap-2 disabled:opacity-50"
                                                                 >
-                                                                    保存备注
+                                                                    {savingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                                                    {savingNote ? '保存中...' : '保存备注'}
                                                                 </button>
                                                             </div>
                                                         </div>

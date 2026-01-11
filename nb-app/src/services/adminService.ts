@@ -201,6 +201,12 @@ export const updateUserNote = async (userId: string, note: string): Promise<void
 
 // ========== 统计数据 ==========
 
+export interface UserGrowthStats {
+    date: string;
+    new_users: number;
+    total_users: number;
+}
+
 export interface DashboardStats {
     total_users: number;
     active_users_today: number;
@@ -212,13 +218,34 @@ export interface DashboardStats {
     today_image_calls: number;
     daily_stats: { date: string; total_requests: number; total_credits_used: number; unique_users: number }[];
     model_stats: { model_name: string; total_requests: number; total_credits_used: number }[];
+    user_growth: UserGrowthStats[];
 }
 
-export const getDashboardStats = async (): Promise<DashboardStats> => {
+export interface DashboardStatsOptions {
+    includeDailyStats?: boolean;
+    includeModelStats?: boolean;
+}
+
+export const getDashboardStats = async (
+    startDate?: string,
+    endDate?: string,
+    options: DashboardStatsOptions = {}
+): Promise<DashboardStats> => {
     const token = getToken();
     if (!token) throw new Error('请先登录');
 
-    const response = await fetch(`${getBackendUrl()}/api/stats/dashboard`, {
+    const params = new URLSearchParams();
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    if (options.includeDailyStats !== undefined) {
+        params.set('include_daily_stats', String(options.includeDailyStats));
+    }
+    if (options.includeModelStats !== undefined) {
+        params.set('include_model_stats', String(options.includeModelStats));
+    }
+    const query = params.toString();
+
+    const response = await fetch(`${getBackendUrl()}/api/stats/dashboard${query ? `?${query}` : ''}`, {
         headers: {
             'Authorization': `Bearer ${token}`,
         },
@@ -230,6 +257,34 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     }
 
     return response.json();
+};
+
+export const exportStats = async (
+    startDate: string,
+    endDate: string,
+    dataType: 'daily' | 'model' | 'user_growth' = 'daily'
+): Promise<Blob> => {
+    const token = getToken();
+    if (!token) throw new Error('请先登录');
+
+    const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        data_type: dataType,
+    });
+
+    const response = await fetch(`${getBackendUrl()}/api/stats/export?${params.toString()}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: '导出失败' }));
+        throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+
+    return response.blob();
 };
 
 
