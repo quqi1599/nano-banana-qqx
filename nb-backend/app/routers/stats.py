@@ -105,7 +105,9 @@ async def get_dashboard(
             UsageLog.model_name,
             func.count(UsageLog.id),
             func.sum(UsageLog.credits_used),
-        ).group_by(UsageLog.model_name)
+        )
+        .where(cast(UsageLog.created_at, Date) == today)
+        .group_by(UsageLog.model_name)
     )
     model_rows = model_result.all()
     
