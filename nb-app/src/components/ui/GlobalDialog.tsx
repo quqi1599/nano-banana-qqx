@@ -8,7 +8,9 @@ export const GlobalDialog: React.FC = () => {
   if (!dialog) return null;
 
   const handleConfirm = () => {
-    dialog.onConfirm();
+    if (dialog.onConfirm) {
+      dialog.onConfirm();
+    }
     closeDialog();
   };
 

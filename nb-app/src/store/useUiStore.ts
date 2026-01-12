@@ -8,14 +8,22 @@ export interface Toast {
   type: ToastType;
 }
 
-export interface DialogOptions {
+interface BaseDialogOptions {
   title?: string;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  onConfirm: () => void;
-  type?: 'confirm' | 'alert';
 }
+
+export type DialogOptions =
+  | (BaseDialogOptions & {
+      type?: 'confirm';
+      onConfirm: () => void;
+    })
+  | (BaseDialogOptions & {
+      type: 'alert';
+      onConfirm?: () => void;
+    });
 
 export type BatchMode = 'off' | 'normal';
 
