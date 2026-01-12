@@ -60,6 +60,14 @@ def run_migrations() -> None:
 
 async def init_db():
     """初始化数据库表"""
+    # 先导入所有模型，确保它们注册到 Base.metadata
+    from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history  # noqa: F401
+    
+    # 创建基础表结构（如果不存在）
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    # 运行 Alembic 迁移（处理增量变更）
     await asyncio.to_thread(run_migrations)
     await seed_model_pricing()
     await seed_admin_user()
