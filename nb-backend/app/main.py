@@ -87,6 +87,12 @@ app.include_router(captcha.router, prefix="/api/captcha", tags=["验证码"])
 app.include_router(conversations.router, prefix="/api", tags=["对话历史"])
 
 
+
+@app.get("/")
+async def root():
+    """根路由"""
+    return {"message": "NanoBanana API is running", "status": "ok", "docs_url": "/docs"}
+
 @app.get("/api/health")
 async def health_check():
     """健康检查"""
