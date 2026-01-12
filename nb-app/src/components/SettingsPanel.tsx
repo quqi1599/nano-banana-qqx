@@ -6,9 +6,10 @@ import { formatBalance } from '../services/balanceService';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
 import { WeChatQRModal } from './WeChatQRModal';
 export const SettingsPanel: React.FC = () => {
-  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt } = useAppStore();
+  const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt, usageCount } = useAppStore();
   const { addToast, showDialog } = useUiStore();
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
   const [showWeChatQR, setShowWeChatQR] = useState(false);
 
   const handleInstallClick = async () => {
@@ -34,7 +35,14 @@ export const SettingsPanel: React.FC = () => {
   useEffect(() => {
     if (apiKey && isSettingsOpen && !balance && !loadingBalance) {
       setLoadingBalance(true);
-      fetchBalance().finally(() => setLoadingBalance(false));
+      setBalanceError(null);
+      fetchBalance()
+        .then(() => setBalanceError(null))
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : '余额查询失败';
+          setBalanceError(message);
+        })
+        .finally(() => setLoadingBalance(false));
     }
   }, [apiKey, isSettingsOpen, balance, fetchBalance]);
 
@@ -45,11 +53,14 @@ export const SettingsPanel: React.FC = () => {
     }
 
     setLoadingBalance(true);
+    setBalanceError(null);
     try {
       await fetchBalance();
       addToast("余额查询成功", 'success');
     } catch (error: any) {
-      addToast(`余额查询失败: ${error.message}`, 'error');
+      const message = error?.message || '余额查询失败';
+      setBalanceError(message);
+      addToast(`余额查询失败: ${message}`, 'error');
     } finally {
       setLoadingBalance(false);
     }
@@ -117,29 +128,51 @@ export const SettingsPanel: React.FC = () => {
                 查询中...
               </div>
             ) : balance ? (
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">总额度</div>
-                  <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
-                    {formatBalance(balance.hardLimitUsd, balance.isUnlimited)}
+              <div>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">总额度</div>
+                    <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
+                      {formatBalance(balance.hardLimitUsd, balance.isUnlimited)}
+                    </div>
+                  </div>
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">已使用</div>
+                    <div className="text-xs sm:text-sm font-bold text-orange-600 dark:text-orange-400 truncate">
+                      {formatBalance(balance.usage, balance.isUnlimited)}
+                    </div>
+                  </div>
+                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
+                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">剩余</div>
+                    <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400 truncate">
+                      {formatBalance(balance.remaining, balance.isUnlimited)}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">已使用</div>
-                  <div className="text-xs sm:text-sm font-bold text-orange-600 dark:text-orange-400 truncate">
-                    {formatBalance(balance.usage, balance.isUnlimited)}
+                {balanceError && (
+                  <div className="mt-2 text-[10px] sm:text-xs text-center space-y-1">
+                    <div className="text-red-600 dark:text-red-400">
+                      余额刷新失败: {balanceError}
+                    </div>
+                    {usageCount > 0 && (
+                      <div className="text-gray-500 dark:text-gray-400">
+                        本地已使用 {usageCount} 次
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">剩余</div>
-                  <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400 truncate">
-                    {formatBalance(balance.remaining, balance.isUnlimited)}
-                  </div>
-                </div>
+                )}
               </div>
             ) : (
-              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center py-1.5 sm:py-2">
-                点击刷新按钮查询余额
+              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center py-1.5 sm:py-2 space-y-1">
+                <div>点击刷新按钮查询余额</div>
+                {usageCount > 0 && (
+                  <div>本地已使用 {usageCount} 次</div>
+                )}
+                {balanceError && (
+                  <div className="text-red-600 dark:text-red-400">
+                    余额查询失败: {balanceError}
+                  </div>
+                )}
               </div>
             )}
           </section>

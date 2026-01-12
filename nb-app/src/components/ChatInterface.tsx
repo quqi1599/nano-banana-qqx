@@ -20,6 +20,8 @@ import { Pagination } from './Pagination';
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
 const MessageBubble = lazyWithRetry(() => import('./MessageBubble').then(m => ({ default: m.MessageBubble })));
 
+const BALANCE_REFRESH_MIN_INTERVAL_MS = 30000;
+
 export const ChatInterface: React.FC = () => {
   const {
     apiKey,
@@ -58,7 +60,26 @@ export const ChatInterface: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pipelineAbortControllerRef = useRef<AbortController | null>(null);
+  const balanceRefreshStateRef = useRef({ lastRefreshAt: 0, inFlight: false });
   const isGenerating = isLoading || isPipelineRunning;
+
+  const refreshBalanceThrottled = async () => {
+    if (!apiKey) return false;
+    const now = Date.now();
+    const state = balanceRefreshStateRef.current;
+    if (state.inFlight || now - state.lastRefreshAt < BALANCE_REFRESH_MIN_INTERVAL_MS) {
+      return false;
+    }
+
+    state.inFlight = true;
+    try {
+      await fetchBalance();
+      return true;
+    } finally {
+      state.lastRefreshAt = Date.now();
+      state.inFlight = false;
+    }
+  };
 
   useEffect(() => {
     if (isLoading) {
@@ -362,18 +383,22 @@ export const ChatInterface: React.FC = () => {
         } else {
           // 刷新余额并计算本次消耗
           try {
-            await fetchBalance();
-            const balanceAfter = useAppStore.getState().balance?.usage;
-            if (balanceBefore !== undefined && balanceAfter !== undefined) {
-              const cost = balanceAfter - balanceBefore;
-              if (cost > 0) {
-                addToast(`本次消耗: ${formatCost(cost)} (第 ${currentUsageCount} 次)`, 'info');
+            const didRefresh = await refreshBalanceThrottled();
+            if (didRefresh) {
+              const balanceAfter = useAppStore.getState().balance?.usage;
+              if (balanceBefore !== undefined && balanceAfter !== undefined) {
+                const cost = balanceAfter - balanceBefore;
+                if (cost > 0) {
+                  addToast(`本次消耗: ${formatCost(cost)} (第 ${currentUsageCount} 次)`, 'info');
+                } else {
+                  // 余额没变化，可能是第三方API，显示次数
+                  addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
+                }
               } else {
-                // 余额没变化，可能是第三方API，显示次数
+                // 余额不可用，显示次数
                 addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
               }
             } else {
-              // 余额不可用，显示次数
               addToast(`生成完成 (第 ${currentUsageCount} 次)`, 'success');
             }
           } catch (e) {
@@ -490,7 +515,9 @@ export const ChatInterface: React.FC = () => {
           addToast('次数刷新失败', 'info');
         });
       } else {
-        fetchBalance();
+        refreshBalanceThrottled().catch(() => {
+          // Ignore balance errors here; Settings panel will surface failures.
+        });
       }
     }
   };

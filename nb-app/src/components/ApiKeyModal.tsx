@@ -33,7 +33,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
     });
     setApiKey(effectiveKey);
     // 立即尝试刷新余额
-    setTimeout(() => fetchBalance(), 0);
+    setTimeout(() => {
+      fetchBalance().catch((error) => {
+        console.error('Failed to fetch balance:', error);
+      });
+    }, 0);
 
     // 调用 onClose 如果提供
     if (onClose) {

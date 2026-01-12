@@ -56,7 +56,7 @@ interface AppState {
 
   setInstallPrompt: (prompt: any) => void;
   setApiKey: (key: string) => void;
-  fetchBalance: () => Promise<void>;
+  fetchBalance: () => Promise<BalanceInfo | undefined>;
   incrementUsageCount: () => void;
   resetUsageCount: () => void;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
@@ -129,8 +129,10 @@ export const useAppStore = create<AppState>()(
         try {
           const balance = await fetchBalance(apiKey, settings);
           set({ balance });
+          return balance;
         } catch (error) {
           console.error('Failed to update balance:', error);
+          throw error;
         }
       },
 
@@ -567,6 +569,7 @@ export const useAppStore = create<AppState>()(
         settings: state.settings,
         imageHistory: state.imageHistory, // 持久化图片历史记录
         endpointHistory: state.endpointHistory, // 持久化 API 接口地址历史记录
+        usageCount: state.usageCount, // 持久化本地使用次数
       }),
     }
   )

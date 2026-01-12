@@ -370,7 +370,12 @@ const App: React.FC = () => {
           {/* Legacy Balance Display - Only show when has API key and not authenticated */}
           {!isAuthenticated && apiKey && balance && (
             <div
-              onClick={() => fetchBalance()}
+              onClick={() =>
+                fetchBalance().catch((error) => {
+                  const message = error instanceof Error ? error.message : '余额查询失败';
+                  addToast(`余额查询失败: ${message}`, 'error');
+                })
+              }
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition mr-2"
               title="点击刷新余额"
             >
