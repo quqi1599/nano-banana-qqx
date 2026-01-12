@@ -17,23 +17,70 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    op.drop_constraint("token_pool_api_key_key", "token_pool", type_="unique")
-    op.alter_column(
-        "token_pool",
-        "api_key",
-        existing_type=sa.String(length=255),
-        type_=sa.Text(),
-        existing_nullable=False,
-    )
-    op.add_column("token_pool", sa.Column("api_key_hash", sa.String(length=64), nullable=True))
-    op.add_column("token_pool", sa.Column("api_key_prefix", sa.String(length=16), nullable=True))
-    op.add_column("token_pool", sa.Column("api_key_suffix", sa.String(length=8), nullable=True))
-    op.add_column("token_pool", sa.Column("failure_count", sa.Integer(), server_default="0", nullable=False))
-    op.add_column("token_pool", sa.Column("cooldown_until", sa.DateTime(), nullable=True))
-    op.add_column("token_pool", sa.Column("last_failure_at", sa.DateTime(), nullable=True))
+def _get_inspector():
+    conn = op.get_bind()
+    return conn, sa.inspect(conn)
 
-    connection = op.get_bind()
+
+def _table_exists(inspector, table_name: str) -> bool:
+    try:
+        return table_name in inspector.get_table_names()
+    except Exception:
+        return False
+
+
+def _column_map(inspector, table_name: str) -> dict:
+    try:
+        return {col["name"]: col for col in inspector.get_columns(table_name)}
+    except Exception:
+        return {}
+
+
+def _unique_constraints(inspector, table_name: str) -> set[str]:
+    try:
+        return {constraint["name"] for constraint in inspector.get_unique_constraints(table_name)}
+    except Exception:
+        return set()
+
+
+def _is_text_type(col_type: sa.types.TypeEngine) -> bool:
+    return isinstance(col_type, sa.Text)
+
+
+def upgrade() -> None:
+    connection, inspector = _get_inspector()
+
+    if not _table_exists(inspector, "token_pool"):
+        return
+
+    existing_constraints = _unique_constraints(inspector, "token_pool")
+    if "token_pool_api_key_key" in existing_constraints:
+        op.drop_constraint("token_pool_api_key_key", "token_pool", type_="unique")
+
+    columns = _column_map(inspector, "token_pool")
+    api_key_col = columns.get("api_key")
+    if api_key_col and not _is_text_type(api_key_col["type"]):
+        op.alter_column(
+            "token_pool",
+            "api_key",
+            existing_type=sa.String(length=255),
+            type_=sa.Text(),
+            existing_nullable=False,
+        )
+
+    if "api_key_hash" not in columns:
+        op.add_column("token_pool", sa.Column("api_key_hash", sa.String(length=64), nullable=True))
+    if "api_key_prefix" not in columns:
+        op.add_column("token_pool", sa.Column("api_key_prefix", sa.String(length=16), nullable=True))
+    if "api_key_suffix" not in columns:
+        op.add_column("token_pool", sa.Column("api_key_suffix", sa.String(length=8), nullable=True))
+    if "failure_count" not in columns:
+        op.add_column("token_pool", sa.Column("failure_count", sa.Integer(), server_default="0", nullable=False))
+    if "cooldown_until" not in columns:
+        op.add_column("token_pool", sa.Column("cooldown_until", sa.DateTime(), nullable=True))
+    if "last_failure_at" not in columns:
+        op.add_column("token_pool", sa.Column("last_failure_at", sa.DateTime(), nullable=True))
+
     rows = connection.execute(sa.text("SELECT id, api_key FROM token_pool")).fetchall()
     for row in rows:
         token_id = row[0]
@@ -48,7 +95,8 @@ def upgrade() -> None:
             {"h": key_hash, "p": prefix, "s": suffix, "id": token_id},
         )
 
-    op.create_unique_constraint("token_pool_api_key_hash_key", "token_pool", ["api_key_hash"])
+    if "token_pool_api_key_hash_key" not in existing_constraints:
+        op.create_unique_constraint("token_pool_api_key_hash_key", "token_pool", ["api_key_hash"])
 
 
 def downgrade() -> None:

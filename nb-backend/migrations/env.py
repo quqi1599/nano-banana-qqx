@@ -28,6 +28,8 @@ from app.models.token_pool import TokenPool
 from app.models.usage_log import UsageLog
 from app.models.login_history import LoginHistory
 from app.models.email_whitelist import EmailWhitelist
+from app.models.conversation import Conversation, ConversationMessage
+from app.models.conversation_cleanup import ConversationCleanup
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
