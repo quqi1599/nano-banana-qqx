@@ -4,6 +4,7 @@ export interface AppSettings {
   useGrounding: boolean;
   enableThinking: boolean;
   streamResponse: boolean;
+  sendHistory: boolean;
   customEndpoint?: string;
   modelName?: string;
   theme: 'light' | 'dark' | 'system';

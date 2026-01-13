@@ -95,6 +95,7 @@ export const useAppStore = create<AppState>()(
         useGrounding: false,
         enableThinking: false,
         streamResponse: true,
+        sendHistory: false,
         customEndpoint: DEFAULT_API_ENDPOINT,
         modelName: 'gemini-3-pro-image-preview',
         theme: 'light',

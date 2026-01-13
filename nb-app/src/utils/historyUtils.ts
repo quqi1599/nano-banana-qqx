@@ -212,10 +212,15 @@ export const compressHistoryImages = async (
             }
         }
 
-        compressedHistory.push({
-            ...content,
-            parts: compressedParts,
-        });
+        // 只添加有有效 parts 的消息
+        if (compressedParts.length > 0) {
+            compressedHistory.push({
+                ...content,
+                parts: compressedParts,
+            });
+        } else {
+            console.warn('消息压缩后无有效内容，跳过');
+        }
     }
 
     return compressedHistory;

@@ -309,6 +309,25 @@ export const SettingsPanel: React.FC = () => {
           </p>
         </section>
 
+        {/* Conversation Context */}
+        <section>
+          <label className="flex items-center justify-between cursor-pointer group">
+            <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">发送对话上下文</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={settings.sendHistory}
+                onChange={(e) => updateSettings({ sendHistory: e.currentTarget.checked })}
+                className="sr-only peer"
+              />
+              <div className="h-5 w-9 sm:h-6 sm:w-11 rounded-full bg-gray-200 dark:bg-gray-800 peer-focus:ring-2 peer-focus:ring-cream-500/50 peer-checked:bg-cream-600 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 sm:after:h-5 sm:after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full"></div>
+            </div>
+          </label>
+          <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+            开启后会把当前对话历史一起发送给模型；关闭则仅发送本次输入。
+          </p>
+        </section>
+
         {/* App Installation */}
         {installPrompt && (
           <section className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-800">

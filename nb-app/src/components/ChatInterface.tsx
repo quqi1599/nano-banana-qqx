@@ -63,6 +63,13 @@ export const ChatInterface: React.FC = () => {
   const balanceRefreshStateRef = useRef({ lastRefreshAt: 0, inFlight: false });
   const isGenerating = isLoading || isPipelineRunning;
 
+  const buildHistory = (sourceMessages: ChatMessage[]) => {
+    if (!settings.sendHistory) {
+      return [];
+    }
+    return convertMessagesToHistory(sourceMessages);
+  };
+
   const refreshBalanceThrottled = async () => {
     if (!apiKey) return false;
     const now = Date.now();
@@ -136,7 +143,7 @@ export const ChatInterface: React.FC = () => {
 
     // 检查对话限制：消息数 >= 10 且 图片总大小 >= 100MB
     const currentMessages = useAppStore.getState().messages;
-    const history = convertMessagesToHistory(currentMessages);
+    const history = buildHistory(currentMessages);
     const limitCheck = checkConversationLimit(history);
     if (limitCheck.needNewConversation) {
       setLimitModalData({
@@ -190,7 +197,7 @@ export const ChatInterface: React.FC = () => {
     // Capture the current messages state *before* adding the new user message.
     // This allows us to generate history up to this point.
     const currentMessages = useAppStore.getState().messages;
-    const history = convertMessagesToHistory(currentMessages);
+    const history = buildHistory(currentMessages);
 
     setLoading(true);
     const msgId = Date.now().toString();
@@ -694,7 +701,7 @@ export const ChatInterface: React.FC = () => {
 
         // 准备临时历史记录
         const currentMessages = useAppStore.getState().messages;
-        const history = convertMessagesToHistory(currentMessages.slice(0, -2)); // 排除刚添加的两条消息
+        const history = buildHistory(currentMessages.slice(0, -2)); // 排除刚添加的两条消息
 
         // 准备图片数据
         const imagesPayload = initialAttachments.map(a => ({
@@ -892,7 +899,7 @@ export const ChatInterface: React.FC = () => {
 
             // 准备历史记录
             const currentMessages = useAppStore.getState().messages;
-            const history = convertMessagesToHistory(currentMessages.slice(0, -2));
+            const history = buildHistory(currentMessages.slice(0, -2));
 
             // 准备单张图片数据
             const imagesPayload = [{

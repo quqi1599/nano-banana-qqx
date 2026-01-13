@@ -31,12 +31,13 @@ import {
 
 interface AdminDashboardProps {
     onLogout: () => void;
+    onExit?: () => void;
 }
 
 type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations';
 type SortKey = 'priority' | 'remaining_quota' | 'last_used_at';
 
-export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
+export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const { user, logout } = useAuthStore();
     const { settings } = useAppStore();
     const apiBaseUrl = getApiBaseUrl(settings.customEndpoint);
@@ -686,15 +687,27 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
                             {menuItems.find(m => m.id === activeTab)?.label || '仪表盘'}
                         </h2>
                     </div>
-                    <button
-                        onClick={loadData}
-                        className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium text-xs lg:text-sm ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={isLoading}
-                    >
-                        <RefreshCw className={`w-3.5 lg:w-4 h-3.5 lg:h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline">刷新</span>
-                        <span className="sm:hidden">刷新</span>
-                    </button>
+                    <div className="flex items-center gap-2 lg:gap-3">
+                        {onExit && (
+                            <button
+                                onClick={onExit}
+                                className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 transition font-medium text-xs lg:text-sm"
+                            >
+                                <Home className="w-3.5 lg:w-4 h-3.5 lg:h-4" />
+                                <span className="hidden sm:inline">返回前台</span>
+                                <span className="sm:hidden">前台</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={loadData}
+                            className={`flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-medium text-xs lg:text-sm ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={isLoading}
+                        >
+                            <RefreshCw className={`w-3.5 lg:w-4 h-3.5 lg:h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">刷新</span>
+                            <span className="sm:hidden">刷新</span>
+                        </button>
+                    </div>
                 </header>
 
                 {/* Content Area */}
