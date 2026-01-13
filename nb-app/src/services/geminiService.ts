@@ -1,6 +1,7 @@
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
 import { resolveApiBaseUrl } from '../utils/endpointUtils';
+import { compressHistoryImages } from '../utils/historyUtils';
 
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
@@ -148,8 +149,11 @@ export const streamGeminiResponse = async function* (
     return item;
   }).filter(item => item.parts.length > 0);
 
+  // 压缩历史图片以避免请求体过大
+  const compressedHistory = await compressHistoryImages(cleanHistory);
+
   const currentUserContent = constructUserContent(prompt, images);
-  const contentsPayload = [...cleanHistory, currentUserContent];
+  const contentsPayload = [...compressedHistory, currentUserContent];
 
   try {
     const responseStream = await ai.models.generateContentStream({
@@ -265,8 +269,11 @@ export const generateContent = async (
     return item;
   }).filter(item => item.parts.length > 0);
 
+  // 压缩历史图片以避免请求体过大
+  const compressedHistory = await compressHistoryImages(cleanHistory);
+
   const currentUserContent = constructUserContent(prompt, images);
-  const contentsPayload = [...cleanHistory, currentUserContent];
+  const contentsPayload = [...compressedHistory, currentUserContent];
 
   try {
     // If signal is aborted before we start, throw immediately
