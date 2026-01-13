@@ -77,16 +77,29 @@ const compressBase64Image = async (
 
             // 逐步降低质量直到符合大小要求
             const tryCompress = () => {
-                const dataUrl = canvas.toDataURL(exportType, quality);
-                const newBase64 = dataUrl.split(',')[1];
-                const newSize = getBase64ByteSize(newBase64);
+                try {
+                    const dataUrl = canvas.toDataURL(exportType, quality);
+                    const newBase64 = dataUrl.split(',')[1];
 
-                if (newSize <= maxBytes || quality <= 0.3) {
-                    resultData = newBase64;
-                    resolve({ data: resultData, mimeType: exportType });
-                } else {
-                    quality -= 0.1;
-                    tryCompress();
+                    // 验证数据有效性，如果无效则返回原图
+                    if (!newBase64 || newBase64.length === 0) {
+                        console.warn('压缩后数据为空，返回原图');
+                        resolve({ data: base64Data, mimeType });
+                        return;
+                    }
+
+                    const newSize = getBase64ByteSize(newBase64);
+
+                    if (newSize <= maxBytes || quality <= 0.3) {
+                        resultData = newBase64;
+                        resolve({ data: resultData, mimeType: exportType });
+                    } else {
+                        quality -= 0.1;
+                        tryCompress();
+                    }
+                } catch (e) {
+                    console.warn('图片压缩失败，返回原图:', e);
+                    resolve({ data: base64Data, mimeType });
                 }
             };
 
