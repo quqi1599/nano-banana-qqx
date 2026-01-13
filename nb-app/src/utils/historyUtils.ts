@@ -183,21 +183,31 @@ export const compressHistoryImages = async (
         const compressedParts = [];
 
         for (const part of content.parts) {
-            if (part.inlineData?.data) {
+            // 如果有有效的图片数据，进行压缩
+            if (part.inlineData?.data && part.inlineData.data.length > 0) {
                 // 压缩图片
                 const compressed = await compressBase64Image(
                     part.inlineData.data,
                     part.inlineData.mimeType || 'image/png',
                     MAX_HISTORY_IMAGE_BYTES
                 );
-                compressedParts.push({
-                    ...part,
-                    inlineData: {
-                        mimeType: compressed.mimeType,
-                        data: compressed.data,
-                    },
-                });
+                // 只添加压缩后数据有效的图片
+                if (compressed.data && compressed.data.length > 0) {
+                    compressedParts.push({
+                        ...part,
+                        inlineData: {
+                            mimeType: compressed.mimeType,
+                            data: compressed.data,
+                        },
+                    });
+                } else {
+                    console.warn('压缩后图片数据无效，跳过该图片');
+                }
+            } else if (part.inlineData) {
+                // 有 inlineData 但 data 为空，跳过这个无效的图片
+                console.warn('发现无效图片数据，跳过');
             } else {
+                // 非图片 part（如 text），保留
                 compressedParts.push(part);
             }
         }
