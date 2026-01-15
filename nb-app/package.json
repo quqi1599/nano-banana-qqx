@@ -18,11 +18,13 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@types/uuid": "^11.0.0",
     "idb-keyval": "^6.2.2",
     "jszip": "^3.10.1",
     "lucide-react": "^0.554.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "uuid": "^13.0.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

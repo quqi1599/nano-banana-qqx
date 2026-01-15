@@ -19,6 +19,7 @@ import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
 import { getBackendUrl } from './utils/backendUrl';
+import { SessionManager } from './components/SessionManager';
 
 // Lazy load components
 const ApiKeyModal = lazyWithRetry(() => import('./components/ApiKeyModal').then(module => ({ default: module.ApiKeyModal })));
@@ -334,6 +335,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-dvh w-full flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden relative transition-colors duration-200">
+      <SessionManager />
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-950/50 px-3 sm:px-6 py-3 sm:py-4 backdrop-blur-md z-10 transition-colors duration-200 pt-safe">
         <div className="flex items-center gap-2 sm:gap-3">
