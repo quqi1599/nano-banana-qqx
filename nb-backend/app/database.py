@@ -79,12 +79,7 @@ async def seed_admin_user():
     from app.models.user import User
     from app.utils.security import get_password_hash
     
-    if (
-        not settings.admin_email
-        or not settings.admin_password
-        or settings.admin_email == "admin@example.com"
-        or settings.admin_password == "admin123"
-    ):
+    if not settings.admin_email or not settings.admin_password:
         print("WARNING: Skipping admin seed; configure ADMIN_EMAIL and ADMIN_PASSWORD.")
         return
 
