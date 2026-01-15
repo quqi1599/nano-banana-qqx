@@ -9,7 +9,6 @@ import { GlobalDialog } from './components/ui/GlobalDialog';
 import { WeChatQRModal } from './components/WeChatQRModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { AuthModal } from './components/AuthModal';
-import { AdminDashboard } from './components/AdminDashboard';
 import { TicketModal } from './components/TicketModal';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
@@ -30,13 +29,9 @@ const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibrar
 const App: React.FC = () => {
   const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory, loadConversation, createNewConversation } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
-  const { isAuthenticated, user, initAuth, logout, isLoading: authLoading } = useAuthStore();
+  const { isAuthenticated, user, initAuth, logout } = useAuthStore();
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pathname, setPathname] = useState(() => {
-    if (typeof window === 'undefined') return '/';
-    return window.location.pathname;
-  });
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
@@ -46,24 +41,9 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
   });
-  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
-
-  const navigate = (path: string) => {
-    if (typeof window === 'undefined') return;
-    if (path === window.location.pathname) return;
-    window.history.pushState({}, '', path);
-    setPathname(path);
-  };
-
   // 对话历史侧边栏状态
   const [isConversationHistoryOpen, setIsConversationHistoryOpen] = useState(false);
   const [isConversationHistoryCollapsed, setIsConversationHistoryCollapsed] = useState(false);
-
-  useEffect(() => {
-    const handlePopState = () => setPathname(window.location.pathname);
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -344,88 +324,6 @@ const App: React.FC = () => {
 
   if (!mounted) return null;
 
-  if (isAdminRoute) {
-    const renderAdminGate = (
-      title: string,
-      message: string,
-      primaryLabel: string,
-      onPrimary: () => void,
-      secondaryLabel: string,
-      onSecondary: () => void,
-    ) => (
-      <div className="min-h-dvh w-full flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-white dark:from-gray-950 dark:via-gray-900 dark:to-gray-900 px-6">
-        <div className="w-full max-w-sm rounded-2xl bg-white/90 dark:bg-gray-900/80 border border-amber-100 dark:border-gray-800 shadow-xl p-6 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{message}</p>
-          <div className="mt-5 flex flex-col gap-2">
-            <button
-              onClick={onPrimary}
-              className="w-full rounded-xl bg-amber-500 text-white text-sm font-semibold py-2.5 hover:bg-amber-600 transition"
-            >
-              {primaryLabel}
-            </button>
-            <button
-              onClick={onSecondary}
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-            >
-              {secondaryLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-
-    let adminContent: React.ReactNode = null;
-
-    if (authLoading) {
-      adminContent = (
-        <div className="min-h-dvh w-full flex items-center justify-center bg-gray-50 dark:bg-gray-950 text-sm text-gray-500 dark:text-gray-400">
-          正在验证登录状态...
-        </div>
-      );
-    } else if (!isAuthenticated) {
-      adminContent = renderAdminGate(
-        '管理员后台',
-        '请使用管理员账号登录以继续访问后台。',
-        '管理员登录',
-        () => setShowAuthModal(true),
-        '返回前台',
-        () => navigate('/'),
-      );
-    } else if (!user?.is_admin) {
-      adminContent = renderAdminGate(
-        '权限不足',
-        '当前账号没有管理员权限，请切换账号或返回前台。',
-        '切换账号',
-        () => {
-          logout();
-          setShowAuthModal(true);
-        },
-        '返回前台',
-        () => navigate('/'),
-      );
-    } else {
-      adminContent = (
-        <AdminDashboard
-          onLogout={() => setShowAuthModal(false)}
-          onExit={() => navigate('/')}
-        />
-      );
-    }
-
-    return (
-      <>
-        {adminContent}
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-        <ToastContainer />
-        <GlobalDialog />
-      </>
-    );
-  }
-
   return (
     <div className="flex h-dvh w-full flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden relative transition-colors duration-200">
       {/* Header */}
@@ -530,8 +428,8 @@ const App: React.FC = () => {
 
           {/* Admin Panel button */}
           {isAuthenticated && user?.is_admin && (
-            <button
-              onClick={() => navigate('/admin')}
+            <a
+              href="/admin/"
               className="relative rounded-lg p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
               title="管理后台"
             >
@@ -542,7 +440,7 @@ const App: React.FC = () => {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                 </span>
               )}
-            </button>
+            </a>
           )}
 
           {isAuthenticated && ( // 3. Add Header button

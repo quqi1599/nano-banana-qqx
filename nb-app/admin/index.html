@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a">
+  <meta name="robots" content="noindex, nofollow" />
+  <title>DEAI Admin Console</title>
+  <link rel="icon" href="/logo.png" type="image/png" />
+  <style>
+    .app-loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #f8fafc;
+      z-index: 9999;
+      transition: opacity 0.3s ease-out;
+      pointer-events: none;
+    }
+
+    .app-loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .app-loading-logo {
+      width: 56px;
+      height: 56px;
+      animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes loading-pulse {
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.8;
+        transform: scale(0.95);
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .app-loading {
+        background-color: #0f172a;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app-loading" class="app-loading">
+    <div class="app-loading-content">
+      <img src="/logo.png" class="app-loading-logo" alt="Loading admin console" />
+    </div>
+  </div>
+  <div id="root"></div>
+  <script type="module" src="/src/admin.tsx"></script>
+</body>
+
+</html>
