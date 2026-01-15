@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     
     # 环境
     environment: str = "development"
+    log_level: str = "INFO"
     
     # CORS
     cors_origins_list: str = ""
