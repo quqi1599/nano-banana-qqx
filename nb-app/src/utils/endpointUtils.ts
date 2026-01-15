@@ -70,11 +70,8 @@ const getProxyBaseUrl = (): string => {
   return new URL('/gemini-api', window.location.origin).toString();
 };
 
-export const resolveApiBaseUrl = (customEndpoint?: string): string => {
-  const trimmed = customEndpoint?.trim();
-  if (trimmed) {
-    return getApiBaseUrl(trimmed);
-  }
+export const resolveApiBaseUrl = (_customEndpoint?: string): string => {
+  // 始终使用默认接口地址，避免用户配置错误
   if (import.meta.env.DEV) {
     return getProxyBaseUrl();
   }

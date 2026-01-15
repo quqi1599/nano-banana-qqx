@@ -412,7 +412,7 @@ export const SettingsPanel: React.FC = () => {
         {/* Info */}
         <div className="mt-1 pb-2 sm:pb-4 text-center text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-600 space-y-0.5 sm:space-y-1">
           <p>模型: {settings.modelName || 'gemini-3-pro-image-preview'}</p>
-          <p className="truncate px-4">接口地址: {settings.customEndpoint || DEFAULT_API_ENDPOINT}</p>
+          <p className="truncate px-4">接口地址: {DEFAULT_API_ENDPOINT}</p>
         </div>
 
         {/* 微信二维码弹窗 */}

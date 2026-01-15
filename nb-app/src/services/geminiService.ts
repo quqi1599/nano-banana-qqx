@@ -57,6 +57,8 @@ const formatGeminiError = (error: any): Error => {
     } else {
       message = "API 额度不足，请充值后重试。";
     }
+  } else if (errorMsg.includes("405")) {
+    message = "请求方法不被允许 (405)。API 中转地址可能不正确，请检查设置中的 API 地址是否配置正确。";
   } else if (errorMsg.includes("404")) {
     message = "请求的模型不存在或 API 路径错误 (404)。请检查 API 中转地址是否正确配置。";
   } else if (errorMsg.includes("500")) {
