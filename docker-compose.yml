@@ -40,6 +40,8 @@ services:
       context: ./nb-backend
       dockerfile: Dockerfile
     container_name: nbnb-backend
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@postgres:5432/nbnb
       REDIS_URL: redis://redis:6379/0
