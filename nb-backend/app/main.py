@@ -13,7 +13,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations
+from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations, payment, payment_admin
 from app.utils.request_context import request_id_ctx_var, RequestIdFilter, JsonFormatter
 from app.utils.metrics import REQUEST_COUNT, REQUEST_LATENCY, IN_PROGRESS, get_route_name
 
@@ -83,10 +83,12 @@ app.include_router(credit.router, prefix="/api/credits", tags=["次数"])
 app.include_router(redeem.router, prefix="/api/redeem", tags=["兑换码"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["API代理"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])
+app.include_router(payment_admin.router, prefix="/api/admin/payment", tags=["支付管理"])
 app.include_router(stats.router, prefix="/api/stats", tags=["统计"])
 app.include_router(ticket.router, prefix="/api/tickets", tags=["工单"])
 app.include_router(captcha.router, prefix="/api/captcha", tags=["验证码"])
 app.include_router(conversations.router, prefix="/api", tags=["对话历史"])
+app.include_router(payment.router, prefix="/api/payment", tags=["支付"])
 
 
 

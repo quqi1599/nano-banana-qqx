@@ -10,11 +10,12 @@ import { WeChatQRModal } from './components/WeChatQRModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { AuthModal } from './components/AuthModal';
 import { TicketModal } from './components/TicketModal';
+import { PaymentPage } from './components/PaymentPage';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
 import { getToken } from './services/authService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, Crown, X } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, Crown, X, CreditCard } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
+  const [showPaymentPage, setShowPaymentPage] = useState(false);
   const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
   const [showInitAdminPrompt, setShowInitAdminPrompt] = useState(false);
@@ -351,13 +353,23 @@ const App: React.FC = () => {
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Credits Display - Show when authenticated */}
           {isAuthenticated && user && (
-            <div
-              onClick={() => setShowAuthModal(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:from-amber-200 hover:to-orange-200 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 transition mr-2"
-              title="点击查看次数详情"
-            >
-              <Coins className="h-4 w-4" />
-              <span>{user.credit_balance} 次</span>
+            <div className="hidden sm:flex items-center gap-2 mr-2">
+              <div
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:from-amber-200 hover:to-orange-200 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 transition"
+                title="点击查看次数详情"
+              >
+                <Coins className="h-4 w-4" />
+                <span>{user.credit_balance} 次</span>
+              </div>
+              <button
+                onClick={() => setShowPaymentPage(true)}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-xs font-medium text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition"
+                title="购买积分"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                <span>充值</span>
+              </button>
             </div>
           )}
 
@@ -665,6 +677,13 @@ const App: React.FC = () => {
       {/* Ticket Modal */}
       {isAuthenticated && (
         <TicketModal isOpen={showTicketModal} onClose={() => setShowTicketModal(false)} />
+      )}
+
+      {/* Payment Page */}
+      {isAuthenticated && showPaymentPage && (
+        <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
+          <PaymentPage onClose={() => setShowPaymentPage(false)} />
+        </div>
       )}
 
       {/* 初始化管理员提示 */}
