@@ -381,28 +381,33 @@ const App: React.FC = () => {
           )}
 
           {/* New Chat Button */}
-          {isAuthenticated && (
-            <button
-              onClick={() => {
-                showDialog({
-                  title: '开始新对话',
-                  message: '确定要开始一个新对话吗？',
-                  confirmLabel: '新对话',
-                  cancelLabel: '取消',
-                  onConfirm: async () => {
-                    await createNewConversation();
-                    clearHistory();
-                    addToast('已开始新对话', 'success');
-                  }
-                });
-              }}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
-              title="开始新对话"
-            >
-              <Plus className="h-4 w-4" />
-              <span>新对话</span>
-            </button>
-          )}
+          {/* New Chat Button */}
+          <button
+            onClick={() => {
+              const handleClear = async () => {
+                if (isAuthenticated) {
+                  await createNewConversation();
+                }
+                clearHistory();
+                addToast(isAuthenticated ? '已开始新对话' : '会话已清空', 'success');
+              };
+
+              showDialog({
+                title: isAuthenticated ? '开始新对话' : '清空会话',
+                message: isAuthenticated ? '确定要开始一个新对话吗？' : '确定要清空当前会话历史吗？',
+                confirmLabel: isAuthenticated ? '新对话' : '清空',
+                cancelLabel: '取消',
+                onConfirm: handleClear
+              });
+            }}
+            className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition touch-feedback"
+            title={isAuthenticated ? "开始新对话" : "清空会话"}
+          >
+            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline text-sm font-medium ml-1">
+              {isAuthenticated ? "新对话" : "清空"}
+            </span>
+          </button>
 
           {/* Conversation History Button (登录用户可见) */}
           {isAuthenticated && (
