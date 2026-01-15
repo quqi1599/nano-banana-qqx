@@ -21,7 +21,7 @@ from app.schemas.payment import (
     PaymentStatsResponse,
 )
 from app.services.usdt_service import UsdtPaymentService
-from app.utils.security import get_current_user, require_admin
+from app.utils.security import get_current_user, get_admin_user
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ router = APIRouter()
 @router.get("/plans", response_model=List[PaymentPlanResponse])
 async def admin_get_plans(
     include_inactive: bool = False,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取所有套餐（管理员）"""
@@ -51,7 +51,7 @@ async def admin_get_plans(
 @router.post("/plans", response_model=PaymentPlanResponse)
 async def create_plan(
     data: PaymentPlanCreate,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """创建套餐（管理员）"""
@@ -76,7 +76,7 @@ async def create_plan(
 async def update_plan(
     plan_id: str,
     data: PaymentPlanUpdate,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """更新套餐（管理员）"""
@@ -118,7 +118,7 @@ async def update_plan(
 @router.delete("/plans/{plan_id}")
 async def delete_plan(
     plan_id: str,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """删除套餐（管理员）"""
@@ -148,7 +148,7 @@ async def admin_get_orders(
     status_filter: Optional[str] = None,
     payment_method: Optional[str] = None,
     search: Optional[str] = None,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取所有订单（管理员）"""
@@ -179,7 +179,7 @@ async def admin_get_orders(
 
 @router.get("/orders/stats", response_model=PaymentStatsResponse)
 async def get_payment_stats(
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取支付统计（管理员）"""
@@ -239,7 +239,7 @@ async def get_payment_stats(
 @router.get("/orders/{trade_no}", response_model=OrderDetailResponse)
 async def admin_get_order_detail(
     trade_no: str,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取订单详情（管理员）"""
@@ -262,7 +262,7 @@ async def admin_get_order_detail(
 @router.post("/orders/{trade_no}/verify")
 async def verify_payment(
     trade_no: str,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """手动验证支付（管理员）"""
@@ -319,7 +319,7 @@ async def verify_payment(
 @router.post("/orders/{trade_no}/complete")
 async def admin_complete_payment(
     trade_no: str,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """强制完成支付（管理员）"""
@@ -345,7 +345,7 @@ async def admin_complete_payment(
 @router.post("/orders/{trade_no}/cancel")
 async def admin_cancel_order(
     trade_no: str,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """取消订单（管理员）"""
