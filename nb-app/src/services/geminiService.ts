@@ -241,6 +241,10 @@ export const streamGeminiResponse = async function* (
         modelParts: currentParts // Yield the accumulated parts
       };
     }
+
+    if (currentParts.length === 0) {
+      throw new Error("No content generated");
+    }
   } catch (error) {
     console.error("Gemini API Stream Error:", error);
     throw formatGeminiError(error);
