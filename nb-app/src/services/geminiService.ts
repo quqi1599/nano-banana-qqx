@@ -31,7 +31,9 @@ const formatGeminiError = (error: any): Error => {
   let message = "发生了未知错误，请稍后重试。";
   const errorMsg = error?.message || error?.toString() || "";
 
-  if (errorMsg.includes("401") || errorMsg.includes("API key not valid")) {
+  if (errorMsg.includes("model_not_found") || (errorMsg.includes("503") && errorMsg.includes("无可用渠道"))) {
+    message = "当前模型暂时不可用 (503)。可能是该模型在您的分组下无权访问，请在设置中切换模型 (如尝试 Gemini 2.5) 重试。";
+  } else if (errorMsg.includes("401") || errorMsg.includes("API key not valid")) {
     message = "API Key 无效或过期，请检查您的设置。";
   } else if (errorMsg.includes("quota") || errorMsg.includes("pre_consume_token_quota_failed")) {
     const remainMatch = errorMsg.match(/remain quota:\s*[＄$]?([\d.]+)/);
@@ -49,8 +51,6 @@ const formatGeminiError = (error: any): Error => {
     message = "访问被拒绝 (403)。可能原因：API Key 权限不足、网络连接需要切换节点、或 API 服务地址配置错误。";
   } else if (errorMsg.includes("429")) {
     message = "请求过于频繁 (429)，请稍后再试。";
-  } else if (errorMsg.includes("model_not_found") || (errorMsg.includes("503") && errorMsg.includes("无可用渠道"))) {
-    message = "当前模型暂时不可用 (503)。可能是该模型在您的分组下无权访问，请在设置中切换模型 (如尝试 Gemini 2.5) 重试。";
   } else if (errorMsg.includes("503")) {
     message = "Gemini 服务暂时不可用 (503)，请稍后重试。";
   } else if (errorMsg.includes("TypeError") || errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError") || errorMsg.includes("ECONNREFUSED") || errorMsg.includes("timeout") || errorMsg.includes("ERR_CONNECTION")) {
