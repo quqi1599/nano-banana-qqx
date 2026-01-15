@@ -148,6 +148,10 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.pb-safe-offset-4 {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
 .p-safe {
   padding-top: env(safe-area-inset-top, 0px);
   padding-right: env(safe-area-inset-right, 0px);

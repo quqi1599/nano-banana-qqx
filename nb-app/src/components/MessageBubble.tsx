@@ -65,7 +65,7 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
         <div className={`absolute top-2 right-2 flex gap-2 transition-all touch-show-actions ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
           <button
             onClick={handleReEdit}
-            className="p-2 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all"
+            className="p-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all touch-feedback active:scale-90"
             title="再次编辑"
           >
             <Edit className="h-4 w-4" />
@@ -75,7 +75,7 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
               e.stopPropagation();
               downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
             }}
-            className="p-2 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all"
+            className="p-2.5 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all touch-feedback active:scale-90"
             title="下载图片"
           >
             <Download className="h-4 w-4" />

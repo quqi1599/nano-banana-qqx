@@ -95,9 +95,9 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
           </div>
           <button
             onClick={closePromptLibrary}
-            className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-white/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white transition"
+            className="flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-white/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white transition touch-feedback"
           >
-            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+            <X className="h-5 w-5 sm:h-5 sm:w-5" />
           </button>
         </div>
 
@@ -109,8 +109,8 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-3 sm:px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition ${selectedCategory === cat
-                    ? 'bg-cream-500 text-white shadow-lg shadow-cream-500/20'
-                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  ? 'bg-cream-500 text-white shadow-lg shadow-cream-500/20'
+                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
               >
                 {cat}

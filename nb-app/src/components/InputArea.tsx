@@ -252,7 +252,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   };
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-3 sm:p-4 pb-safe transition-colors duration-200">
+    <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-3 sm:p-4 pb-safe-offset-4 transition-colors duration-200">
       <div className="mx-auto max-w-4xl">
 
         {/* Batch Mode Selector */}
@@ -435,7 +435,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             <button
               onClick={handleSubmit}
               disabled={!inputText.trim() && attachments.length === 0}
-              className="mb-1 ml-auto md:ml-0 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cream-500 text-white shadow-lg shadow-cream-500/20 hover:bg-cream-600 disabled:opacity-50 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:shadow-none transition touch-feedback"
+              className="mb-1 ml-auto md:ml-0 flex h-10 w-10 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-cream-500 text-white shadow-lg shadow-cream-500/20 hover:bg-cream-600 disabled:opacity-50 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:shadow-none transition touch-feedback active:scale-95"
             >
               <Send className="h-5 w-5" />
             </button>

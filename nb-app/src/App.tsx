@@ -603,29 +603,29 @@ const App: React.FC = () => {
               : 'bg-transparent backdrop-blur-none pointer-events-none'
             }
             
-            sm:static sm:z-auto sm:bg-transparent sm:backdrop-blur-none sm:pointer-events-auto sm:overflow-hidden
-            sm:transition-[width,border-color]
+            md:static md:z-auto md:bg-transparent md:backdrop-blur-none md:pointer-events-auto md:overflow-hidden
+            md:transition-[width,border-color]
             ${isSettingsOpen
-              ? 'sm:w-80 sm:border-l sm:border-gray-200 dark:sm:border-gray-800'
-              : 'sm:w-0 sm:border-l-0 sm:border-transparent'
+              ? 'md:w-80 md:border-l md:border-gray-200 dark:md:border-gray-800'
+              : 'md:w-0 md:border-l-0 md:border-transparent'
             }
           `}
           onClick={() => {
             // Close on backdrop click (mobile only)
-            if (window.innerWidth < 640 && isSettingsOpen) {
+            if (window.innerWidth < 768 && isSettingsOpen) {
               toggleSettings();
             }
           }}
         >
           <div
             className={`
-               w-[90%] max-w-sm h-full sm:w-80 bg-white dark:bg-gray-950
-               shadow-2xl sm:shadow-none
-               overflow-y-auto overflow-x-hidden border-l border-gray-200 dark:border-gray-800 sm:border-none
+               w-[90%] max-w-sm h-full md:w-80 bg-white dark:bg-gray-950
+               shadow-2xl md:shadow-none
+               overflow-y-auto overflow-x-hidden border-l border-gray-200 dark:border-gray-800 md:border-none
 
                transition-transform duration-300 ease-in-out
                ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'}
-               sm:translate-x-0
+               md:translate-x-0
              `}
             onClick={(e) => e.stopPropagation()}
           >
