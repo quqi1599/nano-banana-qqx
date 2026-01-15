@@ -17,7 +17,7 @@ from sqlalchemy import select, func, update
 from app.database import get_db
 from app.models.user import User
 from app.models.token_pool import TokenPool
-from app.models.redeem_code import RedeemCode, generate_redeem_code
+from app.models.redeem_code import RedeemCode
 from app.models.usage_log import UsageLog
 from app.models.model_pricing import ModelPricing
 from app.schemas.admin import (
@@ -42,6 +42,7 @@ from app.schemas.admin import (
     BatchStatusUpdate,
     BatchCreditsUpdate,
     CreditHistoryResponse,
+    UsageLogResponse,
     AdminActionConfirmRequest,
     AdminActionConfirmResponse,
     UserTagsUpdate,
@@ -930,7 +931,9 @@ async def get_users_stats(
 @router.get("/users/{user_id}/credit-history", response_model=CreditHistoryResponse)
 async def get_user_credit_history(
     user_id: str,
-    limit: int = Query(3, ge=1, le=50),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    limit: Optional[int] = Query(None, ge=1, le=200),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -951,12 +954,19 @@ async def get_user_credit_history(
     )
     total = count_result.scalar() or 0
 
+    resolved_page = page
+    resolved_page_size = page_size
+    if limit is not None:
+        resolved_page = 1
+        resolved_page_size = limit
+
     # 获取历史记录
     result = await db.execute(
         select(CreditTransaction)
         .where(CreditTransaction.user_id == user_id)
         .order_by(CreditTransaction.created_at.desc())
-        .limit(limit)
+        .offset((resolved_page - 1) * resolved_page_size)
+        .limit(resolved_page_size)
     )
     items = result.scalars().all()
 

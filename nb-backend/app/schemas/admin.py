@@ -253,6 +253,29 @@ class CreditHistoryResponse(BaseModel):
     total: int
 
 
+class UsageLogItem(BaseModel):
+    """用户积分消耗明细项"""
+    id: str
+    model_name: str
+    credits_used: int
+    request_type: str
+    prompt_preview: Optional[str]
+    is_success: bool
+    error_message: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UsageLogResponse(BaseModel):
+    """用户积分消耗明细响应"""
+    items: List[UsageLogItem]
+    total: int
+    page: int
+    page_size: int
+
+
 # ============ 用户对话历史管理 Schemas ============
 
 from app.schemas.conversation import AdminConversationResponse
