@@ -3,6 +3,7 @@
 """
 from datetime import datetime
 from typing import List, Optional
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func
@@ -20,7 +21,7 @@ from app.schemas.conversation import (
     MessageCreate,
     MessageResponse,
 )
-from app.utils.security import get_current_user
+from app.utils.security import get_current_user_or_api_key
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -35,10 +36,49 @@ def generate_title(content: str, max_length: int = 50) -> str:
     return title or "新对话"
 
 
+def _normalize_role(role: str) -> str:
+    if role == "assistant":
+        return "model"
+    return role
+
+
+def _parse_images(raw_images: Optional[str]) -> Optional[List[dict]]:
+    if not raw_images:
+        return None
+    try:
+        data = json.loads(raw_images)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, list):
+        return None
+    normalized: List[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        base64 = item.get("base64")
+        mime_type = item.get("mimeType")
+        if not base64 or not mime_type:
+            continue
+        normalized.append({"base64": base64, "mimeType": mime_type})
+    return normalized or None
+
+
+def _serialize_message(message: ConversationMessage) -> MessageResponse:
+    return MessageResponse(
+        id=message.id,
+        role=_normalize_role(message.role),
+        content=message.content,
+        images=_parse_images(message.images),
+        is_thought=message.is_thought,
+        thinking_duration=message.thinking_duration,
+        created_at=message.created_at,
+    )
+
+
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     data: ConversationCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """创建新对话"""
@@ -56,7 +96,7 @@ async def create_conversation(
 @router.get("", response_model=List[ConversationResponse])
 async def get_conversations(
     response: Response,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
     page: Optional[int] = Query(None, ge=1),
     page_size: Optional[int] = Query(None, ge=1, le=100),
@@ -90,7 +130,7 @@ async def get_conversations(
 @router.get("/{conversation_id}", response_model=ConversationDetailResponse)
 async def get_conversation(
     conversation_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """获取对话详情（含消息）"""
@@ -112,7 +152,9 @@ async def get_conversation(
             detail="对话不存在",
         )
 
-    return conversation
+    messages = [_serialize_message(msg) for msg in conversation.messages]
+    base = ConversationResponse.model_validate(conversation).model_dump()
+    return ConversationDetailResponse(**base, messages=messages)
 
 
 @router.get("/{conversation_id}/messages", response_model=ConversationMessagesResponse)
@@ -121,7 +163,7 @@ async def get_conversation_messages(
     response: Response,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """获取对话消息分页"""
@@ -158,7 +200,7 @@ async def get_conversation_messages(
 
     return ConversationMessagesResponse(
         conversation_id=conversation_id,
-        messages=messages,
+        messages=[_serialize_message(msg) for msg in messages],
         total=total,
         page=page,
         page_size=page_size,
@@ -169,7 +211,7 @@ async def get_conversation_messages(
 async def add_message(
     conversation_id: str,
     data: MessageCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """向对话添加消息"""
@@ -223,7 +265,7 @@ async def add_message(
 async def update_conversation(
     conversation_id: str,
     data: ConversationUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """更新对话标题"""
@@ -252,7 +294,7 @@ async def update_conversation(
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
     conversation_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """删除对话"""
@@ -280,7 +322,7 @@ async def delete_conversation(
 @router.delete("/{conversation_id}/messages", status_code=status.HTTP_204_NO_CONTENT)
 async def clear_conversation_messages(
     conversation_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     """清空对话消息（保留对话，用于重新开始）"""

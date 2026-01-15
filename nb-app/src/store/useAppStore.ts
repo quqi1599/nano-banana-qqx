@@ -18,6 +18,7 @@ import { createThumbnail } from '../utils/imageUtils';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
 
 // Custom IndexedDB storage
+const API_KEY_STORAGE = 'nbnb_api_key';
 const storage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     return await getVal(name) || null;
@@ -122,7 +123,15 @@ export const useAppStore = create<AppState>()(
       isSyncing: false,
 
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
-      setApiKey: (key) => set({ apiKey: key }),
+      setApiKey: (key) => {
+        const trimmed = key.trim();
+        if (trimmed) {
+          localStorage.setItem(API_KEY_STORAGE, trimmed);
+        } else {
+          localStorage.removeItem(API_KEY_STORAGE);
+        }
+        set({ apiKey: trimmed || null });
+      },
 
       fetchBalance: async () => {
         const { apiKey, settings } = get();
@@ -308,7 +317,10 @@ export const useAppStore = create<AppState>()(
 
       clearHistory: () => set({ messages: [], messagesTotal: 0, messagesPage: 1 }),
 
-      removeApiKey: () => set({ apiKey: null }),
+      removeApiKey: () => {
+        localStorage.removeItem(API_KEY_STORAGE);
+        set({ apiKey: null });
+      },
 
       deleteMessage: (id) =>
         set((state) => {
@@ -379,8 +391,10 @@ export const useAppStore = create<AppState>()(
               if (msg.images && msg.images.length > 0) {
                 msg.images.forEach((img) => {
                   parts.push({
-                    inline: img.base64,
-                    mimeType: img.mimeType,
+                    inlineData: {
+                      data: img.base64,
+                      mimeType: img.mimeType,
+                    },
                   });
                 });
               }
@@ -393,18 +407,24 @@ export const useAppStore = create<AppState>()(
               if (msg.images && msg.images.length > 0) {
                 msg.images.forEach((img) => {
                   parts.push({
-                    inline: img.base64,
-                    mimeType: img.mimeType,
+                    inlineData: {
+                      data: img.base64,
+                      mimeType: img.mimeType,
+                    },
                   });
                 });
               }
             }
 
+            const normalizedRole =
+              msg.role === 'assistant' || msg.role === 'system' ? 'model' : msg.role;
+
             messages.push({
               id: msg.id,
-              role: msg.role as 'user' | 'assistant' | 'system',
+              role: normalizedRole as 'user' | 'model',
               parts,
-              createdAt: new Date(msg.created_at),
+              timestamp: new Date(msg.created_at).getTime(),
+              ...(msg.thinking_duration !== undefined && { thinkingDuration: msg.thinking_duration }),
             });
           }
 
@@ -455,8 +475,9 @@ export const useAppStore = create<AppState>()(
 
       syncCurrentMessage: async (message) => {
         // 仅登录用户同步
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
+        const token = localStorage.getItem('nbnb_auth_token');
+        const apiKey = get().apiKey?.trim();
+        if (!token && !apiKey) return;
 
         let conversationId = get().currentConversationId;
         let isNewConversation = false;
@@ -479,25 +500,34 @@ export const useAppStore = create<AppState>()(
         set({ isSyncing: true });
         try {
           const role = message.role || 'user';
-          const content = message.parts
-            .filter((p) => !p.inline && !p.thought)
-            .map((p) => p.text || '')
-            .join('\n');
+          const contentParts = message.parts
+            .filter((p) => !p.inlineData && !p.thought)
+            .map((p) => p.text || '');
+          let content = contentParts.join('\n');
 
           // 提取图片
           const images: MessageImage[] = [];
           message.parts.forEach((p) => {
-            if (p.inline && p.mimeType) {
+            if (p.inlineData?.data && p.inlineData.mimeType) {
               images.push({
-                base64: p.inline,
-                mimeType: p.mimeType,
+                base64: p.inlineData.data,
+                mimeType: p.inlineData.mimeType,
               });
             }
           });
 
           // 检查是否有思考过程
-          const thoughtPart = message.parts.find((p) => p.thought);
-          const isThought = !!thoughtPart;
+          const hasThought = message.parts.some((p) => p.thought);
+          const hasNonThoughtContent = message.parts.some(
+            (p) => !p.thought && (p.text || p.inlineData)
+          );
+          const isThought = hasThought && !hasNonThoughtContent;
+          if (!content && isThought) {
+            content = message.parts
+              .filter((p) => p.thought && p.text)
+              .map((p) => p.text || '')
+              .join('\n');
+          }
 
           await addMessageApi(
             conversationId,
@@ -554,6 +584,13 @@ export const useAppStore = create<AppState>()(
     {
       name: 'gemini-pro-storage',
       storage: createJSONStorage(() => storage),
+      onRehydrateStorage: () => (state) => {
+        if (state?.apiKey) {
+          localStorage.setItem(API_KEY_STORAGE, state.apiKey);
+        } else {
+          localStorage.removeItem(API_KEY_STORAGE);
+        }
+      },
       merge: (persistedState, currentState) => {
         const persisted = (persistedState as Partial<AppState>) || {};
         return {

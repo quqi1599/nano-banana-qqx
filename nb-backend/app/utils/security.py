@@ -3,9 +3,11 @@
 """
 from datetime import datetime, timedelta
 from typing import Optional
+import hashlib
+import secrets
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -17,6 +19,7 @@ from app.models.user import User
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -86,6 +89,75 @@ async def get_current_user(
             detail="用户已被禁用",
         )
     
+    return user
+
+
+async def get_current_user_or_api_key(
+    credentials: HTTPAuthorizationCredentials = Depends(optional_security),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """获取当前用户（支持 JWT 或 API Key）"""
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+        payload = decode_token(token)
+        user_id = payload.get("sub")
+
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的认证令牌",
+            )
+
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在",
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="用户已被禁用",
+            )
+
+        return user
+
+    if not x_api_key or not x_api_key.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证信息",
+        )
+
+    api_key = x_api_key.strip()
+    api_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    api_email = f"api_{api_hash}@api.local"
+
+    result = await db.execute(select(User).where(User.email == api_email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        user = User(
+            email=api_email,
+            password_hash=get_password_hash(secrets.token_urlsafe(32)),
+            nickname="API User",
+            note="API key user",
+            tags=["api_key"],
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="用户已被禁用",
+        )
+
     return user
 
 

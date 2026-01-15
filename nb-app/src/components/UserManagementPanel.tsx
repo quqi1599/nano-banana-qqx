@@ -3,18 +3,23 @@
  * 功能：高级筛选、批量操作、标签管理、实时搜索、移动端适配
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown, MessageSquare } from 'lucide-react';
+import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown, MessageSquare, List, Clock } from 'lucide-react';
 import {
     getUsersAdvanced,
     exportUsers,
     batchUpdateUserStatus,
     batchAdjustCredits,
     requestAdminActionConfirmation,
+    adjustUserCredits,
+    getUserCreditHistory,
+    getUserUsageLogs,
     updateUserTags,
     getUserTags,
     type AdminUser,
     type UserFilters,
     type UserTagsResponse,
+    type CreditHistoryResult,
+    type UsageLogResult,
 } from '../services/adminService';
 
 // 防抖 Hook
@@ -58,6 +63,20 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     const [batchAmount, setBatchAmount] = useState(0);
     const [confirmPassword, setConfirmPassword] = useState('');
     const [batchLoading, setBatchLoading] = useState(false);
+
+    // 单用户积分管理
+    const [activeUser, setActiveUser] = useState<AdminUser | null>(null);
+    const [creditAdjustAmount, setCreditAdjustAmount] = useState(0);
+    const [creditAdjustReason, setCreditAdjustReason] = useState('');
+    const [creditAdjustLoading, setCreditAdjustLoading] = useState(false);
+    const [creditHistory, setCreditHistory] = useState<CreditHistoryResult | null>(null);
+    const [creditHistoryPage, setCreditHistoryPage] = useState(1);
+    const [creditHistoryLoading, setCreditHistoryLoading] = useState(false);
+    const [usageLogs, setUsageLogs] = useState<UsageLogResult | null>(null);
+    const [usagePage, setUsagePage] = useState(1);
+    const [usageLoading, setUsageLoading] = useState(false);
+    const creditHistoryPageSize = 8;
+    const usagePageSize = 8;
 
     // 用户标签
     const [allTags, setAllTags] = useState<UserTagsResponse | null>(null);
@@ -104,6 +123,12 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
     useEffect(() => { loadUsers(); }, [loadUsers]);
     useEffect(() => { loadTags(); }, [loadTags]);
+    useEffect(() => {
+        if (activeUser) loadCreditHistory();
+    }, [activeUser, loadCreditHistory]);
+    useEffect(() => {
+        if (activeUser) loadUsageLogs();
+    }, [activeUser, loadUsageLogs]);
 
     // ===== 搜索和筛选 =====
     const handleSearchChange = (value: string) => {
@@ -126,6 +151,27 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     const hasActiveFilters = Object.keys(filters).some(k =>
         k !== 'search' && filters[k as keyof UserFilters] !== undefined
     ) || filterTags.length > 0;
+
+    const formatShortDate = (value?: string | null) => {
+        if (!value) return '—';
+        return new Date(value).toLocaleString('zh-CN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const creditTypeLabel = (type: string) => {
+        const map: Record<string, string> = {
+            recharge: '充值',
+            consume: '消耗',
+            redeem: '兑换',
+            bonus: '赠送',
+            refund: '退款',
+        };
+        return map[type] || type;
+    };
 
     // ===== 批量操作 =====
     const toggleSelect = (id: string) => {
@@ -191,6 +237,79 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             showToast((error as Error).message, 'error');
         } finally {
             setBatchLoading(false);
+        }
+    };
+
+    const openCreditsPanel = (user: AdminUser) => {
+        setActiveUser(user);
+        setCreditAdjustAmount(0);
+        setCreditAdjustReason('');
+        setCreditHistory(null);
+        setUsageLogs(null);
+        setCreditHistoryPage(1);
+        setUsagePage(1);
+    };
+
+    const closeCreditsPanel = () => {
+        setActiveUser(null);
+        setCreditAdjustAmount(0);
+        setCreditAdjustReason('');
+        setCreditHistory(null);
+        setUsageLogs(null);
+    };
+
+    const loadCreditHistory = useCallback(async () => {
+        if (!activeUser) return;
+        setCreditHistoryLoading(true);
+        try {
+            const result = await getUserCreditHistory(activeUser.id, {
+                page: creditHistoryPage,
+                pageSize: creditHistoryPageSize,
+            });
+            setCreditHistory(result);
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setCreditHistoryLoading(false);
+        }
+    }, [activeUser, creditHistoryPage, creditHistoryPageSize]);
+
+    const loadUsageLogs = useCallback(async () => {
+        if (!activeUser) return;
+        setUsageLoading(true);
+        try {
+            const result = await getUserUsageLogs(activeUser.id, usagePage, usagePageSize);
+            setUsageLogs(result);
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setUsageLoading(false);
+        }
+    }, [activeUser, usagePage, usagePageSize]);
+
+    const handleAdjustCredits = async () => {
+        if (!activeUser) return;
+        if (creditAdjustAmount === 0) {
+            showToast('请输入调整金额', 'error');
+            return;
+        }
+        if (!creditAdjustReason.trim()) {
+            showToast('请填写调整原因', 'error');
+            return;
+        }
+
+        setCreditAdjustLoading(true);
+        try {
+            await adjustUserCredits(activeUser.id, creditAdjustAmount, creditAdjustReason.trim());
+            showToast('积分调整成功', 'success');
+            setCreditAdjustAmount(0);
+            setCreditAdjustReason('');
+            loadUsers();
+            loadCreditHistory();
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setCreditAdjustLoading(false);
         }
     };
 
@@ -634,7 +753,14 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                     )}
 
                                     {/* 操作列 */}
-                                    <div className="col-span-1 flex justify-end">
+                                    <div className="col-span-1 flex justify-end items-center gap-2">
+                                        <button
+                                            onClick={() => openCreditsPanel(user)}
+                                            className="text-gray-400 hover:text-amber-500 transition"
+                                            title="积分管理"
+                                        >
+                                            <CreditCard className="w-4 h-4" />
+                                        </button>
                                         {onViewConversations && (
                                             <button
                                                 onClick={() => onViewConversations(user.id, user.email, user.nickname)}

@@ -973,6 +973,45 @@ async def get_user_credit_history(
     return CreditHistoryResponse(items=items, total=total)
 
 
+@router.get("/users/{user_id}/usage-logs", response_model=UsageLogResponse)
+async def get_user_usage_logs(
+    user_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户积分消耗明细"""
+    # 验证用户存在
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    count_result = await db.execute(
+        select(func.count(UsageLog.id)).where(UsageLog.user_id == user_id)
+    )
+    total = count_result.scalar() or 0
+
+    result = await db.execute(
+        select(UsageLog)
+        .where(UsageLog.user_id == user_id)
+        .order_by(UsageLog.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    items = result.scalars().all()
+
+    return UsageLogResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
 @router.put("/users/{user_id}/active")
 async def set_user_active_status(
     request: Request,
@@ -1556,8 +1595,47 @@ async def test_send_email(
 # ============ 对话历史管理 ============
 
 from app.models.conversation import Conversation, ConversationMessage
-from app.schemas.conversation import AdminConversationResponse, AdminConversationDetailResponse
+from app.schemas.conversation import AdminConversationResponse, AdminConversationDetailResponse, MessageResponse
 from sqlalchemy.orm import selectinload
+
+
+def _normalize_conversation_role(role: str) -> str:
+    if role == "assistant":
+        return "model"
+    return role
+
+
+def _parse_conversation_images(raw_images: Optional[str]) -> Optional[list[dict]]:
+    if not raw_images:
+        return None
+    try:
+        data = json.loads(raw_images)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, list):
+        return None
+    normalized: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        base64 = item.get("base64")
+        mime_type = item.get("mimeType")
+        if not base64 or not mime_type:
+            continue
+        normalized.append({"base64": base64, "mimeType": mime_type})
+    return normalized or None
+
+
+def _serialize_admin_message(message: ConversationMessage) -> MessageResponse:
+    return MessageResponse(
+        id=message.id,
+        role=_normalize_conversation_role(message.role),
+        content=message.content,
+        images=_parse_conversation_images(message.images),
+        is_thought=message.is_thought,
+        thinking_duration=message.thinking_duration,
+        created_at=message.created_at,
+    )
 
 
 @router.get("/conversations")
@@ -1707,6 +1785,7 @@ async def get_conversation_detail(
     conv_dict = AdminConversationDetailResponse.model_validate(conversation).model_dump()
     conv_dict["user_email"] = user_email or "未知用户"
     conv_dict["user_nickname"] = user_nickname
+    conv_dict["messages"] = [_serialize_admin_message(msg) for msg in conversation.messages]
     return AdminConversationDetailResponse(**conv_dict)
 
 

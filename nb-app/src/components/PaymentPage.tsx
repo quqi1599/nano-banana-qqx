@@ -41,6 +41,7 @@ export function PaymentPage({ onClose, initialPlanId }: PaymentPageProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [copied, setCopied] = useState(false);
+    const [copiedRedeem, setCopiedRedeem] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState(0);
     const [step, setStep] = useState<'select' | 'payment' | 'success'>('select');
 
@@ -122,6 +123,18 @@ export function PaymentPage({ onClose, initialPlanId }: PaymentPageProps) {
             await navigator.clipboard.writeText(paymentInfo.wallet_address);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            setError('复制失败');
+        }
+    };
+
+    const handleCopyRedeemCode = async () => {
+        if (!order?.redeem_code) return;
+
+        try {
+            await navigator.clipboard.writeText(order.redeem_code);
+            setCopiedRedeem(true);
+            setTimeout(() => setCopiedRedeem(false), 2000);
         } catch (err) {
             setError('复制失败');
         }
@@ -395,7 +408,8 @@ export function PaymentPage({ onClose, initialPlanId }: PaymentPageProps) {
                                     <ul className="space-y-1 text-xs">
                                         <li>• 请使用 <strong>{paymentInfo.network}</strong> 网络转账 USDT</li>
                                         <li>• 转账金额需为 <strong>{paymentInfo.expected_amount} USDT</strong></li>
-                                        <li>• 支付成功后积分将自动到账</li>
+                                        <li>• 支付成功后将生成兑换码，需兑换后积分到账</li>
+                                        <li>• 兑换码仅可使用一次</li>
                                         <li>• 请勿使用其他网络转账，否则无法到账</li>
                                     </ul>
                                 </div>
@@ -432,7 +446,30 @@ export function PaymentPage({ onClose, initialPlanId }: PaymentPageProps) {
                                 <CheckCircle className="w-10 h-10 text-green-500" />
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">支付成功！</h2>
-                            <p className="text-gray-500">您已获得 {order.credits} 积分</p>
+                            <p className="text-gray-500">您已获得 {order.credits} 积分兑换码</p>
+                        </div>
+
+                        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-900/40 p-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-bold text-amber-700 dark:text-amber-300">兑换码</h3>
+                                    <p className="text-xs text-amber-600/80 dark:text-amber-200/70">在账号面板输入兑换码即可入账</p>
+                                </div>
+                                <button
+                                    onClick={handleCopyRedeemCode}
+                                    disabled={!order.redeem_code}
+                                    className="px-4 py-2 rounded-xl border border-amber-300/70 dark:border-amber-800 text-amber-700 dark:text-amber-200 bg-white/70 dark:bg-gray-900/40 hover:bg-white dark:hover:bg-gray-900 transition flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {copiedRedeem ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                    {copiedRedeem ? '已复制' : '复制兑换码'}
+                                </button>
+                            </div>
+                            <div className="mt-4 rounded-xl bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-900/60 px-4 py-3">
+                                <div className="font-mono text-lg tracking-widest text-amber-800 dark:text-amber-200 text-center">
+                                    {order.redeem_code || '兑换码生成中...'}
+                                </div>
+                            </div>
+                            <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">每个兑换码仅可使用一次，积分永久保留。</p>
                         </div>
 
                         {/* 订单详情 */}
@@ -444,7 +481,7 @@ export function PaymentPage({ onClose, initialPlanId }: PaymentPageProps) {
                                     <span className="font-mono">{order.trade_no}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-500">获得积分</span>
+                                    <span className="text-gray-500">兑换码积分</span>
                                     <span className="font-medium text-amber-600">+{order.credits}</span>
                                 </div>
                                 <div className="flex justify-between">

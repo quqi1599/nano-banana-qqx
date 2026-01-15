@@ -118,6 +118,7 @@ export interface RedeemCodeInfo {
     credit_amount: number;
     pro3_credits: number;
     flash_credits: number;
+    remark?: string | null;
     is_used: boolean;
     used_at: string | null;
     expires_at: string | null;
@@ -131,6 +132,7 @@ export interface GenerateCodesResult {
     credit_amount: number;
     pro3_credits: number;
     flash_credits: number;
+    remark?: string | null;
 }
 
 export const generateRedeemCodes = async (
@@ -138,7 +140,8 @@ export const generateRedeemCodes = async (
     creditAmount: number,
     pro3Credits: number,
     flashCredits: number,
-    expiresDays?: number
+    expiresDays?: number,
+    remark?: string
 ): Promise<GenerateCodesResult> => {
     return request('/redeem-codes/generate', {
         method: 'POST',
@@ -147,7 +150,8 @@ export const generateRedeemCodes = async (
             credit_amount: creditAmount,
             pro3_credits: pro3Credits,
             flash_credits: flashCredits,
-            expires_days: expiresDays
+            expires_days: expiresDays,
+            remark,
         }),
     });
 };
@@ -293,8 +297,49 @@ export interface CreditHistoryResult {
     total: number;
 }
 
-export const getUserCreditHistory = async (userId: string, limit: number = 3): Promise<CreditHistoryResult> => {
-    return request(`/users/${userId}/credit-history?limit=${limit}`);
+export const getUserCreditHistory = async (
+    userId: string,
+    options: number | { limit?: number; page?: number; pageSize?: number } = 3
+): Promise<CreditHistoryResult> => {
+    const params = new URLSearchParams();
+    if (typeof options === 'number') {
+        params.set('limit', String(options));
+    } else {
+        if (options.limit !== undefined) params.set('limit', String(options.limit));
+        if (options.page !== undefined) params.set('page', String(options.page));
+        if (options.pageSize !== undefined) params.set('page_size', String(options.pageSize));
+    }
+    return request(`/users/${userId}/credit-history?${params.toString()}`);
+};
+
+export interface UsageLogItem {
+    id: string;
+    model_name: string;
+    credits_used: number;
+    request_type: string;
+    prompt_preview: string | null;
+    is_success: boolean;
+    error_message: string | null;
+    created_at: string;
+}
+
+export interface UsageLogResult {
+    items: UsageLogItem[];
+    total: number;
+    page: number;
+    page_size: number;
+}
+
+export const getUserUsageLogs = async (
+    userId: string,
+    page: number = 1,
+    pageSize: number = 20
+): Promise<UsageLogResult> => {
+    const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+    });
+    return request(`/users/${userId}/usage-logs?${params.toString()}`);
 };
 
 // 导出用户数据

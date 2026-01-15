@@ -14,7 +14,7 @@ class MessageImage(BaseModel):
 
 class MessageCreate(BaseModel):
     """创建消息请求"""
-    role: str = Field(..., pattern="^(user|assistant|system)$")
+    role: str = Field(..., pattern="^(user|assistant|system|model)$")
     content: str
     images: Optional[List[MessageImage]] = None
     is_thought: bool = False

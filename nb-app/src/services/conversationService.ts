@@ -6,13 +6,16 @@ import { getBackendUrl } from '../utils/backendUrl';
 import { getToken } from './authService';
 
 const API_BASE = getBackendUrl();
+const API_KEY_STORAGE = 'nbnb_api_key';
 
 // 获取认证头
 function getAuthHeaders(): HeadersInit {
     const token = getToken();
+    const apiKey = !token ? localStorage.getItem(API_KEY_STORAGE) : null;
     return {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...(!token && apiKey && { 'X-API-Key': apiKey }),
     };
 }
 
@@ -59,7 +62,7 @@ export interface MessageImage {
 
 export interface ConversationMessage {
     id: string;
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant' | 'system' | 'model';
     content: string;
     images?: MessageImage[];
     is_thought: boolean;
@@ -201,7 +204,7 @@ export async function getConversationMessages(
  */
 export async function addMessage(
     conversationId: string,
-    role: 'user' | 'assistant' | 'system',
+    role: 'user' | 'assistant' | 'system' | 'model',
     content: string,
     images?: MessageImage[],
     isThought = false,

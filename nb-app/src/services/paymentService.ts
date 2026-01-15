@@ -53,6 +53,7 @@ export interface PaymentOrder {
     credits: number;
     payment_method: string;
     status: OrderStatus;
+    redeem_code?: string | null;
     wallet_address: string | null;
     expected_amount: number | null;
     network: string | null;
