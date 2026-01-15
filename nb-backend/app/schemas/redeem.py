@@ -35,6 +35,7 @@ class RedeemCodeInfo(BaseModel):
     credit_amount: int  # 通用积分
     pro3_credits: int  # Pro3 次数
     flash_credits: int  # Flash 次数
+    remark: Optional[str]
     is_used: bool
     used_at: Optional[datetime]
     expires_at: Optional[datetime]
@@ -50,6 +51,7 @@ class GenerateCodesRequest(BaseModel):
     credit_amount: int = 0  # 通用积分数量
     pro3_credits: int = 0  # Pro3 次数
     flash_credits: int = 0  # Flash 次数
+    remark: Optional[str] = None  # 备注
     expires_days: Optional[int] = 365  # 有效期天数
 
 
@@ -61,3 +63,4 @@ class GenerateCodesResponse(BaseModel):
     credit_amount: int
     pro3_credits: int
     flash_credits: int
+    remark: Optional[str] = None

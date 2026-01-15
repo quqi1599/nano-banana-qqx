@@ -585,6 +585,7 @@ async def generate_redeem_codes(
             credit_amount=data.credit_amount,
             pro3_credits=data.pro3_credits,
             flash_credits=data.flash_credits,
+            remark=data.remark,
             batch_id=batch_id,
             expires_at=expires_at,
         )
@@ -600,6 +601,7 @@ async def generate_redeem_codes(
         credit_amount=data.credit_amount,
         pro3_credits=data.pro3_credits,
         flash_credits=data.flash_credits,
+        remark=data.remark,
     )
 
 

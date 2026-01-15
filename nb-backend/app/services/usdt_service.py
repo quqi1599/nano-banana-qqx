@@ -16,7 +16,7 @@ from sqlalchemy import select
 from app.models.payment_order import PaymentOrder, UsdtPaymentRecord
 from app.models.payment_plan import PaymentPlan
 from app.models.user import User
-from app.models.credit import CreditTransaction, TransactionType
+from app.models.redeem_code import RedeemCode
 from app.schemas.payment import PaymentMethod, OrderStatus
 
 
@@ -332,9 +332,9 @@ class UsdtPaymentService:
         }
 
     async def complete_payment(self, order: PaymentOrder) -> Dict[str, Any]:
-        """完成支付，添加积分到用户账户"""
+        """完成支付，生成兑换码"""
         if order.status == OrderStatus.PAID.value:
-            return {"success": False, "message": "订单已支付"}
+            return {"success": True, "message": "订单已支付", "redeem_code": order.redeem_code}
 
         # 获取用户
         result = await self.db.execute(
@@ -345,30 +345,24 @@ class UsdtPaymentService:
         if not user:
             return {"success": False, "message": "用户不存在"}
 
-        # 添加积分
-        user.credit_balance += order.credits
-
         # 更新订单状态
         order.status = OrderStatus.PAID.value
         order.paid_at = datetime.utcnow()
-
-        # 记录积分交易
-        transaction = CreditTransaction(
-            user_id=user.id,
-            amount=order.credits,
-            type=TransactionType.PURCHASE.value,
-            description=f"购买套餐: {order.plan_id if hasattr(order, 'plan') else order.trade_no}",
-            balance_after=user.credit_balance,
-        )
-        self.db.add(transaction)
+        if not order.redeem_code:
+            redeem_code = RedeemCode(
+                credit_amount=order.credits,
+                remark=f"订单 {order.trade_no}",
+            )
+            self.db.add(redeem_code)
+            await self.db.flush()
+            order.redeem_code = redeem_code.code
 
         await self.db.commit()
 
         return {
             "success": True,
-            "message": "支付完成",
-            "credits_added": order.credits,
-            "new_balance": user.credit_balance
+            "message": "支付完成，兑换码已生成",
+            "redeem_code": order.redeem_code,
         }
 
     async def cancel_order(self, order: PaymentOrder) -> bool:

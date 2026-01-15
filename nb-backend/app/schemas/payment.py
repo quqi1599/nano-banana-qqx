@@ -87,6 +87,7 @@ class OrderResponse(BaseModel):
     credits: int
     payment_method: str
     status: OrderStatus
+    redeem_code: Optional[str]
     wallet_address: Optional[str]
     expected_amount: Optional[float]
     network: Optional[str]
