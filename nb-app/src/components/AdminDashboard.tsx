@@ -30,6 +30,10 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // 用户对话筛选状态
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedUserInfo, setSelectedUserInfo] = useState<{ email: string; nickname?: string | null } | null>(null);
+
     // Dashboard Stats State (kept here to pass to AdminOverview, or could move into AdminOverview?)
     // AdminOverview takes props: stats, isLoading, etc.
     // It seems AdminDashboard orchestrates the stats fetching for the Overview.
@@ -109,6 +113,19 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
         onLogout();
     };
 
+    // 处理从用户管理面板查看对话
+    const handleViewConversations = (userId: string, userEmail: string, userNickname?: string | null) => {
+        setSelectedUserId(userId);
+        setSelectedUserInfo({ email: userEmail, nickname: userNickname });
+        setActiveTab('conversations');
+    };
+
+    // 清除用户筛选
+    const handleClearUserFilter = () => {
+        setSelectedUserId(null);
+        setSelectedUserInfo(null);
+    };
+
     return (
         <AdminLayout activeTab={activeTab} onChangeTab={setActiveTab}>
             {error && activeTab === 'dashboard' && (
@@ -137,11 +154,17 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
 
             {activeTab === 'codes' && <AdminRedeemCodes />}
 
-            {activeTab === 'users' && <UserManagementPanel apiBase={apiBaseUrl} />}
+            {activeTab === 'users' && <UserManagementPanel apiBase={apiBaseUrl} onViewConversations={handleViewConversations} />}
 
             {activeTab === 'tickets' && <AdminTickets />}
 
-            {activeTab === 'conversations' && <AdminConversations />}
+            {activeTab === 'conversations' && (
+                <AdminConversations
+                    userId={selectedUserId}
+                    userInfo={selectedUserInfo}
+                    onClearUserFilter={handleClearUserFilter}
+                />
+            )}
 
         </AdminLayout>
     );

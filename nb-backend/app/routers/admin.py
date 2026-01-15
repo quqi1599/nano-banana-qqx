@@ -10,6 +10,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
@@ -1547,37 +1548,111 @@ from app.schemas.conversation import AdminConversationResponse, AdminConversatio
 from sqlalchemy.orm import selectinload
 
 
-@router.get("/conversations", response_model=list[AdminConversationResponse])
+@router.get("/conversations")
 async def list_conversations(
     user_id: Optional[str] = None,
     search: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    model_name: Optional[str] = None,
+    min_messages: Optional[int] = None,
+    max_messages: Optional[int] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取所有用户的对话列表"""
+    """获取所有用户的对话列表（支持高级筛选）"""
     # 构建查询
     query = (
         select(Conversation, User.email, User.nickname)
         .outerjoin(User, Conversation.user_id == User.id)
     )
 
+    # 用户筛选
     if user_id:
         query = query.where(Conversation.user_id == user_id)
 
+    # 搜索筛选（按用户邮箱或对话标题）
     if search:
-        # 按用户邮箱搜索
-        query = query.join(User).where(User.email.ilike(f"%{search}%"))
+        query = query.where(
+            (User.email.ilike(f"%{search}%")) |
+            (Conversation.title.ilike(f"%{search}%"))
+        )
 
-    # 分页
+    # 时间范围筛选
+    if date_from:
+        try:
+            from datetime import datetime
+            after_date = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.where(Conversation.created_at >= after_date)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            from datetime import datetime
+            before_date = datetime.strptime(date_to, "%Y-%m-%d")
+            # 包含当天，所以加一天
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            query = query.where(Conversation.created_at <= before_date)
+        except ValueError:
+            pass
+
+    # 模型筛选
+    if model_name:
+        query = query.where(Conversation.model_name == model_name)
+
+    # 消息数量范围筛选
+    if min_messages is not None:
+        query = query.where(Conversation.message_count >= min_messages)
+    if max_messages is not None:
+        query = query.where(Conversation.message_count <= max_messages)
+
+    # 获取总数（应用相同的筛选条件）
+    count_query = select(func.count(Conversation.id)).select_from(Conversation)
+    count_query = count_query.outerjoin(User, Conversation.user_id == User.id)
+
+    if user_id:
+        count_query = count_query.where(Conversation.user_id == user_id)
+    if search:
+        count_query = count_query.where(
+            (User.email.ilike(f"%{search}%")) |
+            (Conversation.title.ilike(f"%{search}%"))
+        )
+    if date_from:
+        try:
+            from datetime import datetime
+            after_date = datetime.strptime(date_from, "%Y-%m-%d")
+            count_query = count_query.where(Conversation.created_at >= after_date)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import datetime
+            before_date = datetime.strptime(date_to, "%Y-%m-%d")
+            before_date = before_date.replace(hour=23, minute=59, second=59)
+            count_query = count_query.where(Conversation.created_at <= before_date)
+        except ValueError:
+            pass
+    if model_name:
+        count_query = count_query.where(Conversation.model_name == model_name)
+    if min_messages is not None:
+        count_query = count_query.where(Conversation.message_count >= min_messages)
+    if max_messages is not None:
+        count_query = count_query.where(Conversation.message_count <= max_messages)
+
+    count_result = await db.execute(count_query)
+    total = count_result.scalar() or 0
+
+    # 分页和排序
     query = query.order_by(Conversation.updated_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
     rows = result.all()
 
-    # 获取用户信息
+    # 构建响应
     response = []
     for conv, user_email, user_nickname in rows:
         conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
@@ -1585,7 +1660,14 @@ async def list_conversations(
         conv_dict["user_nickname"] = user_nickname
         response.append(AdminConversationResponse(**conv_dict))
 
-    return response
+    return JSONResponse(
+        content={
+            "conversations": [r.model_dump(mode="json") for r in response],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+    )
 
 
 @router.get("/conversations/{conversation_id}", response_model=AdminConversationDetailResponse)
@@ -1638,6 +1720,160 @@ async def delete_conversation_admin(
     await db.commit()
 
     return {"message": "删除成功"}
+
+
+# ============ 用户对话统计 ============
+
+from app.schemas.admin import (
+    UserConversationStats,
+    ConversationTimelineItem,
+    ConversationTimelineResponse,
+)
+
+
+@router.get("/users/{user_id}/conversation-stats", response_model=UserConversationStats)
+async def get_user_conversation_stats(
+    user_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户对话统计"""
+    # 验证用户存在
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    # 总对话数
+    total_conv_result = await db.execute(
+        select(func.count(Conversation.id)).where(Conversation.user_id == user_id)
+    )
+    total_conversations = total_conv_result.scalar() or 0
+
+    # 总消息数（通过对话表汇总）
+    total_msg_result = await db.execute(
+        select(func.sum(Conversation.message_count)).where(Conversation.user_id == user_id)
+    )
+    total_messages = total_msg_result.scalar() or 0
+
+    # 按模型分类统计
+    model_result = await db.execute(
+        select(Conversation.model_name, func.count(Conversation.id))
+        .where(Conversation.user_id == user_id)
+        .where(Conversation.model_name.isnot(None))
+        .group_by(Conversation.model_name)
+    )
+    model_breakdown = {row[0]: row[1] for row in model_result.all()}
+
+    # 最近活动时间
+    last_activity_result = await db.execute(
+        select(func.max(Conversation.updated_at)).where(Conversation.user_id == user_id)
+    )
+    last_activity = last_activity_result.scalar()
+
+    # 最活跃的日期（对话数最多的日期）
+    from sqlalchemy import cast, Date
+    activity_result = await db.execute(
+        select(cast(Conversation.created_at, Date), func.count(Conversation.id))
+        .where(Conversation.user_id == user_id)
+        .group_by(cast(Conversation.created_at, Date))
+        .order_by(func.count(Conversation.id).desc())
+        .limit(1)
+    )
+    most_active_row = activity_result.first()
+    most_active_day = str(most_active_row[0]) if most_active_row else None
+
+    return UserConversationStats(
+        total_conversations=total_conversations,
+        total_messages=total_messages,
+        model_breakdown=model_breakdown,
+        last_activity=last_activity,
+        most_active_day=most_active_day,
+    )
+
+
+@router.get("/users/{user_id}/conversation-timeline", response_model=ConversationTimelineResponse)
+async def get_user_conversation_timeline(
+    user_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(30, ge=1, le=100),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户对话时间线（按天分组）"""
+    # 验证用户存在
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    if not user_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    from sqlalchemy import cast, Date, desc
+
+    # 获取所有不同日期的对话统计
+    date_query = (
+        select(
+            cast(Conversation.created_at, Date).label("date"),
+            func.count(Conversation.id).label("conv_count"),
+            func.sum(Conversation.message_count).label("msg_count"),
+        )
+        .where(Conversation.user_id == user_id)
+        .group_by(cast(Conversation.created_at, Date))
+        .order_by(desc(cast(Conversation.created_at, Date)))
+    )
+
+    # 获取总日期数
+    count_result = await db.execute(
+        select(func.count(func.distinct(cast(Conversation.created_at, Date))))
+        .where(Conversation.user_id == user_id)
+    )
+    total_days = count_result.scalar() or 0
+
+    # 分页
+    date_query = date_query.offset((page - 1) * page_size).limit(page_size)
+    date_result = await db.execute(date_query)
+    date_rows = date_result.all()
+
+    # 构建时间线
+    timeline = []
+    for date_obj, conv_count, msg_count in date_rows:
+        date_str = str(date_obj)
+
+        # 获取该日期的所有对话
+        convs_result = await db.execute(
+            select(Conversation, User.email, User.nickname)
+            .outerjoin(User, Conversation.user_id == User.id)
+            .where(Conversation.user_id == user_id)
+            .where(cast(Conversation.created_at, Date) == date_obj)
+            .order_by(Conversation.created_at.desc())
+        )
+        conv_rows = convs_result.all()
+
+        conversations = []
+        for conv, user_email, user_nickname in conv_rows:
+            conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
+            conv_dict["user_email"] = user_email or "未知用户"
+            conv_dict["user_nickname"] = user_nickname
+            conversations.append(AdminConversationResponse(**conv_dict))
+
+        timeline.append(
+            ConversationTimelineItem(
+                date=date_str,
+                conversation_count=conv_count,
+                message_count=int(msg_count) if msg_count else 0,
+                conversations=conversations,
+            )
+        )
+
+    return ConversationTimelineResponse(
+        timeline=timeline,
+        total=total_days,
+        page=page,
+        page_size=page_size,
+    )
 
 
 # ============ 对话清理管理 ============

@@ -3,7 +3,7 @@
  * 功能：高级筛选、批量操作、标签管理、实时搜索、移动端适配
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown } from 'lucide-react';
+import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown, MessageSquare } from 'lucide-react';
 import {
     getUsersAdvanced,
     exportUsers,
@@ -29,9 +29,10 @@ function useDebounce<T>(value: T, delay: number): T {
 
 interface UserManagementPanelProps {
     apiBase?: string;
+    onViewConversations?: (userId: string, userEmail: string, userNickname?: string | null) => void;
 }
 
-export function UserManagementPanel({ apiBase }: UserManagementPanelProps) {
+export function UserManagementPanel({ apiBase, onViewConversations }: UserManagementPanelProps) {
     // ===== 状态管理 =====
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(false);
@@ -631,6 +632,19 @@ export function UserManagementPanel({ apiBase }: UserManagementPanelProps) {
                                             )}
                                         </div>
                                     )}
+
+                                    {/* 操作列 */}
+                                    <div className="col-span-1 flex justify-end">
+                                        {onViewConversations && (
+                                            <button
+                                                onClick={() => onViewConversations(user.id, user.email, user.nickname)}
+                                                className="text-gray-400 hover:text-amber-500 transition"
+                                                title="查看对话"
+                                            >
+                                                <MessageSquare className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))

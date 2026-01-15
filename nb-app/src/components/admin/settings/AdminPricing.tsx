@@ -73,14 +73,14 @@ export const AdminPricing = () => {
             <div className="bg-gradient-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 p-6 rounded-2xl border border-cream-100 dark:border-gray-800 shadow-sm">
                 <h4 className="font-bold text-cream-800 dark:text-cream-400 mb-4 flex items-center gap-2">
                     <Coins className="w-5 h-5" />
-                    Add Model Pricing
+                    添加模型定价
                 </h4>
                 <div className="flex flex-col sm:flex-row gap-3">
                     <input
                         type="text"
                         value={newModelName}
                         onChange={(e) => setNewModelName(e.currentTarget.value)}
-                        placeholder="Model Name (e.g. gemini-pro)"
+                        placeholder="模型名称 (如 gemini-pro)"
                         className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-cream-500 outline-none transition"
                     />
                     <input
@@ -88,7 +88,7 @@ export const AdminPricing = () => {
                         min="1"
                         value={newModelCredits}
                         onChange={(e) => setNewModelCredits(Number(e.currentTarget.value))}
-                        placeholder="Credits"
+                        placeholder="积分消耗"
                         className="w-full sm:w-32 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-cream-500 outline-none transition"
                     />
                     <button
@@ -96,7 +96,7 @@ export const AdminPricing = () => {
                         disabled={!newModelName.trim() || newModelCredits <= 0}
                         className="px-6 py-3 bg-cream-600 text-white rounded-xl hover:bg-cream-700 disabled:opacity-50 transition font-bold shadow-lg shadow-cream-500/20"
                     >
-                        Add
+                        添加
                     </button>
                 </div>
             </div>
@@ -113,13 +113,13 @@ export const AdminPricing = () => {
                                     onChange={(e) => setPricingDrafts(prev => ({ ...prev, [item.id]: Number(e.currentTarget.value) }))}
                                     className="w-16 bg-transparent text-center font-mono text-sm outline-none"
                                 />
-                                <span className="text-xs text-gray-400">credits</span>
+                                <span className="text-xs text-gray-400">积分</span>
                             </div>
                             <button
                                 onClick={() => handleUpdatePricing(item.id)}
                                 className="text-xs font-bold text-cream-600 hover:bg-cream-50 px-3 py-2 rounded-lg transition"
                             >
-                                Save
+                                保存
                             </button>
                         </div>
                     </div>

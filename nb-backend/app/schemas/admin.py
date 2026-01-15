@@ -251,3 +251,41 @@ class CreditHistoryResponse(BaseModel):
     """积分调整历史响应"""
     items: List[CreditHistoryItem]
     total: int
+
+
+# ============ 用户对话历史管理 Schemas ============
+
+from app.schemas.conversation import AdminConversationResponse
+
+
+class UserConversationStats(BaseModel):
+    """用户对话统计"""
+    total_conversations: int
+    total_messages: int
+    model_breakdown: dict[str, int]  # 模型 -> 对话数
+    last_activity: Optional[datetime] = None
+    most_active_day: Optional[str] = None  # 最活跃的日期
+
+
+class ConversationTimelineItem(BaseModel):
+    """时间线项（按天分组）"""
+    date: str  # YYYY-MM-DD
+    conversation_count: int
+    message_count: int
+    conversations: List[AdminConversationResponse]
+
+
+class ConversationTimelineResponse(BaseModel):
+    """时间线响应"""
+    timeline: List[ConversationTimelineItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class ConversationListResponse(BaseModel):
+    """对话列表响应（带总数）"""
+    conversations: List[AdminConversationResponse]
+    total: int
+    page: int
+    page_size: int

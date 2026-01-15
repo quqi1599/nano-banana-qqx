@@ -17,13 +17,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
     const { logout } = useAuthStore();
 
     const navItems = [
-        { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-        { id: 'tokens', label: 'Tokens', icon: Key },
-        { id: 'pricing', label: 'Models & Pricing', icon: Coins },
-        { id: 'codes', label: 'Redeem Codes', icon: Gift },
-        { id: 'users', label: 'Users', icon: Users },
-        { id: 'tickets', label: 'Support Tickets', icon: Ticket },
-        // { id: 'conversations', label: 'Conversations', icon: MessageCircle },
+        { id: 'dashboard', label: '总览', icon: LayoutDashboard },
+        { id: 'tokens', label: 'Token 管理', icon: Key },
+        { id: 'pricing', label: '模型与定价', icon: Coins },
+        { id: 'codes', label: '兑换码', icon: Gift },
+        { id: 'users', label: '用户管理', icon: Users },
+        { id: 'tickets', label: '工单支持', icon: Ticket },
+        { id: 'conversations', label: '会话查看', icon: MessageCircle },
     ] as const;
 
     return (
@@ -41,7 +41,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
                     {!collapsed && (
                         <div>
                             <h1 className="font-bold text-gray-900 dark:text-white leading-none">Admin</h1>
-                            <p className="text-[10px] text-cream-600 dark:text-cream-400 font-medium tracking-wider mt-1 uppercase">Console</p>
+                            <p className="text-[10px] text-cream-600 dark:text-cream-400 font-medium tracking-wider mt-1 uppercase">管理控制台</p>
                         </div>
                     )}
                 </div>
@@ -50,7 +50,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 scrollbar-hide">
                 <div className="mb-2 px-3">
-                    {!collapsed && <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Platform</p>}
+                    {!collapsed && <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">平台管理</p>}
                 </div>
 
                 {navItems.map((item) => {
@@ -103,7 +103,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
                     `}
                 >
                     <LogOut size={20} />
-                    {!collapsed && <span className="font-medium">Sign Out</span>}
+                    {!collapsed && <span className="font-medium">退出登录</span>}
                 </button>
             </div>
         </aside>

@@ -282,9 +282,9 @@ export const AdminTokens = () => {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h3 className="text-base lg:text-lg font-bold text-gray-900 dark:text-white">Token Management</h3>
+                    <h3 className="text-base lg:text-lg font-bold text-gray-900 dark:text-white">Token 管理</h3>
                     <p className="text-xs lg:text-sm text-gray-500 dark:text-gray-400">
-                        Manage API keys, quotas, and access controls
+                        管理 API 密钥、额度与权限
                     </p>
                 </div>
                 <button
@@ -292,15 +292,15 @@ export const AdminTokens = () => {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cream-600 text-white text-sm font-semibold hover:bg-cream-700 transition shadow-lg shadow-cream-500/20"
                 >
                     <Plus className="w-4 h-4" />
-                    New Token
+                    新建 Token
                 </button>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <TokenSummaryCard label="Total" value={tokenSummary.total} tone="neutral" />
-                <TokenSummaryCard label="Available" value={tokenSummary.available} tone="ok" />
-                <TokenSummaryCard label="Cooldown" value={tokenSummary.cooling} tone="warn" />
-                <TokenSummaryCard label="Low Balance" value={tokenSummary.lowBalance} tone="low" helper={`≤${lowBalanceThreshold}`} />
+                <TokenSummaryCard label="总计" value={tokenSummary.total} tone="neutral" />
+                <TokenSummaryCard label="可用" value={tokenSummary.available} tone="ok" />
+                <TokenSummaryCard label="冷却中" value={tokenSummary.cooling} tone="warn" />
+                <TokenSummaryCard label="额度不足" value={tokenSummary.lowBalance} tone="low" helper={`≤${lowBalanceThreshold}`} />
             </div>
 
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
@@ -309,15 +309,15 @@ export const AdminTokens = () => {
                         <table className="w-full text-left text-sm">
                             <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800">
                                 <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                    <th className="px-4 py-3 font-semibold">Name / Key</th>
-                                    <th className="px-4 py-3 font-semibold">Status</th>
+                                    <th className="px-4 py-3 font-semibold">名称 / Key</th>
+                                    <th className="px-4 py-3 font-semibold">状态</th>
                                     <th className="px-4 py-3 font-semibold text-center">
                                         <button
                                             type="button"
                                             onClick={() => handleSort('priority')}
                                             className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
                                         >
-                                            Priority
+                                            优先级
                                             {sortConfig.key === 'priority' ? (
                                                 sortConfig.direction === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
                                             ) : <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
@@ -329,7 +329,7 @@ export const AdminTokens = () => {
                                             onClick={() => handleSort('remaining_quota')}
                                             className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
                                         >
-                                            Balance
+                                            额度余额
                                             {sortConfig.key === 'remaining_quota' ? (
                                                 sortConfig.direction === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
                                             ) : <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
@@ -342,14 +342,14 @@ export const AdminTokens = () => {
                                             onClick={() => handleSort('last_used_at')}
                                             className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
                                         >
-                                            Last Used
+                                            最近使用
                                             {sortConfig.key === 'last_used_at' ? (
                                                 sortConfig.direction === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />
                                             ) : <ArrowUpDown className="w-3.5 h-3.5 text-gray-300" />}
                                         </button>
                                     </th>
-                                    <th className="px-4 py-3 font-semibold text-center">Requests</th>
-                                    <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                                    <th className="px-4 py-3 font-semibold text-center">请求数</th>
+                                    <th className="px-4 py-3 font-semibold text-right">操作</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -418,13 +418,13 @@ export const AdminTokens = () => {
                                             <td className="px-4 py-3 text-center font-mono text-xs">{token.total_requests.toLocaleString()}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={() => handleCheckQuota(token.id)} disabled={checkingQuotaTokenId === token.id} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition" title="Refresh Quota">
+                                                    <button onClick={() => handleCheckQuota(token.id)} disabled={checkingQuotaTokenId === token.id} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 transition" title="刷新额度">
                                                         <RefreshCw className={`w-3.5 h-3.5 ${checkingQuotaTokenId === token.id ? 'animate-spin' : ''}`} />
                                                     </button>
-                                                    <button onClick={() => handleToggleToken(token.id, token.is_active)} className={`p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition ${token.is_active ? 'text-gray-400 hover:text-red-500' : 'text-green-600'}`} title={token.is_active ? 'Disable' : 'Enable'}>
+                                                    <button onClick={() => handleToggleToken(token.id, token.is_active)} className={`p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition ${token.is_active ? 'text-gray-400 hover:text-red-500' : 'text-green-600'}`} title={token.is_active ? '禁用' : '启用'}>
                                                         <Power className="w-3.5 h-3.5" />
                                                     </button>
-                                                    <button onClick={() => handleDeleteToken(token.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition" title="Delete">
+                                                    <button onClick={() => handleDeleteToken(token.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition" title="删除">
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
@@ -436,7 +436,7 @@ export const AdminTokens = () => {
                                     <tr>
                                         <td colSpan={8} className="py-20 text-center text-gray-400">
                                             <Key className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                            No tokens found. Create one to get started.
+                                            暂无 Token，请创建。
                                         </td>
                                     </tr>
                                 )}
@@ -473,7 +473,7 @@ export const AdminTokens = () => {
                                 </div>
                                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 text-xs mb-3">
                                     <div className="flex justify-between mb-1">
-                                        <span>Balance</span>
+                                        <span>余额</span>
                                         <span className="font-mono">{formatQuota(token.remaining_quota)}</span>
                                     </div>
                                     <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -492,20 +492,20 @@ export const AdminTokens = () => {
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsTokenDrawerOpen(false)} />
                     <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800">
-                            <h3 className="text-xl font-bold">New Token</h3>
+                            <h3 className="text-xl font-bold">新建 Token</h3>
                             <button onClick={() => setIsTokenDrawerOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
                         </div>
                         <div className="flex-1 overflow-auto p-6 space-y-6">
                             <div>
-                                <label className="block text-sm font-semibold mb-2">Token Name</label>
-                                <input value={newTokenName} onChange={e => setNewTokenName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:bg-gray-800 focus:ring-2 focus:ring-cream-500 outline-none" placeholder="e.g. My Token" />
+                                <label className="block text-sm font-semibold mb-2">Token 名称</label>
+                                <input value={newTokenName} onChange={e => setNewTokenName(e.currentTarget.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:bg-gray-800 focus:ring-2 focus:ring-cream-500 outline-none" placeholder="e.g. My Token" />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold mb-2">API Key</label>
-                                <input value={newTokenKey} onChange={e => setNewTokenKey(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:bg-gray-800 font-mono text-sm focus:ring-2 focus:ring-cream-500 outline-none" placeholder="sk-..." />
+                                <label className="block text-sm font-semibold mb-2">API 密钥</label>
+                                <input value={newTokenKey} onChange={e => setNewTokenKey(e.currentTarget.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:bg-gray-800 font-mono text-sm focus:ring-2 focus:ring-cream-500 outline-none" placeholder="sk-..." />
                             </div>
                             <button onClick={handleAddToken} disabled={addingToken || !newTokenName} className="w-full py-3 bg-cream-600 text-white rounded-xl hover:bg-cream-700 font-bold transition">
-                                {addingToken ? 'Creating...' : 'Create Token'}
+                                {addingToken ? '创建中...' : '创建 Token'}
                             </button>
                         </div>
                     </div>

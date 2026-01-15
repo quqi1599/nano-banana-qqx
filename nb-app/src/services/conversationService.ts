@@ -98,6 +98,47 @@ export interface AdminConversationDetail extends AdminConversation {
     messages: ConversationMessage[];
 }
 
+// ============ 管理员对话筛选和统计类型 ============
+
+export interface ConversationFilters {
+    user_id?: string;
+    search?: string;
+    date_from?: string;
+    date_to?: string;
+    model_name?: string;
+    min_messages?: number;
+    max_messages?: number;
+}
+
+export interface ConversationListWithTotal {
+    conversations: AdminConversation[];
+    total: number;
+    page: number;
+    page_size: number;
+}
+
+export interface UserConversationStats {
+    total_conversations: number;
+    total_messages: number;
+    model_breakdown: Record<string, number>;
+    last_activity: string | null;
+    most_active_day: string | null;
+}
+
+export interface ConversationTimelineItem {
+    date: string;
+    conversation_count: number;
+    message_count: number;
+    conversations: AdminConversation[];
+}
+
+export interface ConversationTimelineResponse {
+    timeline: ConversationTimelineItem[];
+    total: number;
+    page: number;
+    page_size: number;
+}
+
 /**
  * 创建新对话
  */
@@ -241,4 +282,49 @@ export async function adminDeleteConversation(id: string): Promise<{ message: st
     return request<{ message: string }>(`/api/admin/conversations/${id}`, {
         method: 'DELETE',
     });
+}
+
+/**
+ * 管理员获取对话列表（带筛选和总数）
+ */
+export async function adminGetConversationsFiltered(
+    filters: ConversationFilters,
+    page = 1,
+    pageSize = 20
+): Promise<ConversationListWithTotal> {
+    const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+    });
+    if (filters.user_id) params.append('user_id', filters.user_id);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.date_from) params.append('date_from', filters.date_from);
+    if (filters.date_to) params.append('date_to', filters.date_to);
+    if (filters.model_name) params.append('model_name', filters.model_name);
+    if (filters.min_messages !== undefined) params.append('min_messages', String(filters.min_messages));
+    if (filters.max_messages !== undefined) params.append('max_messages', String(filters.max_messages));
+
+    return request<ConversationListWithTotal>(`/api/admin/conversations?${params}`);
+}
+
+/**
+ * 管理员获取用户对话统计
+ */
+export async function adminGetUserConversationStats(userId: string): Promise<UserConversationStats> {
+    return request<UserConversationStats>(`/api/admin/users/${userId}/conversation-stats`);
+}
+
+/**
+ * 管理员获取用户对话时间线
+ */
+export async function adminGetUserConversationTimeline(
+    userId: string,
+    page = 1,
+    pageSize = 30
+): Promise<ConversationTimelineResponse> {
+    const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+    });
+    return request<ConversationTimelineResponse>(`/api/admin/users/${userId}/conversation-timeline?${params}`);
 }

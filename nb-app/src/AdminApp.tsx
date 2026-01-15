@@ -99,7 +99,7 @@ export const AdminApp: React.FC = () => {
         storeLogin(data.access_token, data.user);
         setPassword('');
       } catch (err) {
-        setFormError((err as Error).message || 'Login failed. Please try again.');
+        setFormError((err as Error).message || '登录失败，请重试');
       } finally {
         setIsSubmitting(false);
       }
@@ -108,7 +108,7 @@ export const AdminApp: React.FC = () => {
 
   const handleSendResetCode = () => {
     if (!resetEmail.trim()) {
-      setFormError('Email is required.');
+      setFormError('请输入邮箱');
       return;
     }
     if (codeSending || codeCooldown > 0) return;
@@ -119,10 +119,10 @@ export const AdminApp: React.FC = () => {
       setCodeSending(true);
       try {
         await sendCode(resetEmail.trim(), 'reset', ticket);
-        setFormSuccess('Verification code sent.');
+        setFormSuccess('验证码已发送');
         setCodeCooldown(60);
       } catch (err) {
-        setFormError((err as Error).message || 'Failed to send code.');
+        setFormError((err as Error).message || '验证码发送失败');
       } finally {
         setCodeSending(false);
       }
@@ -138,13 +138,13 @@ export const AdminApp: React.FC = () => {
       setIsSubmitting(true);
       try {
         await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword, ticket);
-        setFormSuccess('Password reset. Please sign in with the new password.');
+        setFormSuccess('密码已重置，请使用新密码登录');
         setAuthMode('login');
         setEmail(resetEmail.trim());
         setResetCode('');
         setResetNewPassword('');
       } catch (err) {
-        setFormError((err as Error).message || 'Reset failed. Please try again.');
+        setFormError((err as Error).message || '重置失败，请重试');
       } finally {
         setIsSubmitting(false);
       }
@@ -169,7 +169,7 @@ export const AdminApp: React.FC = () => {
       <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-2 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Checking session...
+          正在检查会话...
         </div>
       </div>
     );
@@ -193,8 +193,8 @@ export const AdminApp: React.FC = () => {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold">Access restricted</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">This account does not have admin permissions.</p>
+              <h1 className="text-lg font-semibold">访问受限</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">当前账号无管理员权限。</p>
             </div>
           </div>
           <div className="mt-6 flex flex-col gap-2">
@@ -207,13 +207,13 @@ export const AdminApp: React.FC = () => {
               }}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
             >
-              Switch account
+              切换账号
             </button>
             <a
               href="/"
               className="w-full rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 text-sm font-semibold text-center hover:bg-slate-800 dark:hover:bg-slate-100 transition"
             >
-              Return to main app
+              返回应用
             </a>
           </div>
         </div>
@@ -237,29 +237,29 @@ export const AdminApp: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">DEAI Admin</p>
-                <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">Admin Console</h1>
+                <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">管理控制台</h1>
               </div>
             </div>
             <p className="mt-6 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              Access to this console is restricted to authorized administrators. All actions are audited for compliance.
+              本控制台仅限授权管理员访问。所有操作均会被审计记录以确保合规。
             </p>
             <div className="mt-8 space-y-3 text-sm text-slate-600 dark:text-slate-300">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Centralized tenant operations and billing oversight
+                集中化租户运营与账单监管
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Unified audit trail across sensitive actions
+                敏感操作统一审计追踪
               </div>
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Secure access controls with session monitoring
+                安全访问控制与会话监控
               </div>
             </div>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            Tip: Use a dedicated admin account and enable MFA if available.
+            提示：请使用专用管理账号，并建议开启双因素认证（MFA）。
           </div>
         </aside>
 
@@ -268,24 +268,24 @@ export const AdminApp: React.FC = () => {
             <div className="mb-6 text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start gap-2 text-sm font-medium text-slate-500">
                 <ShieldCheck className="h-4 w-4 text-amber-500" />
-                Admin Access
+                管理员登录
               </div>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">
-                {authMode === 'login' ? 'Sign in to manage' : 'Reset your password'}
+                {authMode === 'login' ? '登录管理后台' : '重置密码'}
               </h2>
               <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                 {authMode === 'login'
-                  ? 'Use your administrator credentials to access the console.'
-                  : 'We will verify your identity before updating credentials.'}
+                  ? '请使用管理员凭证访问控制台。'
+                  : '我们将先验证您的身份，再协助您更新凭证。'}
               </p>
             </div>
 
             <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 shadow-xl p-6">
               {showCaptcha && captchaPurpose && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/95 dark:bg-slate-900/90 p-6">
-                  <h3 className="text-base font-semibold">Security check</h3>
+                  <h3 className="text-base font-semibold">安全验证</h3>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Complete the slider to continue.
+                    请完成滑块验证以继续。
                   </p>
                   <div className="mt-4">
                     <SliderCaptcha
@@ -306,7 +306,7 @@ export const AdminApp: React.FC = () => {
                       autoComplete="email"
                       value={email}
                       onChange={(event) => setEmail(event.currentTarget.value)}
-                      placeholder="Email address"
+                      placeholder="邮箱地址"
                       required
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
                     />
@@ -318,7 +318,7 @@ export const AdminApp: React.FC = () => {
                       autoComplete="current-password"
                       value={password}
                       onChange={(event) => setPassword(event.currentTarget.value)}
-                      placeholder="Password"
+                      placeholder="密码"
                       required
                       minLength={6}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
@@ -343,7 +343,7 @@ export const AdminApp: React.FC = () => {
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition"
                   >
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    Sign in
+                    登 录
                   </button>
                   <div className="flex justify-between text-xs text-slate-500">
                     <button
@@ -351,10 +351,10 @@ export const AdminApp: React.FC = () => {
                       onClick={() => switchMode('reset')}
                       className="hover:text-amber-600 transition"
                     >
-                      Forgot password?
+                      忘记密码？
                     </button>
                     <a href="/" className="hover:text-amber-600 transition">
-                      Return to main app
+                      返回应用
                     </a>
                   </div>
                 </form>
@@ -367,7 +367,7 @@ export const AdminApp: React.FC = () => {
                       autoComplete="email"
                       value={resetEmail}
                       onChange={(event) => setResetEmail(event.currentTarget.value)}
-                      placeholder="Email address"
+                      placeholder="邮箱地址"
                       required
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
                     />
@@ -379,7 +379,7 @@ export const AdminApp: React.FC = () => {
                         type="text"
                         value={resetCode}
                         onChange={(event) => setResetCode(event.currentTarget.value)}
-                        placeholder="Verification code"
+                        placeholder="验证码"
                         required
                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
                       />
@@ -390,7 +390,7 @@ export const AdminApp: React.FC = () => {
                       disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
                       className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-3 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {codeSending ? 'Sending...' : codeCooldown > 0 ? `${codeCooldown}s` : 'Send'}
+                      {codeSending ? '发送中...' : codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码'}
                     </button>
                   </div>
                   <div className="relative">
@@ -400,7 +400,7 @@ export const AdminApp: React.FC = () => {
                       autoComplete="new-password"
                       value={resetNewPassword}
                       onChange={(event) => setResetNewPassword(event.currentTarget.value)}
-                      placeholder="New password"
+                      placeholder="设置新密码"
                       required
                       minLength={6}
                       className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
@@ -418,14 +418,14 @@ export const AdminApp: React.FC = () => {
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition"
                   >
                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    Reset password
+                    确认重置
                   </button>
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
                     className="w-full text-xs text-slate-500 hover:text-amber-600 transition"
                   >
-                    Back to sign in
+                    返回登录
                   </button>
                 </form>
               )}

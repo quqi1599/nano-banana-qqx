@@ -30,30 +30,30 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
             {/* Primary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                    label="Today's Consumption"
+                    label="今日消耗"
                     value={stats.today_credits_used}
-                    suffix="credits"
+                    suffix="积分"
                     icon={Coins}
                     color="amber"
                 />
                 <StatCard
-                    label="Images Generated"
+                    label="生成图片数"
                     value={stats.today_image_calls}
-                    suffix="images"
+                    suffix="张"
                     icon={Image}
                     color="orange"
                 />
                 <StatCard
-                    label="Active Users"
+                    label="活跃用户"
                     value={stats.active_users_today}
-                    suffix="users"
+                    suffix="人"
                     icon={Users}
                     color="blue"
                 />
                 <StatCard
-                    label="Total Requests"
+                    label="总请求数"
                     value={stats.total_requests_today}
-                    suffix="requests"
+                    suffix="次"
                     icon={Activity}
                     color="green"
                 />
@@ -62,25 +62,25 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
             {/* Secondary Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-cream-100 dark:border-gray-800 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Users</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">总用户数</p>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.total_users}</p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-cream-100 dark:border-gray-800 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Credits Consumed</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">总消耗积分</p>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.total_credits_consumed.toLocaleString()}</p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-cream-100 dark:border-gray-800 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Token Pool Health</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Token 池状态</p>
                     <div className="flex items-baseline gap-1">
                         <span className="text-xl font-bold text-green-600">{stats.available_tokens}</span>
-                        <span className="text-xs text-gray-400">/ {stats.token_pool_count} available</span>
+                        <span className="text-xs text-gray-400">/ {stats.token_pool_count} 可用</span>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-cream-100 dark:border-gray-800 shadow-sm">
-                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">System Status</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">系统状态</p>
                     <p className="text-xl font-bold text-green-600 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        Operational
+                        运行正常
                     </p>
                 </div>
             </div>
@@ -93,7 +93,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         <div className="p-2 rounded-lg bg-cream-100 dark:bg-cream-900/20 text-cream-600">
                             <BarChart3 size={18} />
                         </div>
-                        Model Usage Distribution
+                        模型使用分布
                     </h3>
                     {modelStatsLoaded ? (
                         stats.model_stats.length > 0 ? (
@@ -106,8 +106,8 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                                             <div className="flex justify-between text-sm mb-1.5">
                                                 <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
                                                 <div className="text-gray-500 text-xs flex gap-2">
-                                                    <span>{m.total_requests.toLocaleString()} reqs</span>
-                                                    <span>{m.total_credits_used.toLocaleString()} credits</span>
+                                                    <span>{m.total_requests.toLocaleString()} 次请求</span>
+                                                    <span>{m.total_credits_used.toLocaleString()} 积分</span>
                                                 </div>
                                             </div>
                                             <div className="h-2.5 bg-gray-50 dark:bg-gray-800 rounded-full overflow-hidden">
@@ -123,7 +123,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         ) : (
                             <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-gray-800/10 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
                                 <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm">No usage data for today</p>
+                                <p className="text-sm">今日暂无使用数据</p>
                             </div>
                         )
                     ) : (
@@ -134,7 +134,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                                 disabled={modelStatsLoading}
                                 className="px-5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-cream-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-sm font-medium transition-all"
                             >
-                                {modelStatsLoading ? 'Loading data...' : 'Load Model Analysis'}
+                                {modelStatsLoading ? '加载数据中...' : '加载模型分析'}
                             </button>
                         </div>
                     )}
@@ -146,7 +146,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/20 text-green-600">
                             <TrendingUp size={18} />
                         </div>
-                        7-Day Usage Trend
+                        近7日使用趋势
                     </h3>
                     {dailyStatsLoaded ? (
                         stats.daily_stats.length > 0 ? (
@@ -180,7 +180,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         ) : (
                             <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-gray-800/10 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
                                 <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm">No historical data available</p>
+                                <p className="text-sm">暂无历史数据</p>
                             </div>
                         )
                     ) : (
@@ -191,7 +191,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                                 disabled={dailyStatsLoading}
                                 className="px-5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-cream-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-sm font-medium transition-all"
                             >
-                                {dailyStatsLoading ? 'Loading charts...' : 'Load 7-Day Trend'}
+                                {dailyStatsLoading ? '加载图表中...' : '加载7日趋势'}
                             </button>
                         </div>
                     )}

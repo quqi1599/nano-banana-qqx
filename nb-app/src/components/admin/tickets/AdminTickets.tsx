@@ -79,25 +79,25 @@ export const AdminTickets = () => {
 
             <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} lg:w-80 w-full border-r border-gray-100 dark:border-gray-800 flex-col`}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                    <h3 className="font-bold text-gray-900 dark:text-white">Tickets</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white">工单支持</h3>
                     <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 text-xs">
                         <button
                             onClick={() => setTicketStatusFilter('all')}
                             className={`px-2 py-1 rounded ${ticketStatusFilter === 'all' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
                         >
-                            All
+                            全部
                         </button>
                         <button
                             onClick={() => setTicketStatusFilter('open')}
                             className={`px-2 py-1 rounded ${ticketStatusFilter === 'open' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
                         >
-                            Open
+                            待处理
                         </button>
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     {loading && <div className="p-4 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>}
-                    {!loading && tickets.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">No tickets found</div>}
+                    {!loading && tickets.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">暂无工单</div>}
                     {tickets.map(t => (
                         <div
                             key={t.id}
@@ -127,7 +127,7 @@ export const AdminTickets = () => {
                                         onClick={() => handleUpdateTicketStatus('closed')}
                                         className="hidden sm:block text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
                                     >
-                                        Close Ticket
+                                        关闭工单
                                     </button>
                                 )}
                                 <button onClick={() => setSelectedTicket(null)} className="lg:hidden p-2"><X size={20} /></button>
@@ -146,8 +146,8 @@ export const AdminTickets = () => {
                         <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-2">
                             <input
                                 value={adminReplyContent}
-                                onChange={e => setAdminReplyContent(e.target.value)}
-                                placeholder="Type reply..."
+                                onChange={e => setAdminReplyContent(e.currentTarget.value)}
+                                placeholder="输入回复..."
                                 onKeyDown={e => e.key === 'Enter' && handleAdminReply()}
                                 className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-cream-500"
                             />
@@ -163,7 +163,7 @@ export const AdminTickets = () => {
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-gray-400 flex-col gap-2">
                         <MessageSquare className="w-12 h-12 opacity-20" />
-                        <p>Select a ticket to view details</p>
+                        <p>选择工单查看详情</p>
                     </div>
                 )}
             </div>

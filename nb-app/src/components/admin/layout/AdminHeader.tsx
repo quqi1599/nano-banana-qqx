@@ -8,11 +8,11 @@ interface AdminHeaderProps {
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar }) => {
-    const { settings, setSettings } = useAppStore();
+    const { settings, updateSettings } = useAppStore();
 
     const toggleTheme = () => {
         const nextTheme = settings.theme === 'light' ? 'dark' : 'light';
-        setSettings({ ...settings, theme: nextTheme });
+        updateSettings({ theme: nextTheme });
     };
 
     return (
@@ -36,7 +36,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Type to search..."
+                            placeholder="搜索..."
                             className="bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 text-sm rounded-full pl-10 pr-4 py-1.5 w-64 focus:ring-2 focus:ring-cream-500/20 focus:border-cream-500 outline-none transition-all placeholder:text-gray-400"
                         />
                     </div>
@@ -46,7 +46,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar
                     <button
                         onClick={toggleTheme}
                         className="p-2 text-gray-400 hover:text-cream-600 hover:bg-cream-50 dark:hover:bg-cream-900/10 rounded-full transition-all"
-                        title="Toggle Theme"
+                        title="切换主题"
                     >
                         {settings.theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
                     </button>
