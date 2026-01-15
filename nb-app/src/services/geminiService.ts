@@ -33,6 +33,14 @@ const formatGeminiError = (error: any): Error => {
 
   if (errorMsg.includes("401") || errorMsg.includes("API key not valid")) {
     message = "API Key 无效或过期，请检查您的设置。";
+  } else if (errorMsg.includes("quota") || errorMsg.includes("pre_consume_token_quota_failed")) {
+    const remainMatch = errorMsg.match(/remain quota:\s*[＄$]?([\d.]+)/);
+    const needMatch = errorMsg.match(/need quota:\s*[＄$]?([\d.]+)/);
+    if (remainMatch && needMatch) {
+      message = `额度不足：当前余额 $${remainMatch[1]}，本次需要 $${needMatch[1]}。请充值后重试。`;
+    } else {
+      message = "API 额度不足，请充值后重试。";
+    }
   } else if (errorMsg.includes("Thinking_config.include_thoughts") || errorMsg.includes("thinking is enabled")) {
     message = '当前模型不支持思考过程。请在设置中关闭"显示思考过程"，或切换到支持思考的模型。';
   } else if (errorMsg.includes("400")) {
@@ -51,14 +59,6 @@ const formatGeminiError = (error: any): Error => {
     message = "内容被安全策略拦截。请尝试修改您的提示词或更换图片。";
   } else if (errorMsg.includes("No content generated")) {
     message = "AI 没有生成任何内容。可能原因：提示词或图片触发了安全过滤、图片格式不支持、或 API 临时异常。请尝试换张图片或修改提示词。";
-  } else if (errorMsg.includes("quota") || errorMsg.includes("pre_consume_token_quota_failed")) {
-    const remainMatch = errorMsg.match(/remain quota:\s*\$?([\d.]+)/);
-    const needMatch = errorMsg.match(/need quota:\s*\$?([\d.]+)/);
-    if (remainMatch && needMatch) {
-      message = `额度不足：当前余额 $${remainMatch[1]}，本次需要 $${needMatch[1]}。请充值后重试。`;
-    } else {
-      message = "API 额度不足，请充值后重试。";
-    }
   } else if (errorMsg.includes("405")) {
     message = "请求方法不被允许 (405)。API 中转地址可能不正确，请检查设置中的 API 地址是否配置正确。";
   } else if (errorMsg.includes("404")) {
