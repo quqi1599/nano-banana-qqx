@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     # Sentry
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.1
+    sentry_profiles_sample_rate: float = 0.1
     
     # Metrics
     metrics_enabled: bool = True
