@@ -7,7 +7,7 @@ services:
     container_name: nbnb-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}  # 生产环境必须设置
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-} # 生产环境必须设置
       POSTGRES_DB: nbnb
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -29,7 +29,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD-SHELL", "redis-cli --no-auth-warning ${REDIS_PASSWORD:+-a $REDIS_PASSWORD} ping | grep PONG" ]
       interval: 5s
       timeout: 5s
       retries: 5
