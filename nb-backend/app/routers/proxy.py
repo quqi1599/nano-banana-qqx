@@ -300,38 +300,66 @@ async def proxy_generate_stream(
     selected_token = None
     last_error_detail = None
 
-    for token in tokens:
-        now = datetime.utcnow()
-        target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:streamGenerateContent"
-        try:
-            plain_key = decrypt_api_key(token.api_key)
-        except RuntimeError:
-            mark_token_failure(token, now)
-            last_error_detail = "Token 解密失败"
-            continue
+    try:
+        for token in tokens:
+            now = datetime.utcnow()
+            target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:streamGenerateContent"
+            try:
+                plain_key = decrypt_api_key(token.api_key)
+            except RuntimeError:
+                mark_token_failure(token, now)
+                last_error_detail = "Token 解密失败"
+                continue
 
-        if settings.token_encryption_key and not token.api_key.startswith("enc:"):
-            token.api_key = encrypt_api_key(plain_key)
-            if not token.api_key_hash:
-                token.api_key_hash = hash_api_key(plain_key)
-            if not token.api_key_prefix or not token.api_key_suffix:
-                prefix, suffix = build_key_parts(plain_key)
-                token.api_key_prefix = prefix
-                token.api_key_suffix = suffix
+            if settings.token_encryption_key and not token.api_key.startswith("enc:"):
+                token.api_key = encrypt_api_key(plain_key)
+                if not token.api_key_hash:
+                    token.api_key_hash = hash_api_key(plain_key)
+                if not token.api_key_prefix or not token.api_key_suffix:
+                    prefix, suffix = build_key_parts(plain_key)
+                    token.api_key_prefix = prefix
+                    token.api_key_suffix = suffix
 
-        headers = {
-            "Content-Type": "application/json",
-            "x-goog-api-key": plain_key,
-        }
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": plain_key,
+            }
 
-        try:
-            request_obj = client.build_request("POST", target_url, json=body, headers=headers)
-            response = await client.send(request_obj, stream=True)
-        except httpx.TimeoutException:
+            try:
+                request_obj = client.build_request("POST", target_url, json=body, headers=headers)
+                response = await client.send(request_obj, stream=True)
+            except httpx.TimeoutException:
+                token.last_used_at = now
+                token.last_checked_at = now
+                token.total_requests += 1
+                mark_token_failure(token, now)
+                db.add(UsageLog(
+                    user_id=locked_user.id,
+                    model_name=model_name,
+                    credits_used=0,
+                    token_id=token.id,
+                    request_type="generate_stream",
+                    prompt_preview=prompt_preview,
+                    is_success=False,
+                    error_message="API 请求超时",
+                ))
+                last_error_detail = "API 请求超时"
+                continue
+
             token.last_used_at = now
             token.last_checked_at = now
             token.total_requests += 1
-            mark_token_failure(token, now)
+
+            status_code = response.status_code
+            if status_code == 200:
+                mark_token_success(token)
+                selected_token = token
+                break
+
+            error_text = (await response.aread()).decode("utf-8", errors="ignore")[:500]
+            last_error_detail = error_text or f"HTTP {status_code}"
+            if status_code >= 500 or status_code in {401, 403, 429}:
+                mark_token_failure(token, now)
             db.add(UsageLog(
                 user_id=locked_user.id,
                 model_name=model_name,
@@ -340,82 +368,58 @@ async def proxy_generate_stream(
                 request_type="generate_stream",
                 prompt_preview=prompt_preview,
                 is_success=False,
-                error_message="API 请求超时",
+                error_message=last_error_detail,
             ))
-            last_error_detail = "API 请求超时"
-            continue
+            await response.aclose()
+            response = None
 
-        token.last_used_at = now
-        token.last_checked_at = now
-        token.total_requests += 1
+            if status_code == 400:
+                await db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=last_error_detail or "请求参数错误",
+                )
 
-        status_code = response.status_code
-        if status_code == 200:
-            mark_token_success(token)
-            selected_token = token
-            break
+        if not response or not selected_token:
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
+            )
 
-        error_text = (await response.aread()).decode("utf-8", errors="ignore")[:500]
-        last_error_detail = error_text or f"HTTP {status_code}"
-        if status_code >= 500 or status_code in {401, 403, 429}:
-            mark_token_failure(token, now)
+        # 扣除次数
+        locked_user.credit_balance -= credits_to_use
+        db.add(CreditTransaction(
+            user_id=locked_user.id,
+            amount=-credits_to_use,
+            type=TransactionType.CONSUME.value,
+            description=f"使用模型: {model_name}",
+            balance_after=locked_user.credit_balance,
+        ))
         db.add(UsageLog(
             user_id=locked_user.id,
             model_name=model_name,
-            credits_used=0,
-            token_id=token.id,
+            credits_used=credits_to_use,
+            token_id=selected_token.id,
             request_type="generate_stream",
             prompt_preview=prompt_preview,
-            is_success=False,
-            error_message=last_error_detail,
+            is_success=True,
+            error_message=None,
         ))
-        await response.aclose()
-        response = None
 
-        if status_code == 400:
-            await db.commit()
-            await client.aclose()
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=last_error_detail or "请求参数错误",
-            )
-
-    if not response or not selected_token:
         await db.commit()
+
+        async def stream_response():
+            try:
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+            finally:
+                await response.aclose()
+                await client.aclose()
+
+        return StreamingResponse(stream_response(), media_type="application/json")
+
+    except Exception:
+        # 确保在异常情况下关闭 client
         await client.aclose()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
-        )
-
-    # 扣除次数
-    locked_user.credit_balance -= credits_to_use
-    db.add(CreditTransaction(
-        user_id=locked_user.id,
-        amount=-credits_to_use,
-        type=TransactionType.CONSUME.value,
-        description=f"使用模型: {model_name}",
-        balance_after=locked_user.credit_balance,
-    ))
-    db.add(UsageLog(
-        user_id=locked_user.id,
-        model_name=model_name,
-        credits_used=credits_to_use,
-        token_id=selected_token.id,
-        request_type="generate_stream",
-        prompt_preview=prompt_preview,
-        is_success=True,
-        error_message=None,
-    ))
-
-    await db.commit()
-
-    async def stream_response():
-        try:
-            async for chunk in response.aiter_bytes():
-                yield chunk
-        finally:
-            await response.aclose()
-            await client.aclose()
-
-    return StreamingResponse(stream_response(), media_type="application/json")
+        raise

@@ -14,12 +14,10 @@ import { PaymentPage } from './components/PaymentPage';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
-import { getToken } from './services/authService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, Crown, X, CreditCard } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, CreditCard } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
-import { getBackendUrl } from './utils/backendUrl';
 import { SessionManager } from './components/SessionManager';
 
 // Lazy load components
@@ -38,9 +36,6 @@ const App: React.FC = () => {
   const [showPaymentPage, setShowPaymentPage] = useState(false);
   const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
-  const [showInitAdminPrompt, setShowInitAdminPrompt] = useState(false);
-  const [isInitializingAdmin, setIsInitializingAdmin] = useState(false);
-  const [adminInitToken, setAdminInitToken] = useState('');
   const [skipApiKeyPrompt, setSkipApiKeyPrompt] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
@@ -175,82 +170,6 @@ const App: React.FC = () => {
     setSkipApiKeyPrompt(true);
     setShowApiKeyModal(false);
   };
-
-  // 初始化管理员功能
-  const handleInitAdmin = async () => {
-    setIsInitializingAdmin(true);
-    try {
-      const token = getToken();
-      if (!token) {
-        addToast('请先登录', 'error');
-        return;
-      }
-
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      };
-      const trimmedInitToken = adminInitToken.trim();
-      if (trimmedInitToken) {
-        (headers as Record<string, string>)['X-Admin-Init-Token'] = trimmedInitToken;
-      }
-
-      const response = await fetch(`${getBackendUrl()}/api/admin/init-admin`, {
-        method: 'POST',
-        headers,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        addToast(`已设置为管理员: ${data.email}`, 'success');
-        setShowInitAdminPrompt(false);
-        setAdminInitToken('');
-        localStorage.setItem('nbnb_tried_init_admin', '1');
-        // 重新获取用户信息
-        await initAuth();
-      } else {
-        const error = await response.json();
-        if (response.status === 403) {
-          // 使用弹窗显示详细错误
-          showDialog({
-            type: 'alert',
-            title: '无法设置管理员',
-            message: error.detail || '权限不足',
-          });
-        } else {
-          addToast(error.detail || '初始化失败', 'error');
-        }
-        setShowInitAdminPrompt(false);
-      }
-    } catch (error) {
-      console.error('Init admin error:', error);
-      addToast('网络错误，请重试', 'error');
-    } finally {
-      setIsInitializingAdmin(false);
-    }
-  };
-
-  // 检查是否需要显示初始化管理员提示
-  useEffect(() => {
-    if (!isAuthenticated || user?.is_admin) {
-      setShowInitAdminPrompt(false);
-      return;
-    }
-
-    // 检查是否已经尝试过初始化
-    const hasTriedInit = localStorage.getItem('nbnb_tried_init_admin');
-    if (hasTriedInit) {
-      setShowInitAdminPrompt(false);
-      return;
-    }
-
-    // 延迟显示提示，给用户一些时间先熟悉应用
-    const timer = setTimeout(() => {
-      setShowInitAdminPrompt(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, user?.is_admin]);
 
   useEffect(() => {
     setMounted(true);
@@ -683,58 +602,6 @@ const App: React.FC = () => {
       {isAuthenticated && showPaymentPage && (
         <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
           <PaymentPage onClose={() => setShowPaymentPage(false)} />
-        </div>
-      )}
-
-      {/* 初始化管理员提示 */}
-      {showInitAdminPrompt && (
-        <div className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-40 max-w-sm animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl shadow-2xl p-4 text-white">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-white/20 rounded-lg shrink-0">
-                <Crown className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-sm mb-1">成为管理员</h4>
-                <p className="text-xs text-white/90 mb-3">检测到系统还没有管理员，点击下方按钮将当前账户设为管理员。</p>
-                <input
-                  type="password"
-                  value={adminInitToken}
-                  onChange={(e) => setAdminInitToken(e.currentTarget.value)}
-                  placeholder="初始化令牌（如已配置）"
-                  className="w-full mb-3 px-3 py-1.5 rounded-lg text-xs text-gray-900 placeholder-gray-400 bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/70"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleInitAdmin}
-                    disabled={isInitializingAdmin}
-                    className="flex-1 px-3 py-1.5 bg-white text-amber-600 rounded-lg text-xs font-semibold hover:bg-white/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isInitializingAdmin ? '设置中...' : '成为管理员'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowInitAdminPrompt(false);
-                      setAdminInitToken('');
-                      localStorage.setItem('nbnb_tried_init_admin', '1');
-                    }}
-                    className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-xs font-medium hover:bg-white/30 transition"
-                  >
-                    跳过
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowInitAdminPrompt(false);
-                  setAdminInitToken('');
-                }}
-                className="text-white/70 hover:text-white transition"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

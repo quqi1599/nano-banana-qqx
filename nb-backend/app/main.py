@@ -61,19 +61,28 @@ async def request_context_middleware(request, call_next):
             response.headers["X-Request-ID"] = request_id
 
 # CORS 配置
+# 注意：生产环境应该通过环境变量配置允许的域名
+_allowed_origins = settings.cors_origins if hasattr(settings, 'cors_origins') else [
+    "http://localhost",
+    "http://localhost:80",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://banana2.peacedejiai.cc",
+    "https://nanobanana2.peacedejiai.cc",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:80",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://banana2.peacedejiai.cc",
-        "https://nanobanana2.peacedejiai.cc",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "X-API-Key",
+    ],
+    expose_headers=["X-Request-ID", "X-Total-Count"],
 )
 
 # 注册路由

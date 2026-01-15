@@ -3,7 +3,7 @@
 """
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 from cryptography.fernet import Fernet
 
 
@@ -14,6 +14,22 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     metrics_enabled: bool = True
+
+    # CORS 配置（逗号分隔的允许域名列表）
+    cors_origins_list: Optional[str] = None
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """获取 CORS 允许的域名列表"""
+        if self.cors_origins_list:
+            return [origin.strip() for origin in self.cors_origins_list.split(",")]
+        # 默认允许本地开发
+        return [
+            "http://localhost",
+            "http://localhost:80",
+            "http://localhost:3000",
+            "http://localhost:5173",
+        ]
     
     # 数据库
     database_url: str = "postgresql://postgres:postgres@localhost:5432/nbnb"

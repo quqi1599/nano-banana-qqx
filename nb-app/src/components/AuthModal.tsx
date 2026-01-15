@@ -69,7 +69,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         });
     };
 
-    const handleRegister = (e: React.FormEvent) => {
+    const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -87,24 +87,21 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             return;
         }
 
-        openCaptcha('register', async (ticket) => {
-            setIsLoading(true);
-            try {
-                const { access_token, user } = await register(
-                    email,
-                    password,
-                    undefined,
-                    registerCode.trim(),
-                    ticket
-                );
-                storeLogin(access_token, user);
-                onClose();
-            } catch (err) {
-                setError((err as Error).message);
-            } finally {
-                setIsLoading(false);
-            }
-        });
+        setIsLoading(true);
+        try {
+            const { access_token, user } = await register(
+                email,
+                password,
+                undefined,
+                registerCode.trim()
+            );
+            storeLogin(access_token, user);
+            onClose();
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleRedeem = async (e: React.FormEvent) => {
@@ -206,26 +203,24 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         pendingCaptchaActionRef.current = null;
     };
 
-    const handleResetPassword = (e: React.FormEvent) => {
+    const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
-        openCaptcha('reset', async (ticket) => {
-            setIsLoading(true);
-            try {
-                await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword, ticket);
-                setSuccess('密码重置成功，请使用新密码登录');
-                setResetCode('');
-                setResetNewPassword('');
-                setEmail(resetEmail.trim());
-                setActiveTab('login');
-            } catch (err) {
-                setError((err as Error).message);
-            } finally {
-                setIsLoading(false);
-            }
-        });
+        setIsLoading(true);
+        try {
+            await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword);
+            setSuccess('密码重置成功，请使用新密码登录');
+            setResetCode('');
+            setResetNewPassword('');
+            setEmail(resetEmail.trim());
+            setActiveTab('login');
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const switchTab = (tab: TabType) => {
@@ -483,11 +478,10 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                 placeholder="确认密码"
                                                 required
                                                 minLength={6}
-                                                className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 outline-none transition-colors ${
-                                                    confirmPassword && password !== confirmPassword
-                                                        ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
-                                                        : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
-                                                }`}
+                                                className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 outline-none transition-colors ${confirmPassword && password !== confirmPassword
+                                                    ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
+                                                    : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
+                                                    }`}
                                             />
                                             <button
                                                 type="button"
