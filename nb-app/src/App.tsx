@@ -535,13 +535,14 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={togglePromptLibrary}
-                className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
                   ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 title="提示词库"
               >
-                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
+                <Sparkles className="h-5 w-5" />
+                <span className="text-sm font-medium hidden sm:inline">提示词</span>
               </button>
             </>
           )}
