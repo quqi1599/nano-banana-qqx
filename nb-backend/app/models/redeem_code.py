@@ -27,6 +27,7 @@ class RedeemCode(Base):
     credit_amount: Mapped[int] = mapped_column(Integer, default=0)  # 通用积分数量
     pro3_credits: Mapped[int] = mapped_column(Integer, default=0)  # Gemini 3 Pro 可用次数
     flash_credits: Mapped[int] = mapped_column(Integer, default=0)  # Gemini 2.5 Flash 可用次数
+    remark: Mapped[str] = mapped_column(String(255), nullable=True)
     is_used: Mapped[bool] = mapped_column(Boolean, default=False)
     used_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id"), nullable=True

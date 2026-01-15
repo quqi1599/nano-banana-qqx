@@ -24,6 +24,7 @@ class PaymentOrder(Base):
     status: Mapped[str] = mapped_column(
         String(32), default="pending"
     )  # pending, processing, paid, cancelled, expired, failed
+    redeem_code: Mapped[str] = mapped_column(String(32), nullable=True)
 
     # USDT 相关字段
     wallet_address: Mapped[str] = mapped_column(String(64), nullable=True)  # 收款地址

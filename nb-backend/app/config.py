@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     
     # Metrics
     metrics_enabled: bool = True
+
+    # Credits pricing defaults
+    credits_gemini_25_flash: int = 1
+    credits_gemini_3_pro: int = 10
     
     @property
     def cors_origins(self) -> List[str]:
