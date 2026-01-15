@@ -28,6 +28,7 @@ import {
     AdminConversationDetail,
     ConversationMessage,
 } from '../services/conversationService';
+import { UserManagementPanel } from './UserManagementPanel';
 
 interface AdminDashboardProps {
     onLogout: () => void;
@@ -606,7 +607,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
                             </div>
                             <div>
                                 <h1 className="font-bold text-lg">管理后台</h1>
-                                <p className="text-xs text-gray-400">Admin Panel</p>
+                                <p className="text-xs text-gray-400">管理员面板</p>
                             </div>
                         </div>
                     )}
@@ -1460,139 +1461,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
 
                             {/* Users */}
                             {activeTab === 'users' && (
-                                <div className="space-y-6 animate-in fade-in duration-300">
-                                    <div className="relative">
-                                        <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={userSearch}
-                                            onChange={(e) => setUserSearch(e.currentTarget.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && loadData()}
-                                            placeholder="按邮箱或昵称搜索用户..."
-                                            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 outline-none transition text-lg"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <h4 className="font-bold text-gray-400 uppercase text-sm tracking-wider">用户列表 ({users.length})</h4>
-                                        {users.map(u => (
-                                            <div key={u.id} className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 hover:shadow-lg transition-shadow">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center font-bold text-white text-lg shadow-lg">
-                                                            {u.nickname?.[0] || u.email[0].toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-900 dark:text-white">{u.nickname || '未设置昵称'}</span>
-                                                                {u.is_admin && (
-                                                                    <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded-full font-bold">ADMIN</span>
-                                                                )}
-                                                            </div>
-                                                            <div className="text-sm text-gray-400">{u.email}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-8">
-                                                        <div className="text-right hidden lg:block">
-                                                            <div className="text-xs text-gray-400 uppercase font-bold">最后登录</div>
-                                                            <div className="text-sm font-mono text-gray-600 dark:text-gray-400">
-                                                                {u.last_login_at ? new Date(u.last_login_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
-                                                            </div>
-                                                            <div className="text-xs font-mono text-gray-400">{u.last_login_ip || '-'}</div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-xs text-gray-400 uppercase font-bold">剩余次数</div>
-                                                            <div className="text-2xl font-black text-amber-600">{u.credit_balance}</div>
-                                                        </div>
-                                                        <div className="text-right hidden sm:block">
-                                                            <div className="text-xs text-gray-400 uppercase font-bold">消耗次数</div>
-                                                            <div className="text-2xl font-black text-gray-700 dark:text-gray-300">{u.total_usage}</div>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingNoteUserId(editingNoteUserId === u.id ? null : u.id);
-                                                                    setNoteContent(u.note || '');
-                                                                    setEditingUserId(null);
-                                                                }}
-                                                                className={`p-3 rounded-xl transition ${editingNoteUserId === u.id ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-amber-100 hover:text-amber-500'}`}
-                                                                title="编辑备注"
-                                                            >
-                                                                <FileText className="w-5 h-5" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingUserId(editingUserId === u.id ? null : u.id);
-                                                                    setAdjustAmount(0);
-                                                                    setEditingNoteUserId(null);
-                                                                }}
-                                                                className={`p-3 rounded-xl transition ${editingUserId === u.id ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-amber-600 hover:bg-amber-100'}`}
-                                                                title="调整次数"
-                                                            >
-                                                                <UserCog className="w-5 h-5" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {u.note && !editingNoteUserId && (
-                                                    <div className="mt-4 text-sm bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-400 p-3 rounded-xl border border-amber-100 dark:border-amber-900/20 flex items-start gap-2">
-                                                        <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                                        <span>{u.note}</span>
-                                                    </div>
-                                                )}
-
-                                                {editingUserId === u.id && (
-                                                    <div className="mt-4 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-xl">
-                                                        <p className="text-xs font-bold text-amber-600 mb-3 uppercase">调整剩余次数</p>
-                                                        <div className="flex gap-3">
-                                                            <input
-                                                                type="number"
-                                                                value={adjustAmount}
-                                                                onChange={(e) => setAdjustAmount(Number(e.currentTarget.value))}
-                                                                placeholder="数量 (正加负减)"
-                                                                className="flex-1 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-900/30 dark:bg-gray-800 font-bold focus:ring-2 focus:ring-amber-500 outline-none"
-                                                            />
-                                                            <button
-                                                                onClick={() => handleAdjustCredits(u.id)}
-                                                                className="px-8 py-3 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition shadow-lg shadow-amber-500/30"
-                                                            >
-                                                                保存修改
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {editingNoteUserId === u.id && (
-                                                    <div className="mt-4 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-xl">
-                                                        <p className="text-xs font-bold text-amber-600 mb-3 uppercase">编辑备注</p>
-                                                        <div className="flex gap-3">
-                                                            <input
-                                                                type="text"
-                                                                value={noteContent}
-                                                                onChange={(e) => setNoteContent(e.currentTarget.value)}
-                                                                placeholder="输入用户备注信息..."
-                                                                className="flex-1 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-900/30 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none"
-                                                            />
-                                                            <button
-                                                                onClick={() => handleUpdateNote(u.id)}
-                                                                className="px-8 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-amber-500/30"
-                                                            >
-                                                                保存备注
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                        {users.length === 0 && (
-                                            <div className="text-center py-20 text-gray-400">
-                                                <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                                                没有找到符合条件的用户
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                <UserManagementPanel apiBase={apiBaseUrl} />
                             )}
 
                             {/* Tickets */}
@@ -1906,7 +1775,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
                                     inputMode="url"
                                     value={newTokenBaseUrl}
                                     onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
-                                    placeholder="留空则使用默认接口"
+                                    placeholder="默认: https://nanobanana2.peacedejiai.cc/"
                                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
                                 />
                             </div>

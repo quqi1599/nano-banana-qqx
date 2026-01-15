@@ -43,6 +43,8 @@ from app.schemas.admin import (
     CreditHistoryResponse,
     AdminActionConfirmRequest,
     AdminActionConfirmResponse,
+    UserTagsUpdate,
+    UserTagsResponse,
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
 from app.utils.security import get_admin_user, get_current_user, verify_password
@@ -175,9 +177,9 @@ def token_response(token: TokenPool) -> TokenPoolResponse:
 
 @router.post("/init-admin")
 async def init_first_admin(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    request: Request,
 ):
     """
     将当前用户设置为管理员
@@ -251,9 +253,9 @@ async def init_first_admin(
 
 @router.post("/confirm-action", response_model=AdminActionConfirmResponse)
 async def confirm_admin_action(
+    request: Request,
     data: AdminActionConfirmRequest,
     admin: User = Depends(get_admin_user),
-    request: Request,
 ):
     """管理员敏感操作二次确认"""
     if data.purpose not in ADMIN_CONFIRM_PURPOSES:
@@ -838,6 +840,53 @@ async def update_user_note(
     return {"message": "备注更新成功"}
 
 
+@router.put("/users/{user_id}/tags")
+async def update_user_tags(
+    user_id: str,
+    data: UserTagsUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """更新用户标签"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    user.tags = data.tags
+    await db.commit()
+
+    return {"message": "标签更新成功", "tags": user.tags}
+
+
+@router.get("/users/tags", response_model=UserTagsResponse)
+async def get_all_user_tags(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取所有用户标签及其统计"""
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+
+    tag_counts: dict[str, int] = {}
+    for user in users:
+        if user.tags:
+            for tag in user.tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    # 按使用次数排序
+    sorted_tags = sorted(tag_counts.keys(), key=lambda x: -tag_counts[x])
+
+    return UserTagsResponse(
+        tags=sorted_tags,
+        counts=tag_counts,
+    )
+
+
 @router.get("/users/stats", response_model=UserStatsResponse)
 async def get_users_stats(
     admin: User = Depends(get_admin_user),
@@ -913,11 +962,11 @@ async def get_user_credit_history(
 
 @router.put("/users/{user_id}/active")
 async def set_user_active_status(
+    request: Request,
     user_id: str,
     data: UserStatusUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
-    request: Request,
 ):
     """设置用户激活状态"""
     reason = _normalize_reason(data.reason)
@@ -973,10 +1022,10 @@ async def set_user_active_status(
 
 @router.post("/users/batch/status")
 async def batch_set_user_status(
+    request: Request,
     data: BatchStatusUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
-    request: Request,
 ):
     """批量设置用户状态"""
     reason = _normalize_reason(data.reason)
@@ -1049,10 +1098,10 @@ async def batch_set_user_status(
 
 @router.post("/users/batch/credits")
 async def batch_adjust_credits(
+    request: Request,
     data: BatchCreditsUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
-    request: Request,
 ):
     """批量调整用户积分"""
     from app.models.credit import CreditTransaction, TransactionType

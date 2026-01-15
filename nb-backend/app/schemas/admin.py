@@ -80,8 +80,9 @@ class AdminUserResponse(BaseModel):
     last_login_at: Optional[datetime] = None
     last_login_ip: Optional[str] = None
     note: Optional[str] = None
+    tags: list[str] = []
     total_usage: int = 0  # 总使用次数
-    
+
     class Config:
         from_attributes = True
 
@@ -96,6 +97,17 @@ class UserListResponse(BaseModel):
 class UserNoteUpdate(BaseModel):
     """更新备注"""
     note: Optional[str] = None
+
+
+class UserTagsUpdate(BaseModel):
+    """更新用户标签"""
+    tags: list[str]
+
+
+class UserTagsResponse(BaseModel):
+    """所有用户标签列表"""
+    tags: list[str]
+    counts: dict[str, int]  # 每个标签的用户数
 
 
 class AdminActionConfirmRequest(BaseModel):

@@ -64,6 +64,8 @@ async def request_context_middleware(request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://localhost",
+        "http://localhost:80",
         "http://localhost:3000",
         "http://localhost:5173",
         "https://banana2.peacedejiai.cc",

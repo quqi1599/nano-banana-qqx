@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
 
 # 安装系统依赖（包含 curl 用于健康检查）
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -1835,101 +1835,101 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                         {/* 高级筛选区 */}
                                         {showFilters && (
                                             <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 animate-in slide-in-from-top-2">
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                {/* 角色筛选 */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">角色</label>
-                                                    <select
-                                                        value={userFilters.is_admin === undefined ? '' : String(userFilters.is_admin)}
-                                                        onChange={(e) => setUserFilters(prev => ({ ...prev, is_admin: e.target.value === '' ? undefined : e.target.value === 'true' }))}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                                                    >
-                                                        <option value="">全部</option>
-                                                        <option value="false">普通用户</option>
-                                                        <option value="true">管理员</option>
-                                                    </select>
-                                                </div>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    {/* 角色筛选 */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">角色</label>
+                                                        <select
+                                                            value={userFilters.is_admin === undefined ? '' : String(userFilters.is_admin)}
+                                                            onChange={(e) => setUserFilters(prev => ({ ...prev, is_admin: e.target.value === '' ? undefined : e.target.value === 'true' }))}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                        >
+                                                            <option value="">全部</option>
+                                                            <option value="false">普通用户</option>
+                                                            <option value="true">管理员</option>
+                                                        </select>
+                                                    </div>
 
-                                                {/* 状态筛选 */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
-                                                    <select
-                                                        value={userFilters.is_active === undefined ? '' : String(userFilters.is_active)}
-                                                        onChange={(e) => setUserFilters(prev => ({ ...prev, is_active: e.target.value === '' ? undefined : e.target.value === 'true' }))}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                                                    >
-                                                        <option value="">全部</option>
-                                                        <option value="true">已启用</option>
-                                                        <option value="false">已禁用</option>
-                                                    </select>
-                                                </div>
+                                                    {/* 状态筛选 */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
+                                                        <select
+                                                            value={userFilters.is_active === undefined ? '' : String(userFilters.is_active)}
+                                                            onChange={(e) => setUserFilters(prev => ({ ...prev, is_active: e.target.value === '' ? undefined : e.target.value === 'true' }))}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                        >
+                                                            <option value="">全部</option>
+                                                            <option value="true">已启用</option>
+                                                            <option value="false">已禁用</option>
+                                                        </select>
+                                                    </div>
 
-                                                {/* 最小余额 */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">最小余额</label>
-                                                    <input
-                                                        type="number"
-                                                        value={userFilters.min_balance ?? ''}
-                                                        onChange={(e) => setUserFilters(prev => ({ ...prev, min_balance: e.target.value ? Number(e.target.value) : undefined }))}
-                                                        placeholder="无限制"
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                                                    />
-                                                </div>
+                                                    {/* 最小余额 */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">最小余额</label>
+                                                        <input
+                                                            type="number"
+                                                            value={userFilters.min_balance ?? ''}
+                                                            onChange={(e) => setUserFilters(prev => ({ ...prev, min_balance: e.target.value ? Number(e.target.value) : undefined }))}
+                                                            placeholder="无限制"
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                        />
+                                                    </div>
 
-                                                {/* 最大余额 */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">最大余额</label>
-                                                    <input
-                                                        type="number"
-                                                        value={userFilters.max_balance ?? ''}
-                                                        onChange={(e) => setUserFilters(prev => ({ ...prev, max_balance: e.target.value ? Number(e.target.value) : undefined }))}
-                                                        placeholder="无限制"
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                                                    />
-                                                </div>
+                                                    {/* 最大余额 */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">最大余额</label>
+                                                        <input
+                                                            type="number"
+                                                            value={userFilters.max_balance ?? ''}
+                                                            onChange={(e) => setUserFilters(prev => ({ ...prev, max_balance: e.target.value ? Number(e.target.value) : undefined }))}
+                                                            placeholder="无限制"
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                        />
+                                                    </div>
 
-                                                {/* 注册时间起 */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">注册时间起</label>
-                                                    <input
-                                                        type="date"
-                                                        value={userFilters.created_after ?? ''}
-                                                        onChange={(e) => setUserFilters(prev => ({ ...prev, created_after: e.target.value || undefined }))}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                                                    />
-                                                </div>
+                                                    {/* 注册时间起 */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">注册时间起</label>
+                                                        <input
+                                                            type="date"
+                                                            value={userFilters.created_after ?? ''}
+                                                            onChange={(e) => setUserFilters(prev => ({ ...prev, created_after: e.target.value || undefined }))}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                        />
+                                                    </div>
 
-                                                {/* 注册时间止 */}
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-500 mb-1.5">注册时间止</label>
-                                                    <input
-                                                        type="date"
-                                                        value={userFilters.created_before ?? ''}
-                                                        onChange={(e) => setUserFilters(prev => ({ ...prev, created_before: e.target.value || undefined }))}
-                                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                                                    />
-                                                </div>
+                                                    {/* 注册时间止 */}
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-500 mb-1.5">注册时间止</label>
+                                                        <input
+                                                            type="date"
+                                                            value={userFilters.created_before ?? ''}
+                                                            onChange={(e) => setUserFilters(prev => ({ ...prev, created_before: e.target.value || undefined }))}
+                                                            className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                                                        />
+                                                    </div>
 
-                                                {/* 空占位 */}
-                                                <div className="hidden md:block"></div>
+                                                    {/* 空占位 */}
+                                                    <div className="hidden md:block"></div>
 
-                                                {/* 操作按钮 */}
-                                                <div className="flex items-end gap-2">
-                                                    <button
-                                                        onClick={handleResetFilters}
-                                                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-                                                    >
-                                                        重置
-                                                    </button>
-                                                    <button
-                                                        onClick={handleApplyFilters}
-                                                        className="flex-1 px-3 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition"
-                                                    >
-                                                        应用
-                                                    </button>
+                                                    {/* 操作按钮 */}
+                                                    <div className="flex items-end gap-2">
+                                                        <button
+                                                            onClick={handleResetFilters}
+                                                            className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                                                        >
+                                                            重置
+                                                        </button>
+                                                        <button
+                                                            onClick={handleApplyFilters}
+                                                            className="flex-1 px-3 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition"
+                                                        >
+                                                            应用
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
                                         )}
 
                                         {/* 批量操作栏 */}
@@ -2449,7 +2449,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                     inputMode="url"
                                     value={newTokenBaseUrl}
                                     onChange={(e) => setNewTokenBaseUrl(e.currentTarget.value)}
-                                    placeholder="留空则使用默认接口"
+                                    placeholder="默认: https://nanobanana2.peacedejiai.cc/"
                                     className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-2 focus:ring-amber-500 outline-none transition"
                                 />
                             </div>

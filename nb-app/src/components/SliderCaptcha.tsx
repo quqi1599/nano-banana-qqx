@@ -29,7 +29,6 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
   const trackRef = useRef<HTMLDivElement>(null);
   const dragOffsetRef = useRef(0);
   const dragXRef = useRef(0);
-  const dragTypeRef = useRef<'mouse' | 'touch' | null>(null);
 
   const trackWidth = challenge?.track_width ?? DEFAULT_TRACK_WIDTH;
   const handleWidth = challenge?.handle_width ?? DEFAULT_HANDLE_WIDTH;
@@ -40,7 +39,6 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
     setIsDragging(false);
     dragXRef.current = 0;
     dragOffsetRef.current = 0;
-    dragTypeRef.current = null;
   }, []);
 
   const loadChallenge = useCallback(async () => {
@@ -69,11 +67,9 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
   }, [loadChallenge]);
 
   const beginDrag = useCallback(
-    (clientX: number, type: 'mouse' | 'touch') => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (!challenge || status !== 'idle') return;
-      dragTypeRef.current = type;
-      setIsDragging(true);
-      setError('');
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
 
       const trackRect = trackRef.current?.getBoundingClientRect();
       if (!trackRect) {
@@ -81,18 +77,21 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
         return;
       }
 
-      dragOffsetRef.current = clientX - (trackRect.left + dragXRef.current);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setIsDragging(true);
+      setError('');
+      dragOffsetRef.current = e.clientX - (trackRect.left + dragXRef.current);
     },
     [challenge, resetDrag, status]
   );
 
   const updateDrag = useCallback(
-    (clientX: number, type: 'mouse' | 'touch') => {
-      if (!isDragging || status !== 'idle' || dragTypeRef.current !== type) return;
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging || status !== 'idle') return;
       const trackRect = trackRef.current?.getBoundingClientRect();
       if (!trackRect) return;
 
-      const rawX = clientX - trackRect.left - dragOffsetRef.current;
+      const rawX = e.clientX - trackRect.left - dragOffsetRef.current;
       const nextX = Math.min(Math.max(0, rawX), maxHandleX);
       dragXRef.current = nextX;
       setDragX(nextX);
@@ -100,82 +99,53 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
     [isDragging, maxHandleX, status]
   );
 
-  const finishDrag = useCallback(async () => {
-    if (!isDragging || status !== 'idle' || !challenge) return;
+  const cancelDrag = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore release errors for pointers not captured.
+      }
+      resetDrag();
+    },
+    [isDragging, resetDrag]
+  );
 
-    setIsDragging(false);
-    dragTypeRef.current = null;
-    setStatus('verifying');
-
-    try {
-      const response = await verifySliderCaptcha({
-        challenge_id: challenge.challenge_id,
-        final_x: dragXRef.current,
-        use: purpose,
-      });
-
-      if (response.ok && response.ticket) {
-        setStatus('success');
-        onVerified(response.ticket);
-        return;
+  const finishDrag = useCallback(
+    async (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging || status !== 'idle' || !challenge) return;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore release errors for pointers not captured.
       }
 
-      setError('验证失败，请重试');
-      await loadChallenge();
-    } catch (err) {
-      setError('验证失败，请重试');
-      setStatus('error');
-    }
-  }, [challenge, isDragging, loadChallenge, onVerified, purpose, status]);
+      setIsDragging(false);
+      setStatus('verifying');
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
-      beginDrag(e.clientX, 'mouse');
+      try {
+        const response = await verifySliderCaptcha({
+          challenge_id: challenge.challenge_id,
+          final_x: dragXRef.current,
+          use: purpose,
+        });
+
+        if (response.ok && response.ticket) {
+          setStatus('success');
+          onVerified(response.ticket);
+          return;
+        }
+
+        setError('验证失败，请重试');
+        await loadChallenge();
+      } catch (err) {
+        setError('验证失败，请重试');
+        setStatus('error');
+      }
     },
-    [beginDrag]
+    [challenge, isDragging, loadChallenge, onVerified, purpose, status]
   );
-
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent<HTMLDivElement>) => {
-      if (!e.touches.length) return;
-      beginDrag(e.touches[0].clientX, 'touch');
-    },
-    [beginDrag]
-  );
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      updateDrag(e.clientX, 'mouse');
-    },
-    [updateDrag]
-  );
-
-  const handleTouchMove = useCallback(
-    (e: TouchEvent) => {
-      if (!e.touches.length) return;
-      updateDrag(e.touches[0].clientX, 'touch');
-      e.preventDefault();
-    },
-    [updateDrag]
-  );
-
-  useEffect(() => {
-    if (!isDragging) return;
-    const touchOptions: AddEventListenerOptions = { passive: false };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', finishDrag);
-    window.addEventListener('touchmove', handleTouchMove, touchOptions);
-    window.addEventListener('touchend', finishDrag);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', finishDrag);
-      window.removeEventListener('touchmove', handleTouchMove, touchOptions);
-      window.removeEventListener('touchend', finishDrag);
-    };
-  }, [finishDrag, handleMouseMove, handleTouchMove, isDragging]);
 
   const progressWidth = Math.min(trackWidth, dragX + handleWidth / 2);
 
@@ -191,8 +161,10 @@ export const SliderCaptcha: React.FC<SliderCaptchaProps> = ({
           style={{ width: `${progressWidth}px` }}
         />
         <div
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
+          onPointerDown={beginDrag}
+          onPointerMove={updateDrag}
+          onPointerUp={finishDrag}
+          onPointerCancel={cancelDrag}
           className={`absolute top-1 bottom-1 rounded-lg flex items-center justify-center cursor-pointer shadow-sm transition-transform active:scale-95 ${
             status === 'success'
               ? 'bg-green-500 text-white'

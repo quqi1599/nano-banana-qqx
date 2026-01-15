@@ -173,6 +173,7 @@ export interface AdminUser {
     last_login_at: string | null;
     last_login_ip: string | null;
     note: string | null;
+    tags: string[];
 }
 
 export interface UserListResult {
@@ -344,6 +345,23 @@ export const updateUserNote = async (userId: string, note: string): Promise<void
     return request(`/users/${userId}/note`, {
         method: 'PUT',
         body: JSON.stringify({ note }),
+    });
+};
+
+// 用户标签管理
+export interface UserTagsResponse {
+    tags: string[];
+    counts: Record<string, number>;
+}
+
+export const getUserTags = async (): Promise<UserTagsResponse> => {
+    return request('/users/tags');
+};
+
+export const updateUserTags = async (userId: string, tags: string[]): Promise<{ message: string; tags: string[] }> => {
+    return request(`/users/${userId}/tags`, {
+        method: 'PUT',
+        body: JSON.stringify({ tags }),
     });
 };
 

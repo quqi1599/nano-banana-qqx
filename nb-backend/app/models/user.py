@@ -3,7 +3,7 @@
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, Integer, DateTime
+from sqlalchemy import String, Boolean, Integer, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -26,6 +26,7 @@ class User(Base):
     last_login_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     last_login_ip: Mapped[str] = mapped_column(String(45), nullable=True)
     note: Mapped[str] = mapped_column(String(500), nullable=True)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
