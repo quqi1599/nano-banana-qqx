@@ -17,6 +17,9 @@ from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket,
 from app.utils.request_context import request_id_ctx_var, RequestIdFilter, JsonFormatter
 from app.utils.metrics import REQUEST_COUNT, REQUEST_LATENCY, IN_PROGRESS, get_route_name
 
+# Initialize settings
+settings = get_settings()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
