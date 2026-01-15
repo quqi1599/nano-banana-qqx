@@ -23,7 +23,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: nbnb-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-}
+    # command: redis-server --requirepass ${REDIS_PASSWORD:-}  # Disabled for now
     ports:
       - "6379:6379"
     volumes:
@@ -42,7 +42,7 @@ services:
     container_name: nbnb-backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@postgres:5432/nbnb
-      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      REDIS_URL: redis://redis:6379/0
       ENVIRONMENT: ${ENVIRONMENT:-production}
       CORS_ORIGINS_LIST: ${CORS_ORIGINS_LIST}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
