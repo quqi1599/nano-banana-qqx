@@ -2,10 +2,14 @@
 管理后台路由
 """
 import uuid
-from datetime import datetime, timedelta
+import hashlib
+import json
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import secrets
+import time
+from datetime import datetime, timedelta
+from typing import Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
@@ -37,9 +41,11 @@ from app.schemas.admin import (
     BatchStatusUpdate,
     BatchCreditsUpdate,
     CreditHistoryResponse,
+    AdminActionConfirmRequest,
+    AdminActionConfirmResponse,
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
-from app.utils.security import get_admin_user, get_current_user
+from app.utils.security import get_admin_user, get_current_user, verify_password
 from app.utils.balance_utils import check_api_key_quota
 from app.utils.token_security import (
     build_key_parts,
@@ -49,7 +55,9 @@ from app.utils.token_security import (
     mask_key_parts,
 )
 from app.utils.cache import get_cached_json, set_cached_json, delete_cache
+from app.utils.redis_client import redis_client
 from app.config import get_settings
+from app.models.admin_audit_log import AdminAuditLog
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -58,6 +66,94 @@ router = APIRouter()
 
 TOKEN_POOL_CACHE_KEY = "token_pool:list:v1"
 TOKEN_POOL_CACHE_TTL_SECONDS = 60
+ADMIN_CONFIRM_KEY_PREFIX = "admin:confirm:"
+ADMIN_CONFIRM_PURPOSES = {"batch_status", "batch_credits"}
+
+
+def _normalize_reason(reason: str) -> str:
+    cleaned = reason.strip()
+    if len(cleaned) < 4:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="操作原因至少 4 个字符",
+        )
+    return cleaned
+
+
+async def _verify_admin_confirm_token(
+    admin: User,
+    purpose: str,
+    token: str,
+    request: Request,
+) -> None:
+    if purpose not in ADMIN_CONFIRM_PURPOSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不支持的确认类型",
+        )
+
+    if not token or not token.strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要二次确认令牌",
+        )
+
+    if not redis_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="确认服务不可用",
+        )
+
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    key = f"{ADMIN_CONFIRM_KEY_PREFIX}{admin.id}:{purpose}:{token_hash}"
+    raw = await redis_client.get(key)
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="二次确认已过期或无效",
+        )
+
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        payload = {}
+
+    ip = request.client.host if request.client else None
+    if payload.get("ip") and ip and payload.get("ip") != ip:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="二次确认令牌无效",
+        )
+
+    await redis_client.delete(key)
+
+
+def _record_admin_audit(
+    db: AsyncSession,
+    admin: User,
+    action: str,
+    target_type: str,
+    target_ids: Optional[list[str]],
+    reason: Optional[str],
+    status_text: str,
+    request: Request,
+    details: Optional[dict[str, Any]] = None,
+) -> None:
+    ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent") if request else None
+    audit = AdminAuditLog(
+        admin_id=admin.id,
+        action=action,
+        target_type=target_type,
+        target_ids=target_ids,
+        target_count=len(target_ids or []),
+        reason=reason,
+        status=status_text,
+        ip_address=ip,
+        user_agent=user_agent,
+        details=details,
+    )
+    db.add(audit)
 
 def token_response(token: TokenPool) -> TokenPoolResponse:
     token_dict = TokenPoolResponse.model_validate(token).model_dump()
@@ -81,6 +177,7 @@ def token_response(token: TokenPool) -> TokenPoolResponse:
 async def init_first_admin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    request: Request,
 ):
     """
     将当前用户设置为管理员
@@ -88,6 +185,21 @@ async def init_first_admin(
     1. 用户邮箱必须在配置的管理员邮箱列表中 (admin_emails)
     2. 数据库中尚未有管理员（首次初始化）
     """
+    # 生产环境要求初始化令牌
+    if settings.is_production() and not settings.admin_init_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="生产环境禁止无初始化令牌的管理员创建",
+        )
+
+    if settings.admin_init_token:
+        init_token = request.headers.get("X-Admin-Init-Token", "")
+        if init_token != settings.admin_init_token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="初始化令牌无效",
+            )
+
     # 获取配置的管理员邮箱列表
     allowed_emails = [e.strip().lower() for e in settings.admin_emails.split(',') if e.strip()]
 
@@ -116,6 +228,17 @@ async def init_first_admin(
 
     # 将当前用户设为管理员
     current_user.is_admin = True
+    _record_admin_audit(
+        db=db,
+        admin=current_user,
+        action="init_admin",
+        target_type="user",
+        target_ids=[current_user.id],
+        reason=None,
+        status_text="success",
+        request=request,
+        details={"initialized": True},
+    )
     await db.commit()
 
     logger.info(f"用户 {current_user.email} 已初始化为管理员")
@@ -124,6 +247,45 @@ async def init_first_admin(
         "email": current_user.email,
         "is_admin": True
     }
+
+
+@router.post("/confirm-action", response_model=AdminActionConfirmResponse)
+async def confirm_admin_action(
+    data: AdminActionConfirmRequest,
+    admin: User = Depends(get_admin_user),
+    request: Request,
+):
+    """管理员敏感操作二次确认"""
+    if data.purpose not in ADMIN_CONFIRM_PURPOSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="不支持的确认类型",
+        )
+
+    if not verify_password(data.password, admin.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="管理员密码错误",
+        )
+
+    if not redis_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="确认服务不可用",
+        )
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    key = f"{ADMIN_CONFIRM_KEY_PREFIX}{admin.id}:{data.purpose}:{token_hash}"
+    payload = {
+        "ip": request.client.host if request and request.client else None,
+        "ua": request.headers.get("user-agent") if request else None,
+        "ts": int(time.time()),
+    }
+    ttl = max(30, int(settings.admin_action_confirm_ttl_seconds))
+    await redis_client.set(key, json.dumps(payload), ex=ttl)
+
+    return AdminActionConfirmResponse(confirm_token=token, expires_in=ttl)
 
 
 # ============ Token 池管理 ============
@@ -755,8 +917,10 @@ async def set_user_active_status(
     data: UserStatusUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
+    request: Request,
 ):
     """设置用户激活状态"""
+    reason = _normalize_reason(data.reason)
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -782,10 +946,22 @@ async def set_user_active_status(
         )
 
     user.is_active = data.is_active
+
+    _record_admin_audit(
+        db=db,
+        admin=admin,
+        action="set_user_status",
+        target_type="user",
+        target_ids=[user.id],
+        reason=reason,
+        status_text="success",
+        request=request,
+        details={"is_active": data.is_active},
+    )
     await db.commit()
 
     logger.info(
-        f"Admin {admin.email} set user {user.email} is_active={data.is_active}, reason: {data.reason}"
+        f"Admin {admin.email} set user {user.email} is_active={data.is_active}, reason: {reason}"
     )
 
     return {
@@ -800,8 +976,11 @@ async def batch_set_user_status(
     data: BatchStatusUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
+    request: Request,
 ):
     """批量设置用户状态"""
+    reason = _normalize_reason(data.reason)
+    await _verify_admin_confirm_token(admin, "batch_status", data.confirm_token, request)
     if not data.user_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -821,23 +1000,45 @@ async def batch_set_user_status(
         )
 
     updated_count = 0
+    updated_ids: list[str] = []
+    skipped_ids: list[str] = []
     for user in users:
         # 防止管理员禁用自己
         if user.id == admin.id and not data.is_active:
+            skipped_ids.append(user.id)
             continue
 
         # 防止禁用其他管理员
         if user.is_admin and user.id != admin.id:
             logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
+            skipped_ids.append(user.id)
             continue
 
         user.is_active = data.is_active
         updated_count += 1
+        updated_ids.append(user.id)
 
+    _record_admin_audit(
+        db=db,
+        admin=admin,
+        action="batch_set_user_status",
+        target_type="user",
+        target_ids=updated_ids,
+        reason=reason,
+        status_text="partial" if skipped_ids else "success",
+        request=request,
+        details={
+            "requested_count": len(data.user_ids),
+            "updated_count": updated_count,
+            "skipped_count": len(skipped_ids),
+            "skipped_ids": skipped_ids,
+            "is_active": data.is_active,
+        },
+    )
     await db.commit()
 
     logger.info(
-        f"Admin {admin.email} batch updated {updated_count} users to is_active={data.is_active}, reason: {data.reason}"
+        f"Admin {admin.email} batch updated {updated_count} users to is_active={data.is_active}, reason: {reason}"
     )
 
     return {
@@ -851,9 +1052,13 @@ async def batch_adjust_credits(
     data: BatchCreditsUpdate,
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
+    request: Request,
 ):
     """批量调整用户积分"""
     from app.models.credit import CreditTransaction, TransactionType
+
+    reason = _normalize_reason(data.reason)
+    await _verify_admin_confirm_token(admin, "batch_credits", data.confirm_token, request)
 
     if not data.user_ids:
         raise HTTPException(
@@ -880,6 +1085,7 @@ async def batch_adjust_credits(
         )
 
     updated_count = 0
+    updated_ids: list[str] = []
     for user in users:
         old_balance = user.credit_balance
         user.credit_balance += data.amount
@@ -893,16 +1099,33 @@ async def batch_adjust_credits(
             user_id=user.id,
             amount=data.amount,
             type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
-            description=data.reason,
+            description=reason,
             balance_after=user.credit_balance,
         )
         db.add(transaction)
         updated_count += 1
+        updated_ids.append(user.id)
 
+    _record_admin_audit(
+        db=db,
+        admin=admin,
+        action="batch_adjust_credits",
+        target_type="user",
+        target_ids=updated_ids,
+        reason=reason,
+        status_text="success",
+        request=request,
+        details={
+            "requested_count": len(data.user_ids),
+            "updated_count": updated_count,
+            "amount": data.amount,
+            "total_delta": data.amount * updated_count,
+        },
+    )
     await db.commit()
 
     logger.info(
-        f"Admin {admin.email} batch adjusted credits for {updated_count} users, amount={data.amount}, reason: {data.reason}"
+        f"Admin {admin.email} batch adjusted credits for {updated_count} users, amount={data.amount}, reason: {reason}"
     )
 
     return {

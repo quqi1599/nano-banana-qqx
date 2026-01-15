@@ -236,19 +236,44 @@ export const setUserActiveStatus = async (userId: string, isActive: boolean, rea
     });
 };
 
+export interface AdminActionConfirmResult {
+    confirm_token: string;
+    expires_in: number;
+}
+
+export const requestAdminActionConfirmation = async (
+    purpose: 'batch_status' | 'batch_credits',
+    password: string
+): Promise<AdminActionConfirmResult> => {
+    return request('/confirm-action', {
+        method: 'POST',
+        body: JSON.stringify({ purpose, password }),
+    });
+};
+
 // 批量状态更新
-export const batchUpdateUserStatus = async (userIds: string[], isActive: boolean, reason: string): Promise<{ message: string; updated_count: number }> => {
+export const batchUpdateUserStatus = async (
+    userIds: string[],
+    isActive: boolean,
+    reason: string,
+    confirmToken: string
+): Promise<{ message: string; updated_count: number }> => {
     return request('/users/batch/status', {
         method: 'POST',
-        body: JSON.stringify({ user_ids: userIds, is_active: isActive, reason }),
+        body: JSON.stringify({ user_ids: userIds, is_active: isActive, reason, confirm_token: confirmToken }),
     });
 };
 
 // 批量积分调整
-export const batchAdjustCredits = async (userIds: string[], amount: number, reason: string): Promise<{ message: string; updated_count: number }> => {
+export const batchAdjustCredits = async (
+    userIds: string[],
+    amount: number,
+    reason: string,
+    confirmToken: string
+): Promise<{ message: string; updated_count: number }> => {
     return request('/users/batch/credits', {
         method: 'POST',
-        body: JSON.stringify({ user_ids: userIds, amount, reason }),
+        body: JSON.stringify({ user_ids: userIds, amount, reason, confirm_token: confirmToken }),
     });
 };
 

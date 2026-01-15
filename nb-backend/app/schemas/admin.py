@@ -1,9 +1,9 @@
 """
 管理后台相关 Schemas
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 
 # Token 池管理
@@ -96,6 +96,18 @@ class UserListResponse(BaseModel):
 class UserNoteUpdate(BaseModel):
     """更新备注"""
     note: Optional[str] = None
+
+
+class AdminActionConfirmRequest(BaseModel):
+    """管理员敏感操作二次确认"""
+    purpose: Literal["batch_status", "batch_credits"]
+    password: str
+
+
+class AdminActionConfirmResponse(BaseModel):
+    """管理员敏感操作二次确认响应"""
+    confirm_token: str
+    expires_in: int
 
 
 # 统计数据
@@ -191,21 +203,23 @@ class UserStatsResponse(BaseModel):
 class UserStatusUpdate(BaseModel):
     """用户状态更新请求"""
     is_active: bool
-    reason: str  # 必填：操作原因
+    reason: str = Field(min_length=4, max_length=200)  # 必填：操作原因
 
 
 class BatchStatusUpdate(BaseModel):
     """批量状态更新请求"""
     user_ids: List[str]
     is_active: bool
-    reason: str  # 必填：操作原因
+    reason: str = Field(min_length=4, max_length=200)  # 必填：操作原因
+    confirm_token: str = Field(min_length=12, max_length=200)
 
 
 class BatchCreditsUpdate(BaseModel):
     """批量积分调整请求"""
     user_ids: List[str]
     amount: int
-    reason: str  # 必填：操作原因
+    reason: str = Field(min_length=4, max_length=200)  # 必填：操作原因
+    confirm_token: str = Field(min_length=12, max_length=200)
 
 
 class CreditHistoryItem(BaseModel):

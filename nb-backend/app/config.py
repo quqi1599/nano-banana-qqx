@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     admin_password: str = "admin123"
     admin_emails: str = ""  # 管理员邮箱列表，多个用逗号分隔（只有这些邮箱可以成为管理员）
     admin_notification_emails: str = ""  # 管理员通知邮箱，多个用逗号分隔
+    admin_init_token: str = ""  # 管理员初始化令牌（推荐生产环境配置）
+    admin_action_confirm_ttl_seconds: int = 300
     
     # 阿里云邮件推送 (DirectMail SMTP)
     aliyun_smtp_host: str = "smtpdm.aliyun.com"

@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
   const [showInitAdminPrompt, setShowInitAdminPrompt] = useState(false);
   const [isInitializingAdmin, setIsInitializingAdmin] = useState(false);
+  const [adminInitToken, setAdminInitToken] = useState('');
   const [skipApiKeyPrompt, setSkipApiKeyPrompt] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
@@ -182,18 +183,25 @@ const App: React.FC = () => {
         return;
       }
 
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      };
+      const trimmedInitToken = adminInitToken.trim();
+      if (trimmedInitToken) {
+        (headers as Record<string, string>)['X-Admin-Init-Token'] = trimmedInitToken;
+      }
+
       const response = await fetch(`${getBackendUrl()}/api/admin/init-admin`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
       });
 
       if (response.ok) {
         const data = await response.json();
         addToast(`已设置为管理员: ${data.email}`, 'success');
         setShowInitAdminPrompt(false);
+        setAdminInitToken('');
         localStorage.setItem('nbnb_tried_init_admin', '1');
         // 重新获取用户信息
         await initAuth();
@@ -662,6 +670,13 @@ const App: React.FC = () => {
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-sm mb-1">成为管理员</h4>
                 <p className="text-xs text-white/90 mb-3">检测到系统还没有管理员，点击下方按钮将当前账户设为管理员。</p>
+                <input
+                  type="password"
+                  value={adminInitToken}
+                  onChange={(e) => setAdminInitToken(e.currentTarget.value)}
+                  placeholder="初始化令牌（如已配置）"
+                  className="w-full mb-3 px-3 py-1.5 rounded-lg text-xs text-gray-900 placeholder-gray-400 bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/70"
+                />
                 <div className="flex gap-2">
                   <button
                     onClick={handleInitAdmin}
@@ -673,6 +688,7 @@ const App: React.FC = () => {
                   <button
                     onClick={() => {
                       setShowInitAdminPrompt(false);
+                      setAdminInitToken('');
                       localStorage.setItem('nbnb_tried_init_admin', '1');
                     }}
                     className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-xs font-medium hover:bg-white/30 transition"
@@ -682,7 +698,10 @@ const App: React.FC = () => {
                 </div>
               </div>
               <button
-                onClick={() => setShowInitAdminPrompt(false)}
+                onClick={() => {
+                  setShowInitAdminPrompt(false);
+                  setAdminInitToken('');
+                }}
                 className="text-white/70 hover:text-white transition"
               >
                 <X className="h-4 w-4" />

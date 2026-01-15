@@ -14,6 +14,7 @@ from app.models.email_whitelist import EmailWhitelist
 from app.models.email_config import EmailConfig
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.conversation_cleanup import ConversationCleanup
+from app.models.admin_audit_log import AdminAuditLog
 
 __all__ = [
     "User",
@@ -31,6 +32,6 @@ __all__ = [
     "Conversation",
     "ConversationMessage",
     "ConversationCleanup",
+    "AdminAuditLog",
 ]
-
 

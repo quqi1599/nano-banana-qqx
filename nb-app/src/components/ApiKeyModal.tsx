@@ -10,7 +10,7 @@ interface ApiKeyModalProps {
 }
 
 export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => {
-  const { apiKey, setApiKey, updateSettings, settings, fetchBalance } = useAppStore();
+  const { apiKey, setApiKey, updateSettings, settings } = useAppStore();
   const { showDialog } = useUiStore();
   const [inputKey, setInputKey] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -32,12 +32,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
       modelName: model
     });
     setApiKey(effectiveKey);
-    // 立即尝试刷新余额
-    setTimeout(() => {
-      fetchBalance().catch((error) => {
-        console.error('Failed to fetch balance:', error);
-      });
-    }, 0);
+    // 余额可以在设置面板中手动刷新
 
     // 调用 onClose 如果提供
     if (onClose) {

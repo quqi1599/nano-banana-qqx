@@ -31,20 +31,7 @@ export const SettingsPanel: React.FC = () => {
     setInstallPrompt(null);
   };
 
-  // 首次加载或打开面板时如果没有余额数据，尝试获取
-  useEffect(() => {
-    if (apiKey && isSettingsOpen && !balance && !loadingBalance) {
-      setLoadingBalance(true);
-      setBalanceError(null);
-      fetchBalance()
-        .then(() => setBalanceError(null))
-        .catch((error) => {
-          const message = error instanceof Error ? error.message : '余额查询失败';
-          setBalanceError(message);
-        })
-        .finally(() => setLoadingBalance(false));
-    }
-  }, [apiKey, isSettingsOpen, balance, fetchBalance]);
+  // 余额查询不再自动触发，用户可以手动点击刷新按钮
 
   const handleFetchBalance = async () => {
     if (!apiKey) {

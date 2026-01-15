@@ -11,7 +11,7 @@ import {
     getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo,
     generateRedeemCodes, getRedeemCodes, RedeemCodeInfo,
     getUsers, getUsersAdvanced, getUsersStats, setUserActiveStatus,
-    batchUpdateUserStatus, batchAdjustCredits, exportUsers,
+    batchUpdateUserStatus, batchAdjustCredits, exportUsers, requestAdminActionConfirmation,
     getUserCreditHistory, adjustUserCredits, updateUserNote, AdminUser, UserFilters, UserStats,
     getDashboardStats, DashboardStats, exportStats,
 } from '../services/adminService';
@@ -139,6 +139,17 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     const [batchAmount, setBatchAmount] = useState(0);
     const [batchStatus, setBatchStatus] = useState<boolean | null>(null);
     const [processingBatch, setProcessingBatch] = useState(false);
+    const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+    const [batchConfirmPassword, setBatchConfirmPassword] = useState('');
+    const [batchConfirmError, setBatchConfirmError] = useState('');
+    const [batchConfirming, setBatchConfirming] = useState(false);
+    const [pendingBatchPayload, setPendingBatchPayload] = useState<{
+        type: 'status' | 'credits';
+        userIds: string[];
+        isActive?: boolean;
+        amount?: number;
+        reason: string;
+    } | null>(null);
 
     // 余额调整弹窗状态
     const [creditModalOpen, setCreditModalOpen] = useState(false);
@@ -723,25 +734,86 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
             addToast('请填写操作原因', 'error');
             return;
         }
+        const trimmedReason = batchReason.trim();
+        if (trimmedReason.length < 4) {
+            addToast('操作原因至少 4 个字符', 'error');
+            return;
+        }
+        const userIds = Array.from(selectedUserIds);
 
+        if (batchOperation === 'status' && batchStatus !== null) {
+            setPendingBatchPayload({
+                type: 'status',
+                userIds,
+                isActive: batchStatus,
+                reason: trimmedReason,
+            });
+        } else if (batchOperation === 'credits' && batchAmount !== 0) {
+            setPendingBatchPayload({
+                type: 'credits',
+                userIds,
+                amount: batchAmount,
+                reason: trimmedReason,
+            });
+        } else {
+            addToast('请完善批量操作参数', 'error');
+            return;
+        }
+
+        setBatchConfirmPassword('');
+        setBatchConfirmError('');
+        setBatchConfirmOpen(true);
+    };
+
+    const closeBatchConfirm = () => {
+        setBatchConfirmOpen(false);
+        setBatchConfirmPassword('');
+        setBatchConfirmError('');
+        setPendingBatchPayload(null);
+    };
+
+    const executeBatchOperation = async () => {
+        if (!pendingBatchPayload) return;
+        if (!batchConfirmPassword.trim()) {
+            setBatchConfirmError('请输入管理员密码完成二次确认');
+            return;
+        }
+
+        setBatchConfirming(true);
         setProcessingBatch(true);
-        try {
-            const userIds = Array.from(selectedUserIds);
+        setBatchConfirmError('');
 
-            if (batchOperation === 'status' && batchStatus !== null) {
-                await batchUpdateUserStatus(userIds, batchStatus, batchReason);
-                addToast(`已批量${batchStatus ? '启用' : '禁用'} ${userIds.length} 个用户`, 'success');
-            } else if (batchOperation === 'credits' && batchAmount !== 0) {
-                await batchAdjustCredits(userIds, batchAmount, batchReason);
-                addToast(`已批量调整 ${userIds.length} 个用户积分`, 'success');
+        try {
+            const purpose = pendingBatchPayload.type === 'status' ? 'batch_status' : 'batch_credits';
+            const confirmation = await requestAdminActionConfirmation(purpose, batchConfirmPassword.trim());
+
+            if (pendingBatchPayload.type === 'status' && pendingBatchPayload.isActive !== undefined) {
+                await batchUpdateUserStatus(
+                    pendingBatchPayload.userIds,
+                    pendingBatchPayload.isActive,
+                    pendingBatchPayload.reason,
+                    confirmation.confirm_token
+                );
+                addToast(`已批量${pendingBatchPayload.isActive ? '启用' : '禁用'} ${pendingBatchPayload.userIds.length} 个用户`, 'success');
+            } else if (pendingBatchPayload.type === 'credits' && pendingBatchPayload.amount !== undefined) {
+                await batchAdjustCredits(
+                    pendingBatchPayload.userIds,
+                    pendingBatchPayload.amount,
+                    pendingBatchPayload.reason,
+                    confirmation.confirm_token
+                );
+                addToast(`已批量调整 ${pendingBatchPayload.userIds.length} 个用户积分`, 'success');
             }
 
             setBatchOperation(null);
+            closeBatchConfirm();
             setSelectedUserIds(new Set());
             loadData();
         } catch (err) {
-            addToast((err as Error).message, 'error');
+            const message = (err as Error).message;
+            setBatchConfirmError(message);
         } finally {
+            setBatchConfirming(false);
             setProcessingBatch(false);
         }
     };
@@ -801,13 +873,18 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
     // 设置用户状态
     const handleSetUserStatus = async (userId: string, isActive: boolean) => {
         const reason = prompt(`请输入${isActive ? '启用' : '禁用'}原因（必填）：`);
-        if (!reason || !reason.trim()) {
+        const trimmedReason = reason?.trim() || '';
+        if (!trimmedReason) {
             addToast('操作原因不能为空', 'error');
+            return;
+        }
+        if (trimmedReason.length < 4) {
+            addToast('操作原因至少 4 个字符', 'error');
             return;
         }
 
         try {
-            await setUserActiveStatus(userId, isActive, reason);
+            await setUserActiveStatus(userId, isActive, trimmedReason);
             addToast(`用户已${isActive ? '启用' : '禁用'}`, 'success');
             loadData();
         } catch (err) {
@@ -2398,6 +2475,81 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                 {addingToken ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                                 {addingToken ? '添加中...' : '确认新增'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 批量操作二次确认 */}
+            {batchConfirmOpen && pendingBatchPayload && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div>
+                                <h3 className="font-bold text-gray-900 dark:text-white">二次确认</h3>
+                                <p className="text-xs text-gray-500">敏感操作需要管理员密码验证</p>
+                            </div>
+                            <button
+                                onClick={closeBatchConfirm}
+                                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 p-3 space-y-1">
+                                <div className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                                    {pendingBatchPayload.type === 'status'
+                                        ? pendingBatchPayload.isActive
+                                            ? '批量启用用户'
+                                            : '批量禁用用户'
+                                        : '批量调整积分'}
+                                </div>
+                                <div className="text-xs text-amber-700/80 dark:text-amber-200/80">
+                                    影响用户数：{pendingBatchPayload.userIds.length}
+                                </div>
+                                {pendingBatchPayload.type === 'credits' && (
+                                    <div className="text-xs text-amber-700/80 dark:text-amber-200/80">
+                                        调整额度：{pendingBatchPayload.amount && pendingBatchPayload.amount > 0 ? '+' : ''}
+                                        {pendingBatchPayload.amount}
+                                    </div>
+                                )}
+                                <div className="text-xs text-amber-700/80 dark:text-amber-200/80">
+                                    操作原因：{pendingBatchPayload.reason}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">管理员密码</label>
+                                <input
+                                    type="password"
+                                    value={batchConfirmPassword}
+                                    onChange={(e) => setBatchConfirmPassword(e.currentTarget.value)}
+                                    placeholder="请输入管理员密码"
+                                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-amber-500 outline-none transition"
+                                />
+                            </div>
+
+                            {batchConfirmError && (
+                                <p className="text-xs text-red-500">{batchConfirmError}</p>
+                            )}
+
+                            <div className="flex items-center justify-end gap-2">
+                                <button
+                                    onClick={closeBatchConfirm}
+                                    className="px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={executeBatchOperation}
+                                    disabled={batchConfirming || !batchConfirmPassword.trim()}
+                                    className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition disabled:opacity-60 flex items-center gap-2"
+                                >
+                                    {batchConfirming ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                    确认并执行
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
