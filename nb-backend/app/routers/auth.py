@@ -443,12 +443,17 @@ async def register(
             detail="该邮箱已被注册",
         )
     
+    # 检查是否是第一个用户
+    first_user_check = await db.execute(select(User).limit(1))
+    is_first_user = first_user_check.scalar_one_or_none() is None
+
     # 创建用户
     user = User(
         email=data.email,
         password_hash=get_password_hash(data.password),
         nickname=data.nickname or data.email.split("@")[0],
         credit_balance=0,
+        is_admin=is_first_user,  # 第一个注册的用户自动成为管理员
     )
     try:
         async with db.begin():

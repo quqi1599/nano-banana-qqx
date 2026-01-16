@@ -7,12 +7,26 @@ from starlette.requests import Request
 from app.routers import proxy as proxy_module
 
 
+class FakeBegin:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+
 class FakeDB:
     def __init__(self) -> None:
         self.added = []
 
     def add(self, item) -> None:
         self.added.append(item)
+
+    def begin(self):
+        return FakeBegin()
+
+    async def refresh(self, _instance, with_for_update=None) -> None:
+        return None
 
     async def commit(self) -> None:
         return None

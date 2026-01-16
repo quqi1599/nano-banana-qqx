@@ -2,10 +2,14 @@
 API 代理路由 - 代理前端请求到 NewAPI
 """
 from datetime import datetime, timedelta
+import json
+import re
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 import httpx
 
 from app.database import get_db
@@ -20,6 +24,111 @@ from app.config import get_settings
 
 router = APIRouter()
 settings = get_settings()
+
+_SECRET_KV_PATTERN = re.compile(
+    r"(?i)(api[-_ ]?key|authorization|token)\s*[:=]\s*([A-Za-z0-9\-_=]{8,})"
+)
+_SECRET_VALUE_PATTERN = re.compile(r"(?:sk-[A-Za-z0-9]{8,}|AIza[0-9A-Za-z\-_]{10,})")
+_LONG_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9])[A-Za-z0-9\-_]{32,}(?![A-Za-z0-9])")
+
+
+def _sanitize_error_detail(text: str) -> str:
+    if not text:
+        return ""
+    sanitized = _SECRET_KV_PATTERN.sub(r"\1=***", text)
+    sanitized = _SECRET_VALUE_PATTERN.sub("***", sanitized)
+    sanitized = _LONG_TOKEN_PATTERN.sub("***", sanitized)
+    sanitized = " ".join(sanitized.split())
+    return sanitized[:200]
+
+
+def _extract_error_message(payload: Any) -> str:
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            for key in ("message", "detail", "error", "status"):
+                value = error.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+            code = error.get("code")
+            if code is not None:
+                return str(code)
+        for key in ("message", "detail", "error"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
+
+
+def _safe_error_detail_from_response(response: httpx.Response) -> str:
+    payload = None
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    message = _extract_error_message(payload) if payload is not None else ""
+    if not message:
+        message = f"HTTP {response.status_code}"
+    return _sanitize_error_detail(message)
+
+
+def _safe_error_detail_from_bytes(status_code: int, body: bytes) -> str:
+    message = ""
+    if body:
+        try:
+            payload = json.loads(body.decode("utf-8", errors="ignore"))
+        except ValueError:
+            payload = None
+        if payload is not None:
+            message = _extract_error_message(payload)
+    if not message:
+        message = f"HTTP {status_code}"
+    return _sanitize_error_detail(message)
+
+
+def _build_key_updates(token: TokenPool, plain_key: str) -> dict[str, str]:
+    if not settings.token_encryption_key or token.api_key.startswith("enc:"):
+        return {}
+    updates: dict[str, str] = {
+        "api_key": encrypt_api_key(plain_key),
+    }
+    if not token.api_key_hash:
+        updates["api_key_hash"] = hash_api_key(plain_key)
+    if not token.api_key_prefix or not token.api_key_suffix:
+        prefix, suffix = build_key_parts(plain_key)
+        if not token.api_key_prefix:
+            updates["api_key_prefix"] = prefix
+        if not token.api_key_suffix:
+            updates["api_key_suffix"] = suffix
+    return updates
+
+
+async def _apply_token_update(
+    db: AsyncSession,
+    token: TokenPool,
+    now: datetime,
+    *,
+    update_request_counters: bool,
+    mark_failure: bool = False,
+    mark_success: bool = False,
+    key_updates: dict[str, str] | None = None,
+    usage_log: UsageLog | None = None,
+) -> None:
+    async with db.begin():
+        await db.refresh(token, with_for_update=True)
+        if key_updates:
+            for field, value in key_updates.items():
+                setattr(token, field, value)
+        if update_request_counters:
+            token.last_used_at = now
+            token.last_checked_at = now
+            token.total_requests += 1
+        if mark_failure:
+            mark_token_failure(token, now)
+        elif mark_success:
+            mark_token_success(token)
+        if usage_log:
+            db.add(usage_log)
 
 
 async def get_credits_for_model(db: AsyncSession, model_name: str) -> int:
@@ -51,8 +160,7 @@ async def get_available_tokens(db: AsyncSession, lock: bool = False) -> list[Tok
         .order_by(TokenPool.priority.desc())
         .order_by(TokenPool.last_used_at.asc().nullsfirst())
     )
-    if lock:
-        query = query.with_for_update()
+    # Avoid holding row locks during upstream calls; lock only when updating token state.
 
     result = await db.execute(query)
     tokens = result.scalars().all()
@@ -74,24 +182,28 @@ async def reserve_user_credits(
 ) -> int:
     async with db.begin():
         result = await db.execute(
-            select(User).where(User.id == user_id).with_for_update()
+            update(User)
+            .where(User.id == user_id, User.credit_balance >= credits_to_use)
+            .values(credit_balance=User.credit_balance - credits_to_use)
+            .returning(User.credit_balance)
         )
-        user = result.scalar_one_or_none()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户不存在",
+        balance_after = result.scalar_one_or_none()
+        if balance_after is None:
+            balance_result = await db.execute(
+                select(User.credit_balance).where(User.id == user_id)
             )
-        if user.credit_balance < credits_to_use:
+            current_balance = balance_result.scalar_one_or_none()
+            if current_balance is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="用户不存在",
+                )
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f"次数不足，需要 {credits_to_use} 次，当前余额 {user.credit_balance}",
+                detail=f"次数不足，需要 {credits_to_use} 次，当前余额 {current_balance}",
             )
-
-        user.credit_balance -= credits_to_use
-        balance_after = user.credit_balance
         db.add(CreditTransaction(
-            user_id=user.id,
+            user_id=user_id,
             amount=-credits_to_use,
             type=TransactionType.CONSUME.value,
             description=f"使用模型: {model_name}",
@@ -109,19 +221,20 @@ async def refund_user_credits(
 ) -> None:
     async with db.begin():
         result = await db.execute(
-            select(User).where(User.id == user_id).with_for_update()
+            update(User)
+            .where(User.id == user_id)
+            .values(credit_balance=User.credit_balance + credits_to_refund)
+            .returning(User.credit_balance)
         )
-        user = result.scalar_one_or_none()
-        if not user:
+        balance_after = result.scalar_one_or_none()
+        if balance_after is None:
             return
-
-        user.credit_balance += credits_to_refund
         db.add(CreditTransaction(
-            user_id=user.id,
+            user_id=user_id,
             amount=credits_to_refund,
             type=TransactionType.BONUS.value,
             description=f"{reason}: {model_name}",
-            balance_after=user.credit_balance,
+            balance_after=balance_after,
         ))
 
 
@@ -170,7 +283,8 @@ async def proxy_generate(
 
     # 获取可用 Token 列表
     try:
-        tokens = await get_available_tokens(db, lock=True)
+        tokens = await get_available_tokens(db)
+        await db.commit()
     except HTTPException:
         if reserved:
             await refund_user_credits(
@@ -200,18 +314,17 @@ async def proxy_generate(
             try:
                 plain_key = decrypt_api_key(token.api_key)
             except RuntimeError:
-                mark_token_failure(token, now)
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=False,
+                    mark_failure=True,
+                )
                 last_error_detail = "Token 解密失败"
                 continue
 
-            if settings.token_encryption_key and not token.api_key.startswith("enc:"):
-                token.api_key = encrypt_api_key(plain_key)
-                if not token.api_key_hash:
-                    token.api_key_hash = hash_api_key(plain_key)
-                if not token.api_key_prefix or not token.api_key_suffix:
-                    prefix, suffix = build_key_parts(plain_key)
-                    token.api_key_prefix = prefix
-                    token.api_key_suffix = suffix
+            key_updates = _build_key_updates(token, plain_key)
 
             headers = {
                 "Content-Type": "application/json",
@@ -221,11 +334,7 @@ async def proxy_generate(
             try:
                 response = await client.post(target_url, json=body, headers=headers)
             except httpx.TimeoutException:
-                token.last_used_at = now
-                token.last_checked_at = now
-                token.total_requests += 1
-                mark_token_failure(token, now)
-                db.add(UsageLog(
+                usage_log = UsageLog(
                     user_id=current_user.id,
                     model_name=model_name,
                     credits_used=0,
@@ -234,20 +343,24 @@ async def proxy_generate(
                     prompt_preview=prompt_preview,
                     is_success=False,
                     error_message="API 请求超时",
-                ))
+                )
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=True,
+                    mark_failure=True,
+                    key_updates=key_updates,
+                    usage_log=usage_log,
+                )
                 last_error_detail = "API 请求超时"
                 continue
-
-            token.last_used_at = now
-            token.last_checked_at = now
-            token.total_requests += 1
 
             if response.status_code == 200:
                 try:
                     data = response.json()
                 except ValueError:
-                    mark_token_failure(token, now)
-                    db.add(UsageLog(
+                    usage_log = UsageLog(
                         user_id=current_user.id,
                         model_name=model_name,
                         credits_used=0,
@@ -256,14 +369,20 @@ async def proxy_generate(
                         prompt_preview=prompt_preview,
                         is_success=False,
                         error_message="上游响应格式错误",
-                    ))
+                    )
+                    await _apply_token_update(
+                        db,
+                        token,
+                        now,
+                        update_request_counters=True,
+                        mark_failure=True,
+                        key_updates=key_updates,
+                        usage_log=usage_log,
+                    )
                     last_error_detail = "上游响应格式错误"
                     continue
 
-                mark_token_success(token)
-
-                # 记录使用日志
-                db.add(UsageLog(
+                usage_log = UsageLog(
                     user_id=current_user.id,
                     model_name=model_name,
                     credits_used=credits_to_use,
@@ -272,16 +391,25 @@ async def proxy_generate(
                     prompt_preview=prompt_preview,
                     is_success=True,
                     error_message=None,
-                ))
-
-                await db.commit()
+                )
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=True,
+                    mark_success=True,
+                    key_updates=key_updates,
+                    usage_log=usage_log,
+                )
                 return data
 
-            error_text = response.text[:500]
-            last_error_detail = error_text or f"HTTP {response.status_code}"
+            error_detail = _safe_error_detail_from_response(response)
+            last_error_detail = error_detail or f"HTTP {response.status_code}"
             if response.status_code >= 500 or response.status_code in {401, 403, 429}:
-                mark_token_failure(token, now)
-            db.add(UsageLog(
+                mark_failure = True
+            else:
+                mark_failure = False
+            usage_log = UsageLog(
                 user_id=current_user.id,
                 model_name=model_name,
                 credits_used=0,
@@ -290,10 +418,18 @@ async def proxy_generate(
                 prompt_preview=prompt_preview,
                 is_success=False,
                 error_message=last_error_detail,
-            ))
+            )
+            await _apply_token_update(
+                db,
+                token,
+                now,
+                update_request_counters=True,
+                mark_failure=mark_failure,
+                key_updates=key_updates,
+                usage_log=usage_log,
+            )
 
             if response.status_code == 400:
-                await db.commit()
                 if reserved:
                     await refund_user_credits(
                         db,
@@ -306,8 +442,6 @@ async def proxy_generate(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=last_error_detail or "请求参数错误",
                 )
-
-        await db.commit()
 
     if reserved:
         await refund_user_credits(
@@ -345,7 +479,8 @@ async def proxy_generate_stream(
         raise
 
     try:
-        tokens = await get_available_tokens(db, lock=True)
+        tokens = await get_available_tokens(db)
+        await db.commit()
     except HTTPException:
         if reserved:
             await refund_user_credits(
@@ -368,6 +503,7 @@ async def proxy_generate_stream(
     client = httpx.AsyncClient(timeout=120.0)
     response = None
     selected_token = None
+    selected_key_updates = None
     last_error_detail = None
 
     try:
@@ -377,18 +513,17 @@ async def proxy_generate_stream(
             try:
                 plain_key = decrypt_api_key(token.api_key)
             except RuntimeError:
-                mark_token_failure(token, now)
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=False,
+                    mark_failure=True,
+                )
                 last_error_detail = "Token 解密失败"
                 continue
 
-            if settings.token_encryption_key and not token.api_key.startswith("enc:"):
-                token.api_key = encrypt_api_key(plain_key)
-                if not token.api_key_hash:
-                    token.api_key_hash = hash_api_key(plain_key)
-                if not token.api_key_prefix or not token.api_key_suffix:
-                    prefix, suffix = build_key_parts(plain_key)
-                    token.api_key_prefix = prefix
-                    token.api_key_suffix = suffix
+            key_updates = _build_key_updates(token, plain_key)
 
             headers = {
                 "Content-Type": "application/json",
@@ -399,11 +534,7 @@ async def proxy_generate_stream(
                 request_obj = client.build_request("POST", target_url, json=body, headers=headers)
                 response = await client.send(request_obj, stream=True)
             except httpx.TimeoutException:
-                token.last_used_at = now
-                token.last_checked_at = now
-                token.total_requests += 1
-                mark_token_failure(token, now)
-                db.add(UsageLog(
+                usage_log = UsageLog(
                     user_id=current_user.id,
                     model_name=model_name,
                     credits_used=0,
@@ -412,25 +543,33 @@ async def proxy_generate_stream(
                     prompt_preview=prompt_preview,
                     is_success=False,
                     error_message="API 请求超时",
-                ))
+                )
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=True,
+                    mark_failure=True,
+                    key_updates=key_updates,
+                    usage_log=usage_log,
+                )
                 last_error_detail = "API 请求超时"
                 continue
 
-            token.last_used_at = now
-            token.last_checked_at = now
-            token.total_requests += 1
-
             status_code = response.status_code
             if status_code == 200:
-                mark_token_success(token)
                 selected_token = token
+                selected_key_updates = key_updates
                 break
 
-            error_text = (await response.aread()).decode("utf-8", errors="ignore")[:500]
-            last_error_detail = error_text or f"HTTP {status_code}"
+            body = await response.aread()
+            error_detail = _safe_error_detail_from_bytes(status_code, body)
+            last_error_detail = error_detail or f"HTTP {status_code}"
             if status_code >= 500 or status_code in {401, 403, 429}:
-                mark_token_failure(token, now)
-            db.add(UsageLog(
+                mark_failure = True
+            else:
+                mark_failure = False
+            usage_log = UsageLog(
                 user_id=current_user.id,
                 model_name=model_name,
                 credits_used=0,
@@ -439,12 +578,20 @@ async def proxy_generate_stream(
                 prompt_preview=prompt_preview,
                 is_success=False,
                 error_message=last_error_detail,
-            ))
+            )
+            await _apply_token_update(
+                db,
+                token,
+                now,
+                update_request_counters=True,
+                mark_failure=mark_failure,
+                key_updates=key_updates,
+                usage_log=usage_log,
+            )
             await response.aclose()
             response = None
 
             if status_code == 400:
-                await db.commit()
                 if reserved:
                     await refund_user_credits(
                         db,
@@ -459,7 +606,6 @@ async def proxy_generate_stream(
                 )
 
         if not response or not selected_token:
-            await db.commit()
             if reserved:
                 await refund_user_credits(
                     db,
@@ -473,7 +619,7 @@ async def proxy_generate_stream(
                 detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
             )
 
-        db.add(UsageLog(
+        usage_log = UsageLog(
             user_id=current_user.id,
             model_name=model_name,
             credits_used=credits_to_use,
@@ -482,9 +628,16 @@ async def proxy_generate_stream(
             prompt_preview=prompt_preview,
             is_success=True,
             error_message=None,
-        ))
-
-        await db.commit()
+        )
+        await _apply_token_update(
+            db,
+            selected_token,
+            datetime.utcnow(),
+            update_request_counters=True,
+            mark_success=True,
+            key_updates=selected_key_updates,
+            usage_log=usage_log,
+        )
 
         async def stream_response():
             try:
@@ -498,5 +651,7 @@ async def proxy_generate_stream(
 
     except Exception:
         # 确保在异常情况下关闭 client
+        if response is not None:
+            await response.aclose()
         await client.aclose()
         raise

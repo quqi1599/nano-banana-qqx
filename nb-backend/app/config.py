@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     )
     # 数据库
     database_url: str = "postgresql://postgres:postgres@localhost:5432/nbnb"
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
     
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -31,12 +35,12 @@ class Settings(BaseSettings):
     cors_origins_list: str = ""
     
     # JWT
-    jwt_secret_key: str = "your-super-secret-key-change-in-production"
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     
     # Captcha
-    captcha_secret_key: str = "your-captcha-secret-key-change-in-production"
+    captcha_secret_key: str = ""
     captcha_challenge_ttl_seconds: int = 300  # 5分钟
     captcha_challenge_max_attempts: int = 5
     captcha_ticket_ttl_seconds: int = 300  # 5分钟
@@ -58,6 +62,7 @@ class Settings(BaseSettings):
     admin_notification_emails: str = ""
     admin_init_token: str = ""
     admin_action_confirm_ttl_seconds: int = 300
+    admin_seed_credit_balance: int = 0
 
     # Auth security
     password_min_length: int = 8
@@ -114,7 +119,7 @@ class Settings(BaseSettings):
     flower_enabled: bool = True
     flower_port: int = 5555
     flower_user: str = "admin"
-    flower_password: str = "admin123"
+    flower_password: str = ""
 
     # Credits pricing defaults
     credits_gemini_3_pro: int = 10
@@ -126,6 +131,16 @@ class Settings(BaseSettings):
         if not self.cors_origins_list:
             return []
         return [origin.strip() for origin in self.cors_origins_list.split(",")]
+
+    @property
+    def admin_emails_list(self) -> List[str]:
+        raw = ",".join([value for value in [self.admin_emails, self.admin_email] if value])
+        return [email.strip().lower() for email in raw.split(",") if email.strip()]
+
+    @property
+    def primary_admin_email(self) -> str:
+        emails = self.admin_emails_list
+        return emails[0] if emails else ""
     
     def is_production(self) -> bool:
         """是否生产环境"""
@@ -144,12 +159,14 @@ class Settings(BaseSettings):
 
         problems: List[str] = []
 
-        if not self.jwt_secret_key or self.jwt_secret_key == "your-super-secret-key-change-in-production" or len(self.jwt_secret_key) < 32:
-            problems.append("JWT_SECRET_KEY 太弱或仍为默认值")
-        if not self.captcha_secret_key or self.captcha_secret_key == "your-captcha-secret-key-change-in-production" or len(self.captcha_secret_key) < 32:
-            problems.append("CAPTCHA_SECRET_KEY 太弱或仍为默认值")
+        if not self.jwt_secret_key or len(self.jwt_secret_key) < 32:
+            problems.append("JWT_SECRET_KEY 太弱或未配置")
+        if not self.captcha_secret_key or len(self.captcha_secret_key) < 32:
+            problems.append("CAPTCHA_SECRET_KEY 太弱或未配置")
         if not self.admin_password or self.admin_password == "admin123" or len(self.admin_password) < 12:
             problems.append("ADMIN_PASSWORD 太弱或仍为默认值")
+        if self.flower_enabled and (not self.flower_password or len(self.flower_password) < 12):
+            problems.append("FLOWER_PASSWORD 太弱或未配置")
         if not self.token_encryption_key:
             problems.append("TOKEN_ENCRYPTION_KEY 未配置")
         else:

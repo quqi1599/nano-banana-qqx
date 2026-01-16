@@ -81,6 +81,12 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           manualChunks: {
+            'preact-vendor': [
+              'preact',
+              'preact/compat',
+              'preact/hooks',
+              'preact/jsx-runtime',
+            ],
             'google-genai': ['@google/genai'],
             'markdown-libs': ['react-markdown', 'remark-gfm']
           }

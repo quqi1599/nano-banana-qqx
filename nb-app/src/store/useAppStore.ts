@@ -25,7 +25,7 @@ const SYNC_BASE_DELAY_MS = 1000;
 const SYNC_MAX_ATTEMPTS = 5;
 let syncQueueTimer: ReturnType<typeof setTimeout> | null = null;
 
-interface BeforeInstallPromptEvent extends Event {
+export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
     outcome: 'accepted' | 'dismissed';

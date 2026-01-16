@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Skip } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Forward } from 'lucide-react';
 import { useOnboardingStore, GuideStep } from '../../store/useOnboardingStore';
 
 interface GuideTourProps {
@@ -243,7 +243,7 @@ export const GuideTour: React.FC<GuideTourProps> = ({ onComplete, onSkip }) => {
             onClick={handleSkip}
             className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors flex items-center gap-1"
           >
-            <Skip size={14} />
+            <Forward size={14} />
             跳过
           </button>
 

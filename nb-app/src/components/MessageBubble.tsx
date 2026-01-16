@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState, useEffect, Suspense } from 'react';
 import { ChatMessage, Part } from '../types';
 import { User, Sparkles, ChevronDown, ChevronRight, BrainCircuit, Trash2, RotateCcw, Download, Edit, PackageOpen, MessageCircle } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { downloadImage, openImageInNewTab, downloadDatasetZip } from '../utils/imageUtils';
 import { WeChatQRModal } from './WeChatQRModal';
+const MarkdownRenderer = React.lazy(() => import('./MarkdownRenderer'));
 
 interface Props {
   message: ChatMessage;
@@ -22,16 +21,9 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
   if (part.text) {
     return (
       <div className="mb-2 last:mb-0">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-            ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-          }}
-        >
-          {part.text}
-        </ReactMarkdown>
+        <Suspense fallback={<p className="mb-2 last:mb-0 whitespace-pre-wrap break-words">{part.text}</p>}>
+          <MarkdownRenderer text={part.text} />
+        </Suspense>
       </div>
     );
   }

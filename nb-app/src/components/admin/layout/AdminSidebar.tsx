@@ -1,11 +1,11 @@
 import React from 'react';
 import {
     LayoutDashboard, Key, Coins, Gift, Users, MessageSquare,
-    Settings, LogOut, ShieldCheck, Ticket, MessageCircle, Layers
+    Settings, LogOut, ShieldCheck, Ticket, MessageCircle, Layers, Mail
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 
-type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue' | 'email';
 
 interface AdminSidebarProps {
     activeTab: TabType;
@@ -25,6 +25,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
         { id: 'tickets', label: '工单支持', icon: Ticket },
         { id: 'conversations', label: '会话查看', icon: MessageCircle },
         { id: 'queue', label: '队列监控', icon: Layers },
+        { id: 'email', label: '邮件配置', icon: Mail },
     ] as const;
 
     return (

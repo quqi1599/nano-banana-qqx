@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { useAppStore } from './store/useAppStore';
+import { useAppStore, type BeforeInstallPromptEvent } from './store/useAppStore';
 import { useUiStore } from './store/useUiStore';
 import { useAuthStore } from './store/useAuthStore';
 import { useOnboardingStore } from './store/useOnboardingStore';
@@ -56,7 +56,7 @@ const App: React.FC = () => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       // Stash the event so it can be triggered later.
-      setInstallPrompt(e);
+      setInstallPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -631,7 +631,7 @@ const App: React.FC = () => {
         onComplete={() => setShowOnboardingBadge(false)}
         onSkip={() => setShowOnboardingBadge(false)}
       />
-      <HelpCenter isOpen={showHelpCenter} onClose={() => setShowHelpCenter(false)} />
+      {showHelpCenter && <HelpCenter onClose={() => setShowHelpCenter(false)} />}
     </div>
   );
 };

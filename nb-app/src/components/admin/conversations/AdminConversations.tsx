@@ -17,6 +17,9 @@ import {
     ConversationTimelineItem,
 } from '../../../services/conversationService';
 
+// 类型安全的输入值获取函数
+const getInputValue = (e: Event): string => (e.target as HTMLInputElement).value;
+
 interface AdminConversationsProps {
     userId?: string | null;
     userInfo?: { email: string; nickname?: string | null } | null;
@@ -137,7 +140,7 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
     };
 
     // 删除对话
-    const handleDeleteConversation = async (id: string, e?: React.MouseEvent) => {
+    const handleDeleteConversation = async (id: string, e?: React.MouseEvent<HTMLButtonElement>) => {
         if (e) e.stopPropagation();
         if (!confirm('确定要删除此对话吗？')) return;
         try {
@@ -277,7 +280,7 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                         type="text"
                         placeholder="搜索对话标题或用户邮箱..."
                         value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                        onChange={(e) => { setSearchQuery(getInputValue(e)); setPage(1); }}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm"
                     />
                 </div>
@@ -345,7 +348,7 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                         {/* 模型筛选 */}
                         <select
                             value={filters.model_name ?? ''}
-                            onChange={(e) => updateFilter('model_name', e.target.value || undefined)}
+                            onChange={(e) => updateFilter('model_name', getInputValue(e) || undefined)}
                             className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
                         >
                             <option value="">全部模型</option>
@@ -359,14 +362,14 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                             type="number"
                             placeholder="最少消息数"
                             value={filters.min_messages ?? ''}
-                            onChange={(e) => updateFilter('min_messages', e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={(e) => updateFilter('min_messages', getInputValue(e) ? Number(getInputValue(e)) : undefined)}
                             className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
                         />
                         <input
                             type="number"
                             placeholder="最多消息数"
                             value={filters.max_messages ?? ''}
-                            onChange={(e) => updateFilter('max_messages', e.target.value ? Number(e.target.value) : undefined)}
+                            onChange={(e) => updateFilter('max_messages', getInputValue(e) ? Number(getInputValue(e)) : undefined)}
                             className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
                         />
 
@@ -374,7 +377,7 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                         <input
                             type="date"
                             value={filters.date_from ?? ''}
-                            onChange={(e) => updateFilter('date_from', e.target.value || undefined)}
+                            onChange={(e) => updateFilter('date_from', getInputValue(e) || undefined)}
                             className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
                         />
                     </div>

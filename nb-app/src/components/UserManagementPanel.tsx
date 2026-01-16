@@ -88,6 +88,19 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     // Toast 消息
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+    // ===== 工具函数 =====
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    const formatDate = (dateStr: string | null) => {
+        if (!dateStr) return '-';
+        return new Date(dateStr).toLocaleString('zh-CN', {
+            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    };
+
     // ===== 数据加载 =====
     const loadUsers = useCallback(async () => {
         setLoading(true);
@@ -369,19 +382,6 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
         } catch (error) {
             showToast((error as Error).message, 'error');
         }
-    };
-
-    // ===== 工具函数 =====
-    const showToast = (message: string, type: 'success' | 'error') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 3000);
-    };
-
-    const formatDate = (dateStr: string | null) => {
-        if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleString('zh-CN', {
-            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
     };
 
     // ===== 渲染 =====

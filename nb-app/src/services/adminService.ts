@@ -675,3 +675,161 @@ export const restartWorkers = async (): Promise<{ status: string; message: strin
 export const getQueueDashboard = async (): Promise<DashboardData> => {
     return request('/queue/dashboard');
 };
+
+// ========== 邮件配置 ==========
+
+export interface ProviderInfo {
+    id: string;
+    name: string;
+    smtp_host: string | null;
+    smtp_port: number | null;
+    encryption: string | null;
+    api_url: string | null;
+}
+
+export interface SmtpConfigInfo {
+    id: string;
+    name: string;
+    provider: string;
+    provider_name: string;
+    smtp_host: string;
+    smtp_port: number;
+    smtp_encryption: string;
+    smtp_user: string | null;
+    smtp_password: string | null;
+    from_email: string | null;
+    from_name: string;
+    reply_to: string | null;
+    api_key: string | null;
+    api_url: string | null;
+    is_enabled: boolean;
+    is_default: boolean;
+    daily_limit: number | null;
+    hourly_limit: number | null;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface EmailSettingsSummary {
+    total_configs: number;
+    enabled_configs: number;
+    default_config: SmtpConfigInfo | null;
+    providers: ProviderInfo[];
+}
+
+export interface SmtpConfigCreate {
+    name: string;
+    provider: string;
+    smtp_host?: string;
+    smtp_port?: number;
+    smtp_encryption: string;
+    smtp_user?: string;
+    smtp_password?: string;
+    from_email?: string;
+    from_name: string;
+    reply_to?: string;
+    api_key?: string;
+    api_url?: string;
+    is_enabled: boolean;
+    is_default: boolean;
+    daily_limit?: number;
+    hourly_limit?: number;
+    description?: string;
+}
+
+export interface SmtpConfigUpdate {
+    name?: string;
+    provider?: string;
+    smtp_host?: string;
+    smtp_port?: number;
+    smtp_encryption?: string;
+    smtp_user?: string;
+    smtp_password?: string;
+    from_email?: string;
+    from_name?: string;
+    reply_to?: string;
+    api_key?: string;
+    api_url?: string;
+    is_enabled?: boolean;
+    is_default?: boolean;
+    daily_limit?: number;
+    hourly_limit?: number;
+    description?: string;
+}
+
+// 邮件配置使用不同的 API 基础路径
+const emailRequest = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
+    const response = await fetch(`${getBackendUrl()}/api/admin/email-settings${endpoint}`, {
+        ...buildRequestOptions(options),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: '请求失败' }));
+        throw new Error(error.detail || `HTTP error ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// 获取支持的邮件提供商
+export const getEmailProviders = async (): Promise<ProviderInfo[]> => {
+    return emailRequest('/providers');
+};
+
+// 获取所有邮件配置
+export const getEmailConfigs = async (enabledOnly: boolean = false): Promise<SmtpConfigInfo[]> => {
+    return emailRequest(`/configs?enabled_only=${enabledOnly}`);
+};
+
+// 获取邮件配置概要
+export const getEmailSettingsSummary = async (): Promise<EmailSettingsSummary> => {
+    return emailRequest('/configs/summary');
+};
+
+// 获取单个邮件配置
+export const getEmailConfig = async (configId: string): Promise<SmtpConfigInfo> => {
+    return emailRequest(`/configs/${configId}`);
+};
+
+// 创建邮件配置
+export const createEmailConfig = async (data: SmtpConfigCreate): Promise<SmtpConfigInfo> => {
+    return emailRequest('/configs', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+};
+
+// 更新邮件配置
+export const updateEmailConfig = async (configId: string, data: SmtpConfigUpdate): Promise<SmtpConfigInfo> => {
+    return emailRequest(`/configs/${configId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    });
+};
+
+// 删除邮件配置
+export const deleteEmailConfig = async (configId: string): Promise<{ message: string }> => {
+    return emailRequest(`/configs/${configId}`, { method: 'DELETE' });
+};
+
+// 设置默认邮件配置
+export const setDefaultEmailConfig = async (configId: string): Promise<{ message: string }> => {
+    return emailRequest(`/configs/${configId}/set-default`, { method: 'POST' });
+};
+
+// 切换邮件配置启用状态
+export const toggleEmailConfig = async (configId: string): Promise<{ message: string; is_enabled: boolean }> => {
+    return emailRequest(`/configs/${configId}/toggle`, { method: 'POST' });
+};
+
+// 发送测试邮件
+export const testSendEmail = async (configId: string | null, testEmail: string): Promise<{ message: string; success: boolean }> => {
+    const payload = configId
+        ? { config_id: configId, test_email: testEmail }
+        : { config_id: null, test_email: testEmail };
+    return emailRequest('/test-send', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+};
