@@ -3,7 +3,6 @@
 """
 from __future__ import annotations
 
-import json
 import secrets
 import time
 from typing import Any, Dict, Optional
@@ -13,19 +12,16 @@ from pydantic import BaseModel
 
 from app.config import get_settings
 from app.utils.captcha import sign_captcha_ticket
-from app.utils.redis_client import redis_client
 
 router = APIRouter()
 settings = get_settings()
 
-CHALLENGE_KEY_PREFIX = "captcha:slider:challenge:"
 ALLOWED_PURPOSES = {"register", "login", "reset"}
 
 TRACK_WIDTH = 320
 HANDLE_WIDTH = 44
-TOLERANCE_PX = 20.0  # 增加容差
-# 目标位置固定在右侧 90% 处，用户只需拖到最右边即可
-TARGET_RATIO = 0.90
+# 滑块需要拖到至少 85% 的位置
+MIN_REQUIRED_RATIO = 0.85
 
 
 class VerifyReq(BaseModel):
@@ -39,42 +35,11 @@ class VerifyResp(BaseModel):
     ticket: Optional[str] = None
 
 
-def _challenge_key(challenge_id: str) -> str:
-    return f"{CHALLENGE_KEY_PREFIX}{challenge_id}"
-
-
-async def _save_challenge(challenge_id: str, data: Dict[str, Any]) -> None:
-    now = int(time.time())
-    expires_at = int(data.get("expires_at") or (now + settings.captcha_challenge_ttl_seconds))
-    ttl = max(1, expires_at - now)
-    await redis_client.set(_challenge_key(challenge_id), json.dumps(data), ex=ttl)
-
-
 @router.get("/slider/challenge")
 async def slider_challenge() -> Dict[str, Any]:
-    challenge_id = secrets.token_urlsafe(24)
-    now = int(time.time())
-    expires_at = now + settings.captcha_challenge_ttl_seconds
-    max_x = float(TRACK_WIDTH - HANDLE_WIDTH)
-
-    # 目标位置固定在右侧 90% 处，用户只需拖到最右边即可
-    target_x = round(max_x * TARGET_RATIO, 2)
-
-    challenge_data = {
-        "target_x": target_x,
-        "max_x": max_x,
-        "track_width": TRACK_WIDTH,
-        "handle_width": HANDLE_WIDTH,
-        "created_at": now,
-        "expires_at": expires_at,
-        "used": False,
-        "attempts": 0,
-    }
-
-    await _save_challenge(challenge_id, challenge_data)
-
+    """获取滑块验证配置"""
     return {
-        "challenge_id": challenge_id,
+        "challenge_id": "simple",  # 简化版不需要真正的 challenge_id
         "track_width": TRACK_WIDTH,
         "handle_width": HANDLE_WIDTH,
         "expires_in": settings.captcha_challenge_ttl_seconds,
@@ -83,42 +48,18 @@ async def slider_challenge() -> Dict[str, Any]:
 
 @router.post("/slider/verify", response_model=VerifyResp)
 async def slider_verify(req: VerifyReq) -> VerifyResp:
+    """验证滑块位置 - 只需要拖到最右边"""
     if req.use not in ALLOWED_PURPOSES:
         return VerifyResp(ok=False)
 
-    raw = await redis_client.get(_challenge_key(req.challenge_id))
-    if not raw:
+    max_x = float(TRACK_WIDTH - HANDLE_WIDTH)
+    required_min_x = max_x * MIN_REQUIRED_RATIO
+
+    # 检查是否拖到了足够右边的位置
+    if req.final_x < required_min_x:
         return VerifyResp(ok=False)
 
-    try:
-        challenge = json.loads(raw)
-    except Exception:
-        return VerifyResp(ok=False)
-
-    if challenge.get("used"):
-        return VerifyResp(ok=False)
-
-    attempts = int(challenge.get("attempts", 0)) + 1
-    challenge["attempts"] = attempts
-    if attempts > settings.captcha_challenge_max_attempts:
-        challenge["used"] = True
-        await _save_challenge(req.challenge_id, challenge)
-        return VerifyResp(ok=False)
-
-    max_x = float(challenge.get("max_x", TRACK_WIDTH - HANDLE_WIDTH))
-    target_x = float(challenge.get("target_x", max_x))
-
-    if req.final_x < 0 or req.final_x > max_x:
-        await _save_challenge(req.challenge_id, challenge)
-        return VerifyResp(ok=False)
-
-    if abs(req.final_x - target_x) > TOLERANCE_PX:
-        await _save_challenge(req.challenge_id, challenge)
-        return VerifyResp(ok=False)
-
-    challenge["used"] = True
-    await _save_challenge(req.challenge_id, challenge)
-
+    # 验证通过，签发 ticket
     now = int(time.time())
     payload = {
         "typ": "captcha_ticket",
