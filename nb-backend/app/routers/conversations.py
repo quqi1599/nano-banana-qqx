@@ -4,6 +4,7 @@
 from datetime import datetime
 from typing import List, Optional
 import json
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func, or_
@@ -117,14 +118,29 @@ async def create_conversation(
     # 使用请求中的 custom_endpoint，如果没有则使用 data 中的
     custom_endpoint = x_custom_endpoint or data.custom_endpoint
 
-    # 更新 Visitor 记录的 custom_endpoint
-    if x_visitor_id and custom_endpoint:
+    # 更新或创建 Visitor 记录
+    if x_visitor_id:
         visitor_result = await db.execute(
             select(Visitor).where(Visitor.visitor_id == x_visitor_id)
         )
         visitor = visitor_result.scalar_one_or_none()
         if visitor:
-            visitor.custom_endpoint = custom_endpoint
+            # 更新现有记录
+            if custom_endpoint:
+                visitor.custom_endpoint = custom_endpoint
+            visitor.conversation_count += 1
+            visitor.last_seen = datetime.utcnow()
+        else:
+            # 创建新记录
+            new_visitor = Visitor(
+                id=str(uuid.uuid4()),
+                visitor_id=x_visitor_id,
+                custom_endpoint=custom_endpoint,
+                conversation_count=1,
+                message_count=0,
+                image_count=0,
+            )
+            db.add(new_visitor)
 
     conversation = Conversation(
         user_id=current_user.id if current_user else None,
@@ -303,6 +319,21 @@ async def add_message(
     # 更新对话的标题和消息数量
     conversation.message_count += 1
     conversation.updated_at = datetime.utcnow()
+
+    # 如果是游客且有 visitor_id，同步更新游客统计
+    if x_visitor_id and conversation.visitor_id:
+        visitor_result = await db.execute(
+            select(Visitor).where(Visitor.visitor_id == conversation.visitor_id)
+        )
+        visitor = visitor_result.scalar_one_or_none()
+        if visitor:
+            visitor.message_count += 1
+            # 计算图片数量
+            image_count = 0
+            if data.images:
+                image_count = len(data.images)
+            visitor.image_count += image_count
+            visitor.last_seen = datetime.utcnow()
 
     # 如果是用户的第一条消息，且对话没有标题，自动生成标题
     if data.role == "user" and not conversation.title:

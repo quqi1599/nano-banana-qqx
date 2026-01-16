@@ -12,6 +12,7 @@ import { AdminConversations } from './admin/conversations/AdminConversations';
 import { QueueMonitor } from './admin/queue/QueueMonitor';
 import { EmailSettings } from './admin/email';
 import { UserManagementPanel } from './UserManagementPanel';
+import { VisitorsPanel } from './admin/visitors/VisitorsPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { getDashboardStats, getLoginFailureIps, DashboardStats, LoginFailureResult } from '../services/adminService';
@@ -22,7 +23,7 @@ interface AdminDashboardProps {
     onExit?: () => void;
 }
 
-type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue' | 'email';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue' | 'email' | 'visitors';
 
 export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const { logout } = useAuthStore();
@@ -191,6 +192,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
 
             {activeTab === 'queue' && <QueueMonitor />}
             {activeTab === 'email' && <EmailSettings />}
+            {activeTab === 'visitors' && <VisitorsPanel apiBase={apiBase} />}
 
         </AdminLayout>
     );

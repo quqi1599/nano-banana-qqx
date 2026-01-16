@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
-import { Key, ChevronDown, ChevronRight, Settings2, X, MessageCircle } from 'lucide-react';
+import { Key, ChevronDown, ChevronRight, Settings2, X, MessageCircle, Globe, AlertTriangle } from 'lucide-react';
 import { WeChatQRModal } from './WeChatQRModal';
+import { DEFAULT_API_ENDPOINT } from '../config/api';
 
 interface ApiKeyModalProps {
   onClose?: () => void;
@@ -16,11 +17,18 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [model, setModel] = useState(settings.modelName || 'gemini-3-pro-image-preview');
   const [showWeChatQR, setShowWeChatQR] = useState(false);
+  const [customEndpoint, setCustomEndpoint] = useState(settings.customEndpoint || DEFAULT_API_ENDPOINT);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(false);
 
   // Sync local state with store settings (e.g. when updated via URL params)
   useEffect(() => {
     if (settings.modelName) setModel(settings.modelName);
   }, [settings.modelName]);
+
+  useEffect(() => {
+    setCustomEndpoint(settings.customEndpoint || DEFAULT_API_ENDPOINT);
+  }, [settings.customEndpoint]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +36,45 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
     const effectiveKey = trimmedKey || apiKey?.trim() || '';
     if (!effectiveKey) return;
 
+    // 检查是否修改了自定义中转接口
+    const newEndpoint = customEndpoint.trim() || DEFAULT_API_ENDPOINT;
+    const currentEndpoint = settings.customEndpoint || DEFAULT_API_ENDPOINT;
+    const isEndpointChanged = newEndpoint !== currentEndpoint;
+    const isCustomEndpoint = newEndpoint !== DEFAULT_API_ENDPOINT;
+
+    // 如果修改为自定义接口且未接受免责声明，显示免责声明
+    if (isEndpointChanged && isCustomEndpoint && !hasAcceptedDisclaimer) {
+      setShowDisclaimer(true);
+      return;
+    }
+
+    // 更新设置
     updateSettings({
-      modelName: model
+      modelName: model,
+      customEndpoint: isCustomEndpoint ? newEndpoint : undefined,
     });
     setApiKey(effectiveKey);
-    // 余额可以在设置面板中手动刷新
 
     // 调用 onClose 如果提供
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  const handleAcceptDisclaimer = () => {
+    setHasAcceptedDisclaimer(true);
+    setShowDisclaimer(false);
+
+    const newEndpoint = customEndpoint.trim() || DEFAULT_API_ENDPOINT;
+    const effectiveKey = inputKey.trim() || apiKey?.trim() || '';
+    const isCustomEndpoint = newEndpoint !== DEFAULT_API_ENDPOINT;
+
+    updateSettings({
+      modelName: model,
+      customEndpoint: isCustomEndpoint ? newEndpoint : undefined,
+    });
+    setApiKey(effectiveKey);
+
     if (onClose) {
       onClose();
     }
@@ -108,6 +148,24 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
             >
               <div className="overflow-hidden">
                 <div className="mt-2 rounded-lg bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-4 space-y-4">
+                  {/* Custom Endpoint */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">中转接口地址</label>
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-3.5 w-3.5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={customEndpoint}
+                        onChange={(e) => setCustomEndpoint(e.currentTarget.value)}
+                        className="flex-1 rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:border-cream-500 focus:outline-none"
+                        placeholder={DEFAULT_API_ENDPOINT}
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      默认使用官方接口，可修改为自定义中转服务
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">模型名称</label>
                     <input
@@ -203,6 +261,43 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
 
         {/* 微信二维码弹窗 */}
         <WeChatQRModal isOpen={showWeChatQR} onClose={() => setShowWeChatQR(false)} />
+
+        {/* 自定义中转接口免责声明弹窗 */}
+        {showDisclaimer && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">重要提示</h3>
+              </div>
+              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400 mb-6">
+                <p>您即将使用自定义的中转接口地址，请注意：</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>服务由第三方提供，与本平台无关</li>
+                  <li>服务稳定性和可用性由第三方决定</li>
+                  <li>您的对话内容将发送至第三方服务器</li>
+                  <li>产生的问题本平台不承担责任</li>
+                </ul>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDisclaimer(false)}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm font-medium"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleAcceptDisclaimer}
+                  className="flex-1 px-4 py-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white transition text-sm font-medium"
+                >
+                  我已了解
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

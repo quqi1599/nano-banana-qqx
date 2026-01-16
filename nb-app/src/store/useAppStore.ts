@@ -964,16 +964,41 @@ export const useAppStore = create<AppState>()(
       name: 'gemini-pro-storage',
       storage: createJSONStorage(() => storage),
       onRehydrateStorage: () => (state) => {
-        if (state?.apiKey) {
+        if (!state) return;
+
+        // 同步 API Key 到 localStorage
+        if (state.apiKey) {
           localStorage.setItem(API_KEY_STORAGE, state.apiKey);
         } else {
           localStorage.removeItem(API_KEY_STORAGE);
         }
-        // 恢复对话 ID 时清空消息，需要用户重新加载或发送新消息
-        // 这样可以避免显示不一致的对话状态
-        if (state?.currentConversationId) {
-          // 如果有当前对话 ID，可以选择自动加载消息或清空
-          // 这里选择清空 currentConversationId，让用户重新选择
+
+        // 对于本地对话（未登录用户），恢复最后活动的对话
+        const hasLocalConversations = state.localConversations && state.localConversations.length > 0;
+
+        if (hasLocalConversations) {
+          // 有本地对话，恢复最后活动的对话
+          if (state.localConversationId) {
+            const activeConversation = state.localConversations.find(
+              (conv) => conv.id === state.localConversationId
+            );
+            if (activeConversation) {
+              state.localConversationId = activeConversation.id;
+              state.messages = activeConversation.messages || [];
+              // 不清空 currentConversationId，如果已同步到服务器则保留
+              return;
+            }
+          }
+          // 如果没有活动的本地对话，使用最新的一个
+          const latestConversation = state.localConversations[0];
+          if (latestConversation) {
+            state.localConversationId = latestConversation.id;
+            state.messages = latestConversation.messages || [];
+            state.currentConversationId = latestConversation.server_id || null;
+          }
+        } else {
+          // 没有本地对话，清空状态
+          state.localConversationId = null;
           state.currentConversationId = null;
           state.messages = [];
         }

@@ -81,6 +81,7 @@ class AdminConversationResponse(ConversationResponse):
     """管理员对话响应（含用户信息）"""
     user_email: Optional[str] = None
     user_nickname: Optional[str] = None
+    custom_endpoint: Optional[str] = None
 
 
 class AdminConversationDetailResponse(AdminConversationResponse):

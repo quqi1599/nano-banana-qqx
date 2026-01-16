@@ -35,7 +35,7 @@ export const WeChatQRModal: React.FC<WeChatQRModalProps> = ({ isOpen, onClose })
 
                 <div className="flex justify-center">
                     <img
-                        src="/wechat-group.jpg"
+                        src="/wechat-group.jpg?v=2"
                         alt="微信群二维码"
                         className="w-64 h-64 rounded-lg object-cover"
                     />
