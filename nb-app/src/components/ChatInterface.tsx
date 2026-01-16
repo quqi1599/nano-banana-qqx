@@ -21,7 +21,7 @@ import { getCsrfToken } from '../utils/csrf';
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
 const MessageBubble = lazyWithRetry(() => import('./MessageBubble').then(m => ({ default: m.MessageBubble })));
 
-const BALANCE_REFRESH_MIN_INTERVAL_MS = 30000;
+const BALANCE_REFRESH_MIN_INTERVAL_MS = 5000; // 降低到 5 秒
 
 export const ChatInterface: React.FC = () => {
   const {

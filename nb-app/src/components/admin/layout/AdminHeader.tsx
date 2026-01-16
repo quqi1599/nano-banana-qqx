@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Bell, Search, Sun, Moon, Laptop } from 'lucide-react';
+import { Menu, Search, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '../../../store/useAppStore';
 
 interface AdminHeaderProps {
@@ -49,11 +49,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar
                         title="切换主题"
                     >
                         {settings.theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-                    </button>
-
-                    <button className="p-2 text-gray-400 hover:text-cream-600 hover:bg-cream-50 dark:hover:bg-cream-900/10 rounded-full transition-all relative">
-                        <Bell size={18} />
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-950" />
                     </button>
 
                     <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-cream-400 to-orange-400 p-0.5 ml-2 cursor-pointer hover:ring-2 ring-cream-200 dark:ring-gray-800 transition-all">

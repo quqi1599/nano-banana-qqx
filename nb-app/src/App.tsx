@@ -112,6 +112,37 @@ const App: React.FC = () => {
     initAuth();
   }, [initAuth]);
 
+  // 页面进入/获得焦点时自动刷新余额（API Key 用户）
+  useEffect(() => {
+    if (isAuthenticated || !apiKey) return;
+
+    const refreshBalance = () => {
+      fetchBalance().catch(() => {
+        // 静默失败，不影响用户体验
+      });
+    };
+
+    // 页面加载时立即刷新一次
+    refreshBalance();
+
+    // 窗口获得焦点时刷新（用户切回页面）
+    const handleFocus = () => refreshBalance();
+    window.addEventListener('focus', handleFocus);
+
+    // 页面可见时刷新（从其他标签页切回来）
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshBalance();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, apiKey, fetchBalance]);
+
   // 轮询工单未读数量
   useEffect(() => {
     if (!isAuthenticated) {

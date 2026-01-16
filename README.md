@@ -114,6 +114,7 @@ nbnb-pro/
 - `useAppStore` 通过 `syncCurrentMessage` + `processSyncQueue` 将每条对话同步到后端，即便使用访客 `visitorId` 也会创建对应记录。
 - `get_current_user_optional` 支持 `X-API-Key`，并为 API Key 用户打上 `["api_key"]` 标签。
 - `conversations` 路由在判断访问者时会把同一 `visitor_id` 下的记录与 API Key 用户归到同一个账号，确保 Admin 端看到完整历史。
+- `SessionManager.tsx` 结合 `sessionStorage` + IndexedDB 持久化游客/未登录用户的对话，自身恢复页面时直接加载本地缓存，让“历史对话”面板对每个浏览器会话都可用。
 
 ## 🧭 前端 UI & 引导任务
 
