@@ -39,6 +39,7 @@ class ConversationCreate(BaseModel):
     """创建对话请求"""
     title: Optional[str] = None
     model_name: Optional[str] = None
+    custom_endpoint: Optional[str] = None
 
 
 class ConversationUpdate(BaseModel):
@@ -56,6 +57,7 @@ class ConversationResponse(BaseModel):
     message_count: int
     created_at: datetime
     updated_at: datetime
+    custom_endpoint: Optional[str] = None
 
     class Config:
         from_attributes = True

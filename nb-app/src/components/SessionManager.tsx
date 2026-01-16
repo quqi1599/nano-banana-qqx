@@ -14,13 +14,11 @@ export const SessionManager: React.FC = () => {
     } = useAuthStore();
 
     const {
-        messages,
-        currentConversationId,
-        setCurrentConversationId,
-        messagesTotal,
-        messagesPage,
-        addMessage // using setState directly via store api for bulk update easier? 
-        // actually useAppStore.setState is better
+        localConversationId,
+        localConversations,
+        loadLocalConversation,
+        setInputText,
+        inputText,
     } = useAppStore();
 
     // Use a ref to track if we allow saving (to avoid overwriting storage with empty state on initial load)
@@ -47,16 +45,25 @@ export const SessionManager: React.FC = () => {
             try {
                 const savedData = await getVal(`${STORAGE_PREFIX}${sid}`);
                 if (savedData) {
-                    // Restore state
-                    useAppStore.setState({
-                        messages: savedData.messages || [],
-                        currentConversationId: savedData.currentConversationId || null,
-                        messagesTotal: savedData.messagesTotal || 0,
-                        messagesPage: savedData.messagesPage || 1,
-                        // Restore input text? maybe better not to, or yes? user might have refreshed accidentally
-                        inputText: savedData.inputText || ''
-                    });
-                    console.log(`[SessionManager] Restored session ${sid}`);
+                    const restore = () => {
+                        if (savedData.inputText) {
+                            setInputText(savedData.inputText || '');
+                        }
+                        if (savedData.localConversationId) {
+                            loadLocalConversation(savedData.localConversationId);
+                        } else if (localConversationId) {
+                            loadLocalConversation(localConversationId);
+                        } else if (localConversations.length > 0) {
+                            loadLocalConversation(localConversations[0].id);
+                        }
+                        console.log(`[SessionManager] Restored session ${sid}`);
+                    };
+
+                    if (useAppStore.persist.hasHydrated()) {
+                        restore();
+                    } else {
+                        useAppStore.persist.onFinishHydration(restore);
+                    }
                 }
             } catch (e) {
                 console.error('[SessionManager] Failed to load session', e);
@@ -66,34 +73,23 @@ export const SessionManager: React.FC = () => {
         };
 
         initSession();
-    }, [isAuthenticated]);
+    }, [isAuthenticated, loadLocalConversation, localConversationId, localConversations, setInputText]);
 
     // Save Session on Change
     useEffect(() => {
         if (isAuthenticated || !isLoadedRef.current || !sessionIdRef.current) return;
 
-        // We subscribe to specific changes by using them in dependency array
-        // To avoid too frequent writes, we could debounce, but React effect batching helps.
-        // However, writing to IDB for every keystroke (inputText) might be heavy?
-        // Let's debounce slightly or just trust IDB. IDB is async anyway.
-
         const saveData = {
-            messages,
-            currentConversationId,
-            messagesTotal,
-            messagesPage,
-            inputText: useAppStore.getState().inputText, // Access latest
+            localConversationId: useAppStore.getState().localConversationId,
+            inputText: useAppStore.getState().inputText,
             timestamp: Date.now()
         };
 
-        // Fire and forget save
         setVal(`${STORAGE_PREFIX}${sessionIdRef.current}`, saveData).catch(e =>
             console.error('[SessionManager] Failed to save session', e)
         );
 
-    }, [messages, currentConversationId, messagesTotal, messagesPage, isAuthenticated]); // Exclude inputText from deps to avoid spamming IDB on typing, but save it when other things change. 
-    // Wait, if I only type and refresh, I lose text. Maybe add inputText to deps but debounce?
-    // For now let's exclude inputText from trigger, only save when messages change (send/receive). 
+    }, [localConversationId, inputText, isAuthenticated]);
 
     return null;
 };

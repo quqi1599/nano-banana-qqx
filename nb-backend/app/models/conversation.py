@@ -22,13 +22,14 @@ class Conversation(Base):
     visitor_id: Mapped[Optional[str]] = mapped_column(String(36), index=True, nullable=True)
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     model_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    custom_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, 
-        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), 
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 

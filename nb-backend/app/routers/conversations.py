@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.user import User
 from app.models.conversation import Conversation, ConversationMessage
+from app.models.visitor import Visitor
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationUpdate,
@@ -103,6 +104,7 @@ async def create_conversation(
     data: ConversationCreate,
     current_user: Optional[User] = Depends(get_current_user_optional),
     x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
+    x_custom_endpoint: Optional[str] = Header(None, alias="X-Custom-Endpoint"),
     db: AsyncSession = Depends(get_db),
 ):
     """创建新对话"""
@@ -112,11 +114,24 @@ async def create_conversation(
             detail="需要登录或提供游客标识以创建对话",
         )
 
+    # 使用请求中的 custom_endpoint，如果没有则使用 data 中的
+    custom_endpoint = x_custom_endpoint or data.custom_endpoint
+
+    # 更新 Visitor 记录的 custom_endpoint
+    if x_visitor_id and custom_endpoint:
+        visitor_result = await db.execute(
+            select(Visitor).where(Visitor.visitor_id == x_visitor_id)
+        )
+        visitor = visitor_result.scalar_one_or_none()
+        if visitor:
+            visitor.custom_endpoint = custom_endpoint
+
     conversation = Conversation(
         user_id=current_user.id if current_user else None,
         visitor_id=x_visitor_id if not current_user else None,
         title=data.title,
         model_name=data.model_name,
+        custom_endpoint=custom_endpoint,
     )
     db.add(conversation)
     await db.commit()

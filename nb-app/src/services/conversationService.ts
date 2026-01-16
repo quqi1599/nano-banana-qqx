@@ -9,6 +9,7 @@ const API_BASE = getBackendUrl();
 const API_KEY_STORAGE = 'nbnb_api_key';
 
 const VISITOR_ID_STORAGE = 'nbnb_visitor_id';
+const CUSTOM_ENDPOINT_STORAGE = 'nbnb_custom_endpoint';
 
 const buildRequestWithAuth = (options: RequestInit = {}): RequestInit => {
     const requestOptions = buildRequestOptions(options);
@@ -24,6 +25,12 @@ const buildRequestWithAuth = (options: RequestInit = {}): RequestInit => {
     const visitorId = localStorage.getItem(VISITOR_ID_STORAGE);
     if (visitorId && !headers.has('X-Visitor-Id')) {
         headers.set('X-Visitor-Id', visitorId);
+    }
+
+    // 自定义中转接口地址
+    const customEndpoint = localStorage.getItem(CUSTOM_ENDPOINT_STORAGE);
+    if (customEndpoint && !headers.has('X-Custom-Endpoint')) {
+        headers.set('X-Custom-Endpoint', customEndpoint);
     }
 
     return {
@@ -90,6 +97,7 @@ export interface Conversation {
     message_count: number;
     created_at: string;
     updated_at: string;
+    custom_endpoint: string | null;
 }
 
 export interface ConversationDetail extends Conversation {
@@ -157,10 +165,10 @@ export interface ConversationTimelineResponse {
 /**
  * 创建新对话
  */
-export async function createConversation(title?: string, modelName?: string): Promise<Conversation> {
+export async function createConversation(title?: string, modelName?: string, customEndpoint?: string): Promise<Conversation> {
     return request<Conversation>('/api/conversations', {
         method: 'POST',
-        body: JSON.stringify({ title, model_name: modelName }),
+        body: JSON.stringify({ title, model_name: modelName, custom_endpoint: customEndpoint }),
     });
 }
 

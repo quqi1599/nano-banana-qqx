@@ -833,3 +833,80 @@ export const testSendEmail = async (configId: string | null, testEmail: string):
         body: JSON.stringify(payload),
     });
 };
+
+// ========== 游客（未登录用户）管理 ==========
+
+export interface VisitorInfo {
+    id: string;
+    visitor_id: string;
+    custom_endpoint: string | null;
+    conversation_count: number;
+    message_count: number;
+    image_count: number;
+    first_seen: string;
+    last_seen: string;
+}
+
+export interface VisitorListResult {
+    visitors: VisitorInfo[];
+    total: number;
+    page: number;
+    page_size: number;
+}
+
+export interface VisitorFilters {
+    search?: string;
+    endpoint?: string;
+    min_conversations?: number;
+    min_messages?: number;
+    min_images?: number;
+    first_seen_after?: string;
+    first_seen_before?: string;
+}
+
+export interface VisitorStats {
+    total_visitors: number;
+    total_conversations: number;
+    total_messages: number;
+    total_images: number;
+    top_endpoints: { endpoint: string; count: number }[];
+}
+
+export interface VisitorDetail extends VisitorInfo {
+    conversations: Array<{
+        id: string;
+        title: string | null;
+        message_count: number;
+        model_name: string | null;
+        created_at: string;
+        updated_at: string;
+    }>;
+}
+
+// 获取游客列表
+export const getVisitors = async (page: number = 1, filters: VisitorFilters = {}): Promise<VisitorListResult> => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (filters.search) params.set('search', filters.search);
+    if (filters.endpoint) params.set('endpoint', filters.endpoint);
+    if (filters.min_conversations !== undefined) params.set('min_conversations', String(filters.min_conversations));
+    if (filters.min_messages !== undefined) params.set('min_messages', String(filters.min_messages));
+    if (filters.min_images !== undefined) params.set('min_images', String(filters.min_images));
+    if (filters.first_seen_after) params.set('first_seen_after', filters.first_seen_after);
+    if (filters.first_seen_before) params.set('first_seen_before', filters.first_seen_before);
+    return request(`/visitors?${params.toString()}`);
+};
+
+// 获取游客统计
+export const getVisitorStats = async (): Promise<VisitorStats> => {
+    return request('/visitors/stats');
+};
+
+// 获取游客详情
+export const getVisitorDetail = async (visitorId: string): Promise<VisitorDetail> => {
+    return request(`/visitors/${visitorId}`);
+};
+
+// 删除游客
+export const deleteVisitor = async (visitorId: string): Promise<{ message: string }> => {
+    return request(`/visitors/${visitorId}`, { method: 'DELETE' });
+};

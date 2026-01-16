@@ -11,6 +11,9 @@ export const SettingsPanel: React.FC = () => {
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [showWeChatQR, setShowWeChatQR] = useState(false);
+  const [customEndpointInput, setCustomEndpointInput] = useState(settings.customEndpoint || DEFAULT_API_ENDPOINT);
+  const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(false);
+  const [showEndpointDisclaimer, setShowEndpointDisclaimer] = useState(false);
 
   const handleInstallClick = async () => {
     if (!installPrompt) return;
@@ -51,6 +54,43 @@ export const SettingsPanel: React.FC = () => {
     } finally {
       setLoadingBalance(false);
     }
+  };
+
+  const handleCustomEndpointChange = (newValue: string) => {
+    setCustomEndpointInput(newValue);
+  };
+
+  const handleSaveCustomEndpoint = () => {
+    if (customEndpointInput === settings.customEndpoint) {
+      return; // No change
+    }
+
+    // Show disclaimer if endpoint is different from default
+    const isDefault = customEndpointInput === DEFAULT_API_ENDPOINT;
+    const isChangingToCustom = !isDefault && customEndpointInput.trim() !== '';
+
+    if (isChangingToCustom && !hasAcceptedDisclaimer) {
+      setShowEndpointDisclaimer(true);
+      return;
+    }
+
+    // Apply the change
+    if (isDefault) {
+      // Reset to default
+      updateSettings({ customEndpoint: undefined });
+      addToast("已恢复默认中转地址", 'success');
+    } else {
+      updateSettings({ customEndpoint: customEndpointInput.trim() });
+      addToast("中转地址已更新", 'success');
+    }
+  };
+
+  const handleAcceptDisclaimer = () => {
+    setHasAcceptedDisclaimer(true);
+    setShowEndpointDisclaimer(false);
+    // Apply the change
+    updateSettings({ customEndpoint: customEndpointInput.trim() });
+    addToast("中转地址已更新", 'success');
   };
 
   const getBookmarkUrl = () => {
@@ -164,6 +204,33 @@ export const SettingsPanel: React.FC = () => {
             )}
           </section>
         )}
+
+        {/* Custom Endpoint */}
+        <section>
+          <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">中转接口地址</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={customEndpointInput}
+              onChange={(e) => handleCustomEndpointChange(e.target.value)}
+              placeholder={DEFAULT_API_ENDPOINT}
+              className="flex-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 py-2 text-xs sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cream-500/50 focus:border-cream-500 transition"
+            />
+            <button
+              onClick={handleSaveCustomEndpoint}
+              disabled={customEndpointInput === settings.customEndpoint || (!settings.customEndpoint && customEndpointInput === DEFAULT_API_ENDPOINT)}
+              className="px-3 py-2 rounded-lg bg-cream-500 hover:bg-cream-600 text-white text-xs sm:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
+            >
+              保存
+            </button>
+          </div>
+          <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
+            默认: {DEFAULT_API_ENDPOINT}
+            {settings.customEndpoint && settings.customEndpoint !== DEFAULT_API_ENDPOINT && (
+              <span className="text-amber-600 dark:text-amber-400 ml-1">（已自定义）</span>
+            )}
+          </p>
+        </section>
 
         {/* Resolution */}
         <section>
@@ -417,6 +484,47 @@ export const SettingsPanel: React.FC = () => {
 
         {/* 微信二维码弹窗 */}
         <WeChatQRModal isOpen={showWeChatQR} onClose={() => setShowWeChatQR(false)} />
+
+        {/* 自定义中转接口免责声明弹窗 */}
+        {showEndpointDisclaimer && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowEndpointDisclaimer(false)} />
+            <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  ⚠️ 重要免责声明
+                </h3>
+                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                  <p>您即将使用自定义的中转接口地址，请注意：</p>
+                  <ul className="list-disc list-inside space-y-2 ml-2">
+                    <li><strong>服务来源：</strong>自定义接口的服务由第三方提供，与本平台无关</li>
+                    <li><strong>稳定性：</strong>服务稳定性、可用性、速度均由第三方决定，我们无法保证</li>
+                    <li><strong>数据安全：</strong>您的对话内容、图片数据将发送至第三方服务器，请自行评估风险</li>
+                    <li><strong>费用：</strong>如产生费用，由第三方服务商收取，与本平台无关</li>
+                    <li><strong>责任：</strong>使用自定义接口产生的一切问题，本平台不承担任何责任</li>
+                  </ul>
+                  <p className="text-amber-600 dark:text-amber-400 font-medium">
+                    建议只使用您信任的、了解其服务条款的中转接口。
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setShowEndpointDisclaimer(false)}
+                    className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleAcceptDisclaimer}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white font-medium transition"
+                  >
+                    我已了解，继续
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

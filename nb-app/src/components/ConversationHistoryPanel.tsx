@@ -87,32 +87,45 @@ export const ConversationHistoryPanel = ({
         conversationListPage,
         conversationListPageSize,
         currentConversationId,
+        localConversationId,
+        localConversations,
         loadConversationList,
+        loadLocalConversation,
         deleteConversation,
+        deleteLocalConversation,
         updateConversationTitle,
+        updateLocalConversationTitle,
     } = useAppStore();
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingTitle, setEditingTitle] = useState('');
-    const totalCount = conversationListTotal || conversationList.length;
+    const useLocalHistory = !isAuthenticated;
+    const sourceConversations = useLocalHistory ? localConversations : conversationList;
+    const totalCount = useLocalHistory
+        ? sourceConversations.length
+        : (conversationListTotal || conversationList.length);
 
     // 任何有身份标识的用户都能使用历史对话：登录用户、API Key用户、游客（visitorId）
     const canUseHistory = isAuthenticated || !!apiKey || !!visitorId;
 
     useEffect(() => {
-        if (isOpen && canUseHistory) {
+        if (isOpen && canUseHistory && !useLocalHistory) {
             loadConversationList(conversationListPage, conversationListPageSize);
         }
-    }, [isOpen, canUseHistory, loadConversationList]);
+    }, [isOpen, canUseHistory, useLocalHistory, loadConversationList, conversationListPage, conversationListPageSize]);
 
     const groupedConversations = useMemo(
-        () => groupConversationsByDate(conversationList),
-        [conversationList]
+        () => groupConversationsByDate(sourceConversations),
+        [sourceConversations]
     );
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (!confirm('确定要删除这个对话吗？')) return;
+        if (useLocalHistory) {
+            deleteLocalConversation(id);
+            return;
+        }
         await deleteConversation(id);
     };
 
@@ -125,7 +138,11 @@ export const ConversationHistoryPanel = ({
     const handleSaveEdit = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (editingTitle.trim()) {
-            await updateConversationTitle(id, editingTitle.trim());
+            if (useLocalHistory) {
+                updateLocalConversationTitle(id, editingTitle.trim());
+            } else {
+                await updateConversationTitle(id, editingTitle.trim());
+            }
         }
         setEditingId(null);
         setEditingTitle('');
@@ -262,7 +279,7 @@ export const ConversationHistoryPanel = ({
                             <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p className="text-sm">请登录或配置 API Key 后查看对话历史</p>
                         </div>
-                    ) : conversationList.length === 0 ? (
+                    ) : sourceConversations.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                             <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p className="text-sm">暂无对话历史</p>
@@ -287,12 +304,18 @@ export const ConversationHistoryPanel = ({
                                                 <div
                                                     key={conv.id}
                                                     onClick={() => {
-                                                        onSelectConversation(conv.id);
+                                                        if (useLocalHistory) {
+                                                            loadLocalConversation(conv.id);
+                                                        } else {
+                                                            onSelectConversation(conv.id);
+                                                        }
                                                         if (window.innerWidth < 1024) onClose();
                                                     }}
                                                     className={`
                                                         group p-3 rounded-xl cursor-pointer transition relative
-                                                        ${currentConversationId === conv.id
+                                                        ${useLocalHistory
+                                                            ? localConversationId === conv.id
+                                                            : currentConversationId === conv.id
                                                             ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
                                                             : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
                                                         }
@@ -301,7 +324,9 @@ export const ConversationHistoryPanel = ({
                                                     {/* 时间线圆点 */}
                                                     <div className={`
                                                         absolute left-0 top-4 w-2 h-2 rounded-full -translate-x-[1px]
-                                                        ${currentConversationId === conv.id
+                                                        ${useLocalHistory
+                                                            ? localConversationId === conv.id
+                                                            : currentConversationId === conv.id
                                                             ? 'bg-amber-500'
                                                             : 'bg-gray-300 dark:bg-gray-600'
                                                         }
@@ -377,7 +402,7 @@ export const ConversationHistoryPanel = ({
                             )}
                         </div>
                     )}
-                    {conversationListTotal > conversationListPageSize && (
+                    {!useLocalHistory && conversationListTotal > conversationListPageSize && (
                         <div className="sticky bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur py-2">
                             <Pagination
                                 page={conversationListPage}

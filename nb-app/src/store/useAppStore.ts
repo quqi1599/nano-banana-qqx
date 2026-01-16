@@ -22,6 +22,7 @@ import { getCsrfToken } from '../utils/csrf';
 // Custom IndexedDB storage
 const API_KEY_STORAGE = 'nbnb_api_key';
 const VISITOR_ID_STORAGE = 'nbnb_visitor_id';
+const CUSTOM_ENDPOINT_STORAGE = 'nbnb_custom_endpoint';
 const SYNC_BASE_DELAY_MS = 1000;
 
 const getOrGenerateVisitorId = () => {
@@ -35,6 +36,22 @@ const getOrGenerateVisitorId = () => {
 
 const SYNC_MAX_ATTEMPTS = 5;
 let syncQueueTimer: ReturnType<typeof setTimeout> | null = null;
+const LOCAL_TITLE_MAX_LENGTH = 50;
+
+const generateLocalTitle = (message: ChatMessage): string | null => {
+  if (message.role !== 'user') return null;
+  const text = message.parts.find((part) => part.text)?.text || '';
+  const cleaned = text.trim().replace(/\s+/g, ' ');
+  if (!cleaned) return null;
+  if (cleaned.length > LOCAL_TITLE_MAX_LENGTH) {
+    return `${cleaned.slice(0, LOCAL_TITLE_MAX_LENGTH)}...`;
+  }
+  return cleaned;
+};
+
+const shouldPersistLocalHistory = (): boolean => {
+  return !getCsrfToken();
+};
 
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -63,6 +80,11 @@ interface PendingSyncItem {
   nextRetryAt: number;
 }
 
+export interface LocalConversation extends Conversation {
+  messages: ChatMessage[];
+  server_id?: string | null;
+}
+
 interface AppState {
   apiKey: string | null;
   visitorId: string | null;
@@ -89,6 +111,8 @@ interface AppState {
   isSyncing: boolean;
   pendingSyncQueue: PendingSyncItem[];
   isSyncQueueRunning: boolean;
+  localConversationId: string | null;
+  localConversations: LocalConversation[];
 
   setInstallPrompt: (prompt: BeforeInstallPromptEvent | null) => void;
   setApiKey: (key: string) => void;
@@ -121,6 +145,10 @@ interface AppState {
   deleteConversation: (id: string) => Promise<void>;
   setCurrentConversationId: (id: string | null) => void;
   processSyncQueue: () => Promise<void>;
+  setLocalConversationId: (id: string | null) => void;
+  loadLocalConversation: (id: string) => void;
+  deleteLocalConversation: (id: string) => void;
+  updateLocalConversationTitle: (id: string, title: string) => void;
 }
 
 
@@ -162,6 +190,8 @@ export const useAppStore = create<AppState>()(
       isSyncing: false,
       pendingSyncQueue: [],
       isSyncQueueRunning: false,
+      localConversationId: null,
+      localConversations: [],
 
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
       setApiKey: (key) => {
@@ -197,7 +227,18 @@ export const useAppStore = create<AppState>()(
       resetUsageCount: () => set({ usageCount: 0 }),
 
       updateSettings: (newSettings) =>
-        set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+        set((state) => {
+          const updatedSettings = { ...state.settings, ...newSettings };
+          // 同步 customEndpoint 到 localStorage，供 conversationService 使用
+          if (newSettings.customEndpoint !== undefined) {
+            if (newSettings.customEndpoint) {
+              localStorage.setItem(CUSTOM_ENDPOINT_STORAGE, newSettings.customEndpoint);
+            } else {
+              localStorage.removeItem(CUSTOM_ENDPOINT_STORAGE);
+            }
+          }
+          return { settings: updatedSettings };
+        }),
 
       addEndpointToHistory: (endpoint) =>
         set((state) => {
@@ -209,9 +250,58 @@ export const useAppStore = create<AppState>()(
         }),
 
       addMessage: (message) =>
-        set((state) => ({
-          messages: [...state.messages, message],
-        })),
+        set((state) => {
+          const nextMessages = [...state.messages, message];
+          if (!shouldPersistLocalHistory()) {
+            return { messages: nextMessages };
+          }
+
+          const now = new Date().toISOString();
+          let localConversationId = state.localConversationId;
+          let localConversations = [...state.localConversations];
+          let conversationIndex = localConversations.findIndex(
+            (conv) => conv.id === localConversationId
+          );
+
+          if (!localConversationId || conversationIndex === -1) {
+            localConversationId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const newConversation: LocalConversation = {
+              id: localConversationId,
+              user_id: 'local',
+              title: null,
+              model_name: state.settings.modelName || null,
+              message_count: 0,
+              created_at: now,
+              updated_at: now,
+              messages: [],
+              server_id: state.currentConversationId || null,
+            };
+            localConversations = [newConversation, ...localConversations];
+            conversationIndex = 0;
+          }
+
+          const existing = localConversations[conversationIndex];
+          const nextTitle = existing.title || generateLocalTitle(message);
+          const updatedMessages = [...existing.messages, message];
+          const updatedConversation: LocalConversation = {
+            ...existing,
+            title: nextTitle,
+            model_name: existing.model_name || state.settings.modelName || null,
+            messages: updatedMessages,
+            message_count: updatedMessages.length,
+            updated_at: now,
+            server_id: existing.server_id || state.currentConversationId || null,
+          };
+
+          localConversations.splice(conversationIndex, 1);
+          localConversations.unshift(updatedConversation);
+
+          return {
+            messages: nextMessages,
+            localConversationId,
+            localConversations,
+          };
+        }),
 
       updateLastMessage: (parts, isError = false, thinkingDuration) =>
         set((state) => {
@@ -226,7 +316,46 @@ export const useAppStore = create<AppState>()(
             };
           }
 
-          return { messages };
+          if (!shouldPersistLocalHistory()) {
+            return { messages };
+          }
+
+          const localConversationId = state.localConversationId;
+          if (!localConversationId) {
+            return { messages };
+          }
+
+          const conversationIndex = state.localConversations.findIndex(
+            (conv) => conv.id === localConversationId
+          );
+          if (conversationIndex === -1) {
+            return { messages };
+          }
+
+          const now = new Date().toISOString();
+          const localConversations = [...state.localConversations];
+          const conversation = localConversations[conversationIndex];
+          const updatedLocalMessages = [...conversation.messages];
+          if (updatedLocalMessages.length > 0) {
+            updatedLocalMessages[updatedLocalMessages.length - 1] = {
+              ...updatedLocalMessages[updatedLocalMessages.length - 1],
+              parts: [...parts],
+              isError,
+              ...(thinkingDuration !== undefined && { thinkingDuration }),
+            };
+          }
+
+          const updatedConversation: LocalConversation = {
+            ...conversation,
+            messages: updatedLocalMessages,
+            message_count: updatedLocalMessages.length,
+            updated_at: now,
+          };
+
+          localConversations.splice(conversationIndex, 1);
+          localConversations.unshift(updatedConversation);
+
+          return { messages, localConversations };
         }),
 
       addImageToHistory: async (image) => {
@@ -361,7 +490,14 @@ export const useAppStore = create<AppState>()(
 
       toggleSettings: () => set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
 
-      clearHistory: () => set({ messages: [], messagesTotal: 0, messagesPage: 1 }),
+      clearHistory: () =>
+        set({
+          currentConversationId: null,
+          localConversationId: null,
+          messages: [],
+          messagesTotal: 0,
+          messagesPage: 1,
+        }),
 
       removeApiKey: () => {
         localStorage.removeItem(API_KEY_STORAGE);
@@ -376,22 +512,87 @@ export const useAppStore = create<AppState>()(
           const newMessages = [...state.messages];
           newMessages.splice(index, 1);
 
-          return { messages: newMessages };
+          if (!shouldPersistLocalHistory()) {
+            return { messages: newMessages };
+          }
+
+          const localConversationId = state.localConversationId;
+          if (!localConversationId) {
+            return { messages: newMessages };
+          }
+
+          const conversationIndex = state.localConversations.findIndex(
+            (conv) => conv.id === localConversationId
+          );
+          if (conversationIndex === -1) {
+            return { messages: newMessages };
+          }
+
+          const localConversations = [...state.localConversations];
+          const conversation = localConversations[conversationIndex];
+          const updatedLocalMessages = conversation.messages.filter((m) => m.id !== id);
+          const updatedConversation: LocalConversation = {
+            ...conversation,
+            messages: updatedLocalMessages,
+            message_count: updatedLocalMessages.length,
+            updated_at: new Date().toISOString(),
+          };
+
+          localConversations.splice(conversationIndex, 1);
+          localConversations.unshift(updatedConversation);
+
+          return { messages: newMessages, localConversations };
         }),
 
       sliceMessages: (index) =>
-        set((state) => ({
-          messages: state.messages.slice(0, index + 1),
-        })),
+        set((state) => {
+          const slicedMessages = state.messages.slice(0, index + 1);
+          if (!shouldPersistLocalHistory()) {
+            return { messages: slicedMessages };
+          }
+
+          const localConversationId = state.localConversationId;
+          if (!localConversationId) {
+            return { messages: slicedMessages };
+          }
+
+          const conversationIndex = state.localConversations.findIndex(
+            (conv) => conv.id === localConversationId
+          );
+          if (conversationIndex === -1) {
+            return { messages: slicedMessages };
+          }
+
+          const localConversations = [...state.localConversations];
+          const conversation = localConversations[conversationIndex];
+          const updatedConversation: LocalConversation = {
+            ...conversation,
+            messages: slicedMessages,
+            message_count: slicedMessages.length,
+            updated_at: new Date().toISOString(),
+          };
+
+          localConversations.splice(conversationIndex, 1);
+          localConversations.unshift(updatedConversation);
+
+          return { messages: slicedMessages, localConversations };
+        }),
 
       // ============ 对话历史方法 ============
 
       setCurrentConversationId: (id) => set({ currentConversationId: id }),
+      setLocalConversationId: (id) => set({ localConversationId: id }),
 
       createNewConversation: async (title) => {
         try {
           // 清空当前对话ID，这样下一条消息会创建新对话
-          set({ currentConversationId: null, messages: [], messagesTotal: 0, messagesPage: 1 });
+          set({
+            currentConversationId: null,
+            localConversationId: null,
+            messages: [],
+            messagesTotal: 0,
+            messagesPage: 1,
+          });
           console.log('[Conversation] 已清空，等待下条消息创建新对话');
           return null;
         } catch (error) {
@@ -482,10 +683,48 @@ export const useAppStore = create<AppState>()(
             messagesPageSize: resolvedPageSize,
           });
 
+          if (shouldPersistLocalHistory()) {
+            set((state) => {
+              const localConversationId = state.localConversationId;
+              if (!localConversationId) return {};
+              const conversationIndex = state.localConversations.findIndex(
+                (conv) => conv.id === localConversationId && conv.server_id === id
+              );
+              if (conversationIndex === -1) return {};
+              const localConversations = [...state.localConversations];
+              const conversation = localConversations[conversationIndex];
+              const updatedConversation: LocalConversation = {
+                ...conversation,
+                messages,
+                message_count: messages.length,
+                updated_at: new Date().toISOString(),
+              };
+              localConversations.splice(conversationIndex, 1);
+              localConversations.unshift(updatedConversation);
+              return { localConversations };
+            });
+          }
+
           console.log(`[Conversation] 已加载 ${messages.length} 条消息`);
         } catch (error) {
           console.error('Failed to load conversation:', error);
         }
+      },
+
+      loadLocalConversation: (id) => {
+        const state = get();
+        const conversation = state.localConversations.find((conv) => conv.id === id);
+        if (!conversation) {
+          return;
+        }
+
+        set({
+          localConversationId: id,
+          currentConversationId: conversation.server_id || null,
+          messages: conversation.messages,
+          messagesTotal: conversation.messages.length,
+          messagesPage: 1,
+        });
       },
 
       loadConversationList: async (page, pageSize) => {
@@ -517,6 +756,25 @@ export const useAppStore = create<AppState>()(
         } catch (error) {
           console.error('Failed to load conversation list:', error);
         }
+      },
+
+      deleteLocalConversation: (id) => {
+        set((state) => {
+          const localConversations = state.localConversations.filter((conv) => conv.id !== id);
+          const shouldReset = state.localConversationId === id;
+          return {
+            localConversations,
+            ...(shouldReset ? { localConversationId: null, currentConversationId: null, messages: [] } : {}),
+          };
+        });
+      },
+
+      updateLocalConversationTitle: (id, title) => {
+        set((state) => ({
+          localConversations: state.localConversations.map((conv) =>
+            conv.id === id ? { ...conv, title, updated_at: new Date().toISOString() } : conv
+          ),
+        }));
       },
 
       processSyncQueue: async () => {
@@ -559,11 +817,26 @@ export const useAppStore = create<AppState>()(
               let isNewConversation = false;
 
               if (!conversationId) {
-                const conv = await createConversation(undefined, get().settings.modelName);
+                const conv = await createConversation(
+                  undefined,
+                  get().settings.modelName,
+                  get().settings.customEndpoint
+                );
                 conversationId = conv.id;
                 set({ currentConversationId: conversationId });
                 isNewConversation = true;
                 console.log('[Conversation] 创建新对话:', conversationId);
+
+                const localConversationId = get().localConversationId;
+                if (localConversationId) {
+                  set((state) => ({
+                    localConversations: state.localConversations.map((convItem) =>
+                      convItem.id === localConversationId && !convItem.server_id
+                        ? { ...convItem, server_id: conversationId }
+                        : convItem
+                    ),
+                  }));
+                }
               }
 
               const role = item.message.role || 'user';
@@ -723,6 +996,8 @@ export const useAppStore = create<AppState>()(
         imageHistory: state.imageHistory, // 持久化图片历史记录
         endpointHistory: state.endpointHistory, // 持久化 API 接口地址历史记录
         usageCount: state.usageCount, // 持久化本地使用次数
+        localConversationId: state.localConversationId,
+        localConversations: state.localConversations,
         // 对话历史持久化到本地缓存，支持未登录用户查看历史
         currentConversationId: state.currentConversationId,
         conversationList: state.conversationList,

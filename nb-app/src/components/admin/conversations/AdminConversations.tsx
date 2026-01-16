@@ -609,18 +609,49 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                 selectedConversation.messages.map((msg, idx) => (
                                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                            msg.role === 'user'
+                                            msg.role === 'user' || msg.role === 'assistant'
                                                 ? 'bg-amber-100 text-amber-700'
                                                 : 'bg-gray-100 text-gray-600'
                                         }`}>
-                                            {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                                            {msg.role === 'user' || msg.role === 'assistant' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                                         </div>
-                                        <div className={`p-3 rounded-2xl max-w-[80%] ${
-                                            msg.role === 'user'
-                                                ? 'bg-amber-500 text-white rounded-tr-none'
-                                                : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                                        }`}>
-                                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                                        <div className={`max-w-[80%] ${msg.role === 'user' || msg.role === 'assistant' ? 'flex flex-col items-end' : 'flex flex-col items-start'}`}>
+                                            <div className={`p-3 rounded-2xl ${
+                                                msg.role === 'user' || msg.role === 'assistant'
+                                                    ? 'bg-amber-500 text-white rounded-tr-none'
+                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
+                                            }`}>
+                                                {msg.content && (
+                                                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                                                )}
+                                                {/* 思考过程标记 */}
+                                                {msg.is_thought && (
+                                                    <span className="inline-flex items-center gap-1 text-xs opacity-70 mt-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                                        思考过程 {msg.thinking_duration && `(${msg.thinking_duration.toFixed(1)}s)`}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {/* 图片渲染 */}
+                                            {msg.images && msg.images.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    {msg.images.map((img, imgIdx) => (
+                                                        <img
+                                                            key={imgIdx}
+                                                            src={`data:${img.mimeType};base64,${img.base64}`}
+                                                            alt={`消息图片 ${imgIdx + 1}`}
+                                                            className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition"
+                                                            onClick={() => {
+                                                                // 点击放大
+                                                                const win = window.open();
+                                                                if (win) {
+                                                                    win.document.write(`<img src="data:${img.mimeType};base64,${img.base64}" style="max-width:100%;height:auto;" />`);
+                                                                }
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))

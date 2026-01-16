@@ -115,6 +115,7 @@ nbnb-pro/
 - `get_current_user_optional` 支持 `X-API-Key`，并为 API Key 用户打上 `["api_key"]` 标签。
 - `conversations` 路由在判断访问者时会把同一 `visitor_id` 下的记录与 API Key 用户归到同一个账号，确保 Admin 端看到完整历史。
 - `SessionManager.tsx` 结合 `sessionStorage` + IndexedDB 持久化游客/未登录用户的对话，自身恢复页面时直接加载本地缓存，让“历史对话”面板对每个浏览器会话都可用。
+- 点击“清空”或“新对话”只会切换当前会话，不会删除本地或后台历史。
 
 ## 🧭 前端 UI & 引导任务
 
