@@ -26,6 +26,7 @@ const BALANCE_REFRESH_MIN_INTERVAL_MS = 30000;
 export const ChatInterface: React.FC = () => {
   const {
     apiKey,
+    visitorId,
     messages,
     settings,
     currentConversationId,
@@ -64,7 +65,8 @@ export const ChatInterface: React.FC = () => {
   const balanceRefreshStateRef = useRef({ lastRefreshAt: 0, inFlight: false });
   const isGenerating = isLoading || isPipelineRunning;
   const hasCookieAuth = !!getCsrfToken();
-  const canSyncHistory = isAuthenticated || hasCookieAuth || !!apiKey?.trim();
+  // 任何有身份标识的用户都能同步历史：登录用户、API Key用户、游客（visitorId）
+  const canSyncHistory = isAuthenticated || hasCookieAuth || !!apiKey?.trim() || !!visitorId;
 
   const buildHistory = (sourceMessages: ChatMessage[]) => {
     if (!settings.sendHistory) {
@@ -133,8 +135,8 @@ export const ChatInterface: React.FC = () => {
   }, [messages.length, isLoading, showArcade]); // Optimized dependencies (removed full messages content check)
 
   const handleSend = async (text: string, attachments: Attachment[]) => {
-    // 检查 API Key
-    if (!isAuthenticated && !hasCookieAuth && !apiKey) {
+    // 检查 API Key：游客（有 visitorId）也可以使用
+    if (!isAuthenticated && !hasCookieAuth && !apiKey && !visitorId) {
       setShowApiKeyModal(true);
       addToast('请先登录或输入 API Key', 'error');
       return;
@@ -495,7 +497,8 @@ export const ChatInterface: React.FC = () => {
     steps: Array<{ id: string; prompt: string; modelName?: string; status: string }>,
     initialAttachments: Attachment[]
   ) => {
-    if (!isAuthenticated && !hasCookieAuth && !apiKey) {
+    // 检查 API Key：游客（有 visitorId）也可以使用
+    if (!isAuthenticated && !hasCookieAuth && !apiKey && !visitorId) {
       setShowApiKeyModal(true);
       addToast('请先登录或输入 API Key', 'error');
       return;

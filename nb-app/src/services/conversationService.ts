@@ -83,7 +83,8 @@ export interface ConversationMessage {
 
 export interface Conversation {
     id: string;
-    user_id: string;
+    user_id: string | null;
+    visitor_id: string | null;
     title: string | null;
     model_name: string | null;
     message_count: number;

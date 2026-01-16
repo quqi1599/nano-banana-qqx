@@ -29,7 +29,7 @@ const ImageHistoryPanel = lazyWithRetry(() => import('./components/ImageHistoryP
 const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibraryPanel').then(module => ({ default: module.PromptLibraryPanel })));
 
 const App: React.FC = () => {
-  const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory, loadConversation, createNewConversation } = useAppStore();
+  const { apiKey, visitorId, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory, loadConversation, createNewConversation } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
   const { isAuthenticated, user, initAuth, logout } = useAuthStore();
   const { isGuideCompleted, isGuideAvailable, startGuide } = useOnboardingStore();
@@ -42,7 +42,8 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
   });
-  const canUseHistory = isAuthenticated || !!apiKey;
+  // 任何有身份标识的用户都能使用历史对话：登录用户、API Key用户、游客（visitorId）
+  const canUseHistory = isAuthenticated || !!apiKey || !!visitorId;
   // 对话历史侧边栏状态
   const [isConversationHistoryOpen, setIsConversationHistoryOpen] = useState(false);
   const [isConversationHistoryCollapsed, setIsConversationHistoryCollapsed] = useState(false);
