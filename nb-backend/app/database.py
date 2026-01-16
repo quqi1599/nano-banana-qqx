@@ -65,9 +65,9 @@ async def init_db():
     # 先导入所有模型，确保它们注册到 Base.metadata
     from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history, admin_audit_log, smtp_config  # noqa: F401
     
-    # 创建基础表结构（如果不存在）
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # 生产环境只使用 Alembic migrations，不调用 create_all()
+    # create_all() 和 migrations 混用会导致状态冲突
+    # 如需从零初始化数据库，请直接运行: alembic upgrade head
     
     # 运行 Alembic 迁移（处理增量变更）
     await asyncio.to_thread(run_migrations)
