@@ -7,7 +7,7 @@ import hashlib
 import secrets
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
+from app.utils.redis_client import redis_client
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -95,6 +96,7 @@ async def get_current_user(
 async def get_current_user_or_api_key(
     credentials: HTTPAuthorizationCredentials = Depends(optional_security),
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """获取当前用户（支持 JWT 或 API Key）"""
@@ -133,6 +135,12 @@ async def get_current_user_or_api_key(
         )
 
     api_key = x_api_key.strip()
+    if len(api_key) < settings.api_key_user_min_length:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="API Key 格式无效",
+        )
+
     api_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
     api_email = f"api_{api_hash}@api.local"
 
@@ -140,6 +148,30 @@ async def get_current_user_or_api_key(
     user = result.scalar_one_or_none()
 
     if not user:
+        if not settings.api_key_user_creation_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="API Key 用户创建未启用，请先登录",
+            )
+
+        if request and redis_client:
+            ip = request.client.host if request.client else "unknown"
+            rate_key = f"api_user_create:{ip}"
+            current = await redis_client.get(rate_key)
+            if current and int(current) >= settings.api_key_user_creation_limit_per_ip:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="API Key 创建过于频繁，请稍后重试",
+                )
+
+            async with redis_client.pipeline() as pipe:
+                await pipe.incr(rate_key)
+                if not current:
+                    await pipe.expire(
+                        rate_key, settings.api_key_user_creation_limit_window_seconds
+                    )
+                await pipe.execute()
+
         user = User(
             email=api_email,
             password_hash=get_password_hash(secrets.token_urlsafe(32)),

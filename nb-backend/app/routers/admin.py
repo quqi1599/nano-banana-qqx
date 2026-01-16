@@ -73,6 +73,7 @@ TOKEN_POOL_CACHE_KEY = "token_pool:list:v1"
 TOKEN_POOL_CACHE_TTL_SECONDS = 60
 ADMIN_CONFIRM_KEY_PREFIX = "admin:confirm:"
 ADMIN_CONFIRM_PURPOSES = {"batch_status", "batch_credits"}
+EMAIL_WHITELIST_CACHE_KEY = "email_whitelist:active:v1"
 
 
 def _normalize_reason(reason: str) -> str:
@@ -861,15 +862,20 @@ async def adjust_user_credits(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="不能调整自己的积分",
         )
-    
-    user.credit_balance += amount
+
+    old_balance = user.credit_balance
+    new_balance = old_balance + amount
+    if new_balance < 0:
+        new_balance = 0
+    actual_delta = new_balance - old_balance
+    user.credit_balance = new_balance
     
     transaction = CreditTransaction(
         user_id=user.id,
-        amount=amount,
+        amount=actual_delta,
         type=TransactionType.BONUS.value if amount > 0 else TransactionType.CONSUME.value,
         description=reason,
-        balance_after=user.credit_balance,
+        balance_after=new_balance,
     )
     db.add(transaction)
     
@@ -1251,22 +1257,26 @@ async def batch_adjust_credits(
     updated_count = 0
     updated_ids: list[str] = []
     skipped_ids: list[str] = []
+    total_delta = 0
     async with db.begin():
         for user in users:
             if user.id == admin.id:
                 skipped_ids.append(user.id)
                 continue
 
-            user.credit_balance += data.amount
+            old_balance = user.credit_balance
+            new_balance = old_balance + data.amount
 
             # 防止余额为负
-            if user.credit_balance < 0:
-                user.credit_balance = 0
+            if new_balance < 0:
+                new_balance = 0
+            actual_delta = new_balance - old_balance
+            user.credit_balance = new_balance
 
             # 记录交易
             transaction = CreditTransaction(
                 user_id=user.id,
-                amount=data.amount,
+                amount=actual_delta,
                 type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
                 description=reason,
                 balance_after=user.credit_balance,
@@ -1274,6 +1284,7 @@ async def batch_adjust_credits(
             db.add(transaction)
             updated_count += 1
             updated_ids.append(user.id)
+            total_delta += actual_delta
 
         _record_admin_audit(
             db=db,
@@ -1290,7 +1301,7 @@ async def batch_adjust_credits(
                 "skipped_count": len(skipped_ids),
                 "skipped_ids": skipped_ids,
                 "amount": data.amount,
-                "total_delta": data.amount * updated_count,
+                "total_delta": total_delta,
             },
         )
 
@@ -1454,6 +1465,7 @@ async def add_email_whitelist(
     db.add(whitelist)
     await db.commit()
     await db.refresh(whitelist)
+    await delete_cache(EMAIL_WHITELIST_CACHE_KEY)
     
     return EmailWhitelistResponse.model_validate(whitelist)
 
@@ -1478,6 +1490,7 @@ async def toggle_email_whitelist(
     
     whitelist.is_active = not whitelist.is_active
     await db.commit()
+    await delete_cache(EMAIL_WHITELIST_CACHE_KEY)
     
     return {"message": "状态已切换", "is_active": whitelist.is_active}
 
@@ -1502,6 +1515,9 @@ async def delete_email_whitelist(
     
     await db.delete(whitelist)
     await db.commit()
+    await delete_cache(EMAIL_WHITELIST_CACHE_KEY)
+
+    return {"message": "白名单已删除"}
 
     return {"message": "删除成功"}
 

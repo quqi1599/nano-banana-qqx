@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     admin_notification_emails: str = ""
     admin_init_token: str = ""
     admin_action_confirm_ttl_seconds: int = 300
+
+    # Auth security
+    password_min_length: int = 8
+    require_email_whitelist: bool = False
+    email_whitelist_cache_ttl_seconds: int = 300
+
+    # API key user creation control
+    api_key_user_creation_enabled: bool = False
+    api_key_user_creation_limit_per_ip: int = 50
+    api_key_user_creation_limit_window_seconds: int = 86400
+    api_key_user_min_length: int = 20
     
     # Email
     aliyun_smtp_host: str = "smtpdm.aliyun.com"
@@ -111,9 +122,7 @@ class Settings(BaseSettings):
                 problems.append("TOKEN_ENCRYPTION_KEY 格式无效")
 
         if problems:
-            # TODO: Re-enable strict validation after fixing .env loading in Docker
-            logger.warning(f"生产环境配置警告: {'; '.join(problems)}")
-            # raise RuntimeError("生产环境配置不安全: " + "; ".join(problems))
+            raise RuntimeError("生产环境配置不安全: " + "; ".join(problems))
     
     class Config:
         env_file = ".env"

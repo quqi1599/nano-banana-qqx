@@ -1,7 +1,7 @@
 """
 用户相关 Schemas
 """
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 from typing import Optional
 
@@ -10,7 +10,19 @@ class UserRegister(BaseModel):
     """用户注册请求"""
     email: EmailStr
     password: str
-    nickname: Optional[str] = None
+    nickname: Optional[str] = Field(default=None, max_length=32)
+
+    @field_validator("nickname")
+    @classmethod
+    def validate_nickname(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if "<" in cleaned or ">" in cleaned:
+            raise ValueError("昵称包含非法字符")
+        return cleaned
 
 
 class UserLogin(BaseModel):
@@ -42,4 +54,16 @@ class TokenResponse(BaseModel):
 
 class UserUpdate(BaseModel):
     """更新用户信息"""
-    nickname: Optional[str] = None
+    nickname: Optional[str] = Field(default=None, max_length=32)
+
+    @field_validator("nickname")
+    @classmethod
+    def validate_nickname(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if "<" in cleaned or ">" in cleaned:
+            raise ValueError("昵称包含非法字符")
+        return cleaned

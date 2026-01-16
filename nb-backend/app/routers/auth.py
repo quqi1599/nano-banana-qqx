@@ -3,12 +3,14 @@
 """
 from datetime import datetime, timedelta
 import time
+import re
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from pydantic import BaseModel, EmailStr
 import redis.asyncio as redis
+from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.models.user import User
@@ -24,6 +26,8 @@ from app.utils.security import (
 from app.config import get_settings
 from app.utils.captcha import verify_captcha_ticket, hash_captcha_ticket
 from app.utils.rate_limiter import RateLimiter
+from app.utils.cache import get_cached_json, set_cached_json
+from app.utils.redis_client import redis_client
 from app.services.email_service import generate_code, send_verification_code
 
 router = APIRouter()
@@ -35,19 +39,17 @@ send_code_limiter = RateLimiter(times=5, seconds=60)
 
 # Redis 连接
 async def get_redis():
-    r = redis.from_url(settings.redis_url, decode_responses=True)
-    try:
-        yield r
-    finally:
-        await r.aclose()
+    yield redis_client
 
 
 # 安全限制常量
 IP_REGISTER_LIMIT = 8  # 每 IP 24小时最多注册次数
+EMAIL_REGISTER_LIMIT = 5  # 每邮箱 24小时最多注册次数
 RESET_PASSWORD_EMAIL_LIMIT = 10  # 每邮箱 24小时最多重置密码次数
 LOGIN_FAIL_LIMIT = 20  # 登录失败锁定次数
 LIMIT_EXPIRE_SECONDS = 86400  # 24小时
 CAPTCHA_TICKET_USED_PREFIX = "captcha:ticket:used:"
+EMAIL_WHITELIST_CACHE_KEY = "email_whitelist:active:v1"
 
 
 class SendCodeRequest(BaseModel):
@@ -105,6 +107,76 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+def validate_password_strength(password: str) -> None:
+    if len(password) < settings.password_min_length:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"密码长度至少 {settings.password_min_length} 位",
+        )
+
+    if not re.search(r"[a-z]", password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码需包含小写字母",
+        )
+
+    if not re.search(r"[A-Z]", password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码需包含大写字母",
+        )
+
+    if not re.search(r"\d", password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码需包含数字",
+        )
+
+    if re.search(r"\s", password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码不能包含空格",
+        )
+
+
+async def get_active_email_whitelist(db: AsyncSession) -> List[str]:
+    cached = await get_cached_json(EMAIL_WHITELIST_CACHE_KEY)
+    if isinstance(cached, list):
+        return [str(item).lower() for item in cached]
+
+    from app.models.email_whitelist import EmailWhitelist
+
+    whitelist_result = await db.execute(
+        select(EmailWhitelist.suffix).where(EmailWhitelist.is_active == True)
+    )
+    suffixes = [row[0].lower() for row in whitelist_result.all()]
+    await set_cached_json(
+        EMAIL_WHITELIST_CACHE_KEY,
+        suffixes,
+        settings.email_whitelist_cache_ttl_seconds,
+    )
+    return suffixes
+
+
+def enforce_email_whitelist(email: str, whitelist: List[str]) -> None:
+    if not whitelist:
+        if settings.require_email_whitelist or settings.is_production():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="系统未配置邮箱白名单，请联系管理员",
+            )
+        return
+
+    email_lower = email.lower()
+    allowed = any(email_lower.endswith(suffix) for suffix in whitelist)
+    if not allowed:
+        allowed_suffixes = ", ".join(whitelist[:5])
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"该邮箱不在允许范围内，仅支持: {allowed_suffixes}",
+        )
+
+
 @router.post("/send-code", dependencies=[Depends(send_code_limiter)])
 async def send_code(
     data: SendCodeRequest,
@@ -114,7 +186,6 @@ async def send_code(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """发送邮箱验证码"""
-    from app.models.email_whitelist import EmailWhitelist
 
     if data.purpose not in {"register", "reset"}:
         raise HTTPException(
@@ -137,21 +208,10 @@ async def send_code(
                 detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
             )
     
-    # 检查邮箱后缀白名单
-    whitelist_result = await db.execute(
-        select(EmailWhitelist).where(EmailWhitelist.is_active == True)
-    )
-    whitelist = whitelist_result.scalars().all()
-    
-    if whitelist:
-        email_lower = data.email.lower()
-        allowed = any(email_lower.endswith(w.suffix) for w in whitelist)
-        if not allowed:
-            allowed_suffixes = ", ".join(w.suffix for w in whitelist[:5])
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"该邮箱不在允许范围内，仅支持: {allowed_suffixes}",
-            )
+    # 检查邮箱后缀白名单（仅注册）
+    if data.purpose == "register":
+        whitelist = await get_active_email_whitelist(db)
+        enforce_email_whitelist(data.email, whitelist)
     
     # 注册时检查邮箱是否已存在
     if data.purpose == "register":
@@ -165,10 +225,16 @@ async def send_code(
     # 重置密码时检查邮箱是否存在
     if data.purpose == "reset":
         result = await db.execute(select(User).where(User.email == data.email))
-        if not result.scalar_one_or_none():
+        user = result.scalar_one_or_none()
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="该邮箱未注册",
+            )
+        if user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="管理员账号不支持邮件重置，请联系系统管理员",
             )
 
         # 检查该邮箱 24 小时内重置密码次数
@@ -225,15 +291,23 @@ async def register(
             detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
         )
 
+    email_key = f"register_email:{data.email}"
+    email_count = await redis_client.get(email_key)
+    if email_count and int(email_count) >= EMAIL_REGISTER_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"该邮箱今日注册次数已达上限 ({EMAIL_REGISTER_LIMIT} 次)，请 24 小时后重试",
+        )
+
     # 验证滑块验证码
     await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
 
-    # 验证密码长度
-    if len(data.password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码长度至少6位",
-        )
+    # 验证密码强度
+    validate_password_strength(data.password)
+
+    # 检查邮箱白名单
+    whitelist = await get_active_email_whitelist(db)
+    enforce_email_whitelist(data.email, whitelist)
 
     # 检查邮箱是否已存在
     result = await db.execute(select(User).where(User.email == data.email))
@@ -274,13 +348,25 @@ async def register(
         nickname=data.nickname or data.email.split("@")[0],
         credit_balance=0,
     )
-    db.add(user)
-    await db.commit()
+    try:
+        async with db.begin():
+            email_code.is_used = True
+            db.add(user)
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该邮箱已被注册",
+        )
     await db.refresh(user)
     
     # 增加 IP 注册计数
     await redis_client.incr(ip_key)
     await redis_client.expire(ip_key, LIMIT_EXPIRE_SECONDS)
+
+    # 增加邮箱注册计数
+    await redis_client.incr(email_key)
+    await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
     
     # 生成 Token
     access_token = create_access_token(data={"sub": user.id})
@@ -316,25 +402,28 @@ async def login(
     
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
-    
-    if not user or not verify_password(data.password, user.password_hash):
-        # 增加失败计数
-        await redis_client.incr(email_key)
-        await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
-        
-        current_fails = await redis_client.get(email_key)
-        remaining = LOGIN_FAIL_LIMIT - int(current_fails) if current_fails else LOGIN_FAIL_LIMIT - 1
-        
+
+    def _raise_login_fail(new_count: int) -> None:
+        remaining = LOGIN_FAIL_LIMIT - new_count
         if remaining <= 0:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="登录失败次数过多，账户已被临时锁定，请 24 小时后重试",
             )
-        
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"邮箱或密码错误，还剩 {remaining} 次尝试机会",
         )
+
+    if not user:
+        new_count = await redis_client.incr(email_key)
+        await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
+        _raise_login_fail(int(new_count))
+
+    if not verify_password(data.password, user.password_hash):
+        new_count = await redis_client.incr(email_key)
+        await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
+        _raise_login_fail(int(new_count))
     
     if not user.is_active:
         raise HTTPException(
@@ -375,12 +464,8 @@ async def reset_password(
     # 验证滑块验证码
     await consume_captcha_ticket(data.captcha_ticket, "reset", redis_client)
 
-    # 验证密码长度
-    if len(data.new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="新密码长度至少6位",
-        )
+    # 验证密码强度
+    validate_password_strength(data.new_password)
 
     # 验证验证码
     now = datetime.utcnow()
@@ -413,13 +498,16 @@ async def reset_password(
             detail="用户不存在",
         )
     
+    # 管理员账号需后台重置
+    if user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员账号请在后台重置密码",
+        )
+
     # 更新密码
     user.password_hash = get_password_hash(data.new_password)
     email_code.is_used = True
-    
-    # 清除登录失败计数
-    email_key = f"login_fail:{data.email}"
-    await redis_client.delete(email_key)
     
     await db.commit()
     
@@ -440,11 +528,7 @@ async def change_password(
             detail="当前密码错误",
         )
     
-    if len(data.new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="新密码长度至少 6 位",
-        )
+    validate_password_strength(data.new_password)
     
     # 更新密码
     current_user.password_hash = get_password_hash(data.new_password)
