@@ -152,7 +152,7 @@ export function VisitorsPanel() {
         <div className="space-y-4">
             {/* Toast */}
             {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white font-medium animate-in fade-in slide-in-from-right-4`}>
+                <div className={`fixed top-20 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white font-medium animate-in fade-in slide-in-from-right-4`}>
                     {toast.message}
                 </div>
             )}

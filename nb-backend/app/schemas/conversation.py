@@ -58,6 +58,7 @@ class ConversationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     custom_endpoint: Optional[str] = None
+    api_key_prefix: Optional[str] = None  # API Key 前缀，用于分组显示
 
     class Config:
         from_attributes = True
@@ -87,6 +88,8 @@ class AdminConversationResponse(ConversationResponse):
     user_type: UserType
     uses_custom_endpoint: bool = False
     custom_endpoint: Optional[str] = None
+    # Admin 可以看到完整的 API Key 前缀（用于排查问题）
+    api_key_prefix: Optional[str] = None
 
 
 class AdminConversationDetailResponse(AdminConversationResponse):

@@ -105,10 +105,18 @@ async def create_conversation(
     data: ConversationCreate,
     current_user: Optional[User] = Depends(get_current_user_optional),
     x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     x_custom_endpoint: Optional[str] = Header(None, alias="X-Custom-Endpoint"),
     db: AsyncSession = Depends(get_db),
 ):
-    """创建新对话"""
+    """
+    创建新对话
+
+    记录信息：
+    - 登录用户：user_id
+    - 未登录用户：visitor_id + api_key_prefix（用于分组）
+    - custom_endpoint：自定义接口地址
+    """
     if not current_user and not x_visitor_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -117,6 +125,20 @@ async def create_conversation(
 
     # 使用请求中的 custom_endpoint，如果没有则使用 data 中的
     custom_endpoint = x_custom_endpoint or data.custom_endpoint
+
+    # ===== 提取 API Key 前缀（用于未登录用户的分组显示，完整保存便于管理员调试）=====
+    api_key_prefix = None
+    if x_api_key and not current_user:
+        # 完整保存 API Key 前缀，用于分组和管理员后台查看
+        key_parts = x_api_key.split("_")
+        if len(key_parts) >= 3:
+            # 标准格式如 "sk-proj-xxx" 或 "sk-xxx"，取前两部分作为前缀
+            prefix = key_parts[0]  # 如 "sk"
+            second_part = key_parts[1] if len(key_parts) > 1 else ""  # 如 "proj" 或 "ant"
+            api_key_prefix = f"{prefix}-{second_part}"
+        elif len(x_api_key) >= 10:
+            # 如果不是标准格式，取前8个字符作为前缀
+            api_key_prefix = x_api_key[:8]
 
     # 更新或创建 Visitor 记录
     if x_visitor_id:
@@ -148,6 +170,7 @@ async def create_conversation(
         title=data.title,
         model_name=data.model_name,
         custom_endpoint=custom_endpoint,
+        api_key_prefix=api_key_prefix,  # 记录 API Key 前缀用于分组
     )
     db.add(conversation)
     await db.commit()

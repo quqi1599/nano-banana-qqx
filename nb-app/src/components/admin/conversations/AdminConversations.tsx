@@ -3,7 +3,7 @@
  * Refactored into smaller components for better maintainability
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, X, MessageSquare, Loader2, Calendar, MessageCircle, Bot, Globe } from 'lucide-react';
+import { Search, Filter, X, MessageSquare, Loader2, Calendar, MessageCircle, Bot, Globe, List, CalendarDays, Trash2, User, Clock } from 'lucide-react';
 import { UserTypeBadge, getInputValue } from './utils/constants';
 import { Pagination } from '../common';
 import { useConversationFilters } from './hooks/useConversationFilters';
@@ -12,7 +12,7 @@ import { ConversationList } from './ConversationList';
 import { ConversationTimeline } from './ConversationTimeline';
 import { ConversationDetailModal } from './ConversationDetailModal';
 import { FiltersPanel } from './FiltersPanel';
-import { formatDate, formatFullDate } from '../../../../utils/formatters';
+import { formatDate, formatFullDate, formatTime } from '../../../../utils/formatters';
 import { ADMIN_CONFIG } from '../../../../constants/admin';
 
 type ViewMode = 'list' | 'timeline';
@@ -55,7 +55,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
         error,
         setError,
         loadConversations,
-        loadTimeline,
+        loadConversationDetail,
         handleDeleteConversation,
         stats,
         timeline,
@@ -63,38 +63,33 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
         timelineTotal,
     } = useConversationData(filters, searchQuery, userId, page, pageSize, viewMode);
 
+    // Local state for modal visibility (separate from the hook's selectedConversation)
+    const [showDetailModal, setShowDetailModal] = useState(false);
+
     // Load conversations when filters or viewMode changes
     useEffect(() => {
         if (viewMode === 'list') {
             loadConversations();
-        } else {
-            loadTimeline();
         }
-    }, [viewMode, loadConversations, loadTimeline, filters, searchQuery, userId, page, pageSize]);
-
-    const handleViewDetail = useCallback((id: string) => {
-        const loadConversationDetail = async () => {
-            const { adminGetConversation } = await import('../../../../services/conversationService');
-            setLoadingDetail(true);
-            try {
-                const data = await adminGetConversation(id);
-                setSelectedConversation(data);
-            } catch (err) {
-                setError((err as Error).message);
-            } finally {
-                setLoadingDetail(false);
-            }
-        };
-        loadConversationDetail();
-    }, [loadConversationDetail]);
+        // Timeline is loaded automatically by the hook when userId changes
+    }, [viewMode, loadConversations, filters, searchQuery, userId, page, pageSize]);
 
     const reloadCurrentView = useCallback(() => {
         if (viewMode === 'list') {
             loadConversations();
-        } else {
-            loadTimeline();
         }
-    }, [viewMode, loadConversations, loadTimeline]);
+    }, [viewMode, loadConversations]);
+
+    // Handle viewing conversation detail
+    const handleViewDetail = useCallback((id: string) => {
+        loadConversationDetail(id);
+        setShowDetailModal(true);
+    }, [loadConversationDetail]);
+
+    // Handle closing modal
+    const handleCloseModal = useCallback(() => {
+        setShowDetailModal(false);
+    }, []);
 
     return (
         <div className="space-y-4">
@@ -210,11 +205,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                 {/* 筛选按钮 */}
                 <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition ${
-                        showFilters || hasActiveFilters
-                            ? 'bg-brand-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                    }`}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition ${showFilters || hasActiveFilters ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
                 >
                     <Filter className="w-4 h-4" />
                     <span>筛选</span>
@@ -226,22 +217,14 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                     <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                                viewMode === 'list'
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400'
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
                         >
                             <List className="w-4 h-4 inline mr-1" />
                             列表
                         </button>
                         <button
                             onClick={() => setViewMode('timeline')}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                                viewMode === 'timeline'
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400'
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode === 'timeline' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}
                         >
                             <CalendarDays className="w-4 h-4 inline mr-1" />
                             时间线
@@ -281,10 +264,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                     <div
                                         key={c.id}
                                         className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition cursor-pointer"
-                                        onClick={() => {
-                                            const { adminGetConversation } = import('../../../../services/conversationService');
-                                            adminGetConversation(c.id).then(data => setSelectedConversation(data));
-                                        }}
+                                        onClick={() => handleViewDetail(c.id)}
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1 min-w-0">
@@ -305,7 +285,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
                                                     <span className="flex items-center gap-1">
                                                         <User className="w-3 h-3" />
                                                         {c.user_email?.split('@')[0]}
@@ -316,7 +296,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                                         </span>
                                                     )}
                                                     <span className="flex items-center gap-1">
-                                                        <span className="w-3 h-3" />
+                                                        <MessageSquare className="w-3 h-3" />
                                                         {c.message_count} 条消息
                                                     </span>
                                                     <span className="flex items-center gap-1">
@@ -384,14 +364,11 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                                 <div
                                                     key={conv.id}
                                                     className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
-                                                    onClick={() => {
-                                                        const { adminGetConversation } = import('../../../../services/conversationService');
-                                                        adminGetConversation(conv.id).then(data => setSelectedConversation(data));
-                                                    }}
+                                                    onClick={() => handleViewDetail(conv.id)}
                                                 >
-                                                    <div className="flex items-center justify-between">
+                                                    <div className="flex items-center justify-between gap-3">
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="flex flex-wrap items-center gap-2">
+                                                            <div className="flex flex-wrap items-center gap-2 mb-1">
                                                                 <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
                                                                     {conv.title || '新对话'}
                                                                 </span>
@@ -407,9 +384,15 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                                                                <span>{conv.message_count} 条消息</span>
-                                                                <span>{formatTime(conv.created_at)}</span>
+                                                            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                                                                <span className="flex items-center gap-1">
+                                                                    <MessageSquare className="w-3 h-3" />
+                                                                    {conv.message_count} 条消息
+                                                                </span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    {formatTime(conv.created_at)}
+                                                                </span>
                                                                 {conv.user_type === 'visitor' && conv.visitor_id && (
                                                                     <span className="text-[11px] text-gray-500">
                                                                         访客 ID: {conv.visitor_id.slice(0, 8)}...
@@ -419,7 +402,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                                         </div>
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conv.id); }}
-                                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded transition"
+                                                            className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 rounded transition flex-shrink-0"
                                                         >
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         </button>
@@ -445,11 +428,11 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
             </div>
 
             {/* 对话详情弹窗 */}
-            {selectedConversation && (
+            {showDetailModal && selectedConversation && (
                 <ConversationDetailModal
                     conversation={selectedConversation}
                     loading={loadingDetail}
-                    onClose={() => setSelectedConversation(null)}
+                    onClose={handleCloseModal}
                 />
             )}
         </div>

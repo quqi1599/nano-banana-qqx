@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import secrets
 import time
-import random
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter
@@ -24,9 +23,9 @@ ALLOWED_PURPOSES = {"register", "login", "reset"}
 
 TRACK_WIDTH = 320
 HANDLE_WIDTH = 44
-TOLERANCE_PX = 4.0
-MIN_TARGET_X = 20  # 最小目标位置（距离左边）
-MAX_TARGET_X = TRACK_WIDTH - HANDLE_WIDTH - 20  # 最大目标位置（距离右边）
+TOLERANCE_PX = 20.0  # 增加容差
+# 目标位置固定在右侧 90% 处，用户只需拖到最右边即可
+TARGET_RATIO = 0.90
 
 
 class VerifyReq(BaseModel):
@@ -58,8 +57,8 @@ async def slider_challenge() -> Dict[str, Any]:
     expires_at = now + settings.captcha_challenge_ttl_seconds
     max_x = float(TRACK_WIDTH - HANDLE_WIDTH)
 
-    # 生成随机目标位置，使验证码不可预测
-    target_x = round(random.uniform(MIN_TARGET_X, MAX_TARGET_X), 2)
+    # 目标位置固定在右侧 90% 处，用户只需拖到最右边即可
+    target_x = round(max_x * TARGET_RATIO, 2)
 
     challenge_data = {
         "target_x": target_x,

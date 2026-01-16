@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
-import { getTokens, addToken, type TokenInfo } from '../../../../services/adminService';
+import { Plus, RefreshCw } from 'lucide-react';
+import { getTokens, addToken, refreshAllTokensQuota, type TokenInfo } from '../../../../services/adminService';
 import { getBackendUrl } from '../../../../utils/backendUrl';
 import { TokenSummaryCard } from './TokenSummaryCard';
 import { useTokenSorting } from './hooks/useTokenSorting';
@@ -41,6 +41,10 @@ export const AdminTokens = () => {
     // Token drawer state
     const [isTokenDrawerOpen, setIsTokenDrawerOpen] = useState(false);
     const [addingToken, setAddingToken] = useState(false);
+
+    // ===== 一键刷新所有 Token 额度 =====
+    const [refreshingAll, setRefreshingAll] = useState(false);
+    const [refreshSuccessMessage, setRefreshSuccessMessage] = useState<string | null>(null);
 
     // Initialize base URL drafts when tokens change
     useEffect(() => {
@@ -142,6 +146,49 @@ export const AdminTokens = () => {
         );
     };
 
+    // ===== 一键刷新所有 Token 额度 =====
+    /**
+     * 并发刷新所有启用 Token 的额度
+     * 刷新完成后重新加载 Token 列表，并显示结果提示
+     */
+    const handleRefreshAllQuota = async () => {
+        if (refreshingAll) return;
+
+        const activeTokenCount = tokens.filter(t => t.is_active).length;
+        if (activeTokenCount === 0) {
+            setError('没有启用的 Token 可刷新');
+            return;
+        }
+
+        setRefreshingAll(true);
+        setError('');
+        setRefreshSuccessMessage(null);
+
+        try {
+            const result = await refreshAllTokensQuota();
+
+            // 重新加载 Token 列表以获取最新额度
+            const updated = await getTokens();
+            setTokens(updated);
+
+            // 显示结果消息
+            if (result.failure_count === 0) {
+                setRefreshSuccessMessage(`全部刷新成功！共 ${result.success_count} 个 Token`);
+            } else if (result.success_count === 0) {
+                setError(`全部刷新失败，共 ${result.failure_count} 个 Token`);
+            } else {
+                setRefreshSuccessMessage(`刷新完成：成功 ${result.success_count} 个，失败 ${result.failure_count} 个`);
+            }
+
+            // 3 秒后清除成功消息
+            setTimeout(() => setRefreshSuccessMessage(null), 3000);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setRefreshingAll(false);
+        }
+    };
+
     // Calculate summary
     const tokenSummary = {
         total: tokens.length,
@@ -167,6 +214,12 @@ export const AdminTokens = () => {
                     {error}
                 </div>
             )}
+            {refreshSuccessMessage && (
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/30 text-green-600 dark:text-green-400 rounded-2xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-right-4">
+                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-green-500"></span>
+                    {refreshSuccessMessage}
+                </div>
+            )}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -175,13 +228,25 @@ export const AdminTokens = () => {
                         管理 API 密钥、额度与权限
                     </p>
                 </div>
-                <button
-                    onClick={() => setIsTokenDrawerOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cream-600 text-white text-sm font-semibold hover:bg-cream-700 transition shadow-lg shadow-cream-500/20"
-                >
-                    <Plus className="w-4 h-4" />
-                    新建 Token
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* 一键刷新所有 Token 额度按钮 */}
+                    <button
+                        onClick={handleRefreshAllQuota}
+                        disabled={refreshingAll || tokens.filter(t => t.is_active).length === 0}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="并发刷新所有启用 Token 的额度"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
+                        {refreshingAll ? '刷新中...' : '一键刷新'}
+                    </button>
+                    <button
+                        onClick={() => setIsTokenDrawerOpen(true)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cream-600 text-white text-sm font-semibold hover:bg-cream-700 transition shadow-lg shadow-cream-500/20"
+                    >
+                        <Plus className="w-4 h-4" />
+                        新建 Token
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

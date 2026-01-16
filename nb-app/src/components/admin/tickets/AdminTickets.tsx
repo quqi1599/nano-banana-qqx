@@ -72,10 +72,10 @@ export const AdminTickets = () => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm animate-fade-in-up">
-            <ErrorAlert message={error} onDismiss={() => setError('')} className="fixed top-4 right-4 z-50 shadow-xl" />
+        <div className="flex flex-col lg:flex-row bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm animate-fade-in-up">
+            <ErrorAlert message={error} onDismiss={() => setError('')} className="mb-4" />
 
-            <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} lg:w-80 w-full border-r border-gray-100 dark:border-gray-800 flex-col`}>
+            <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} lg:w-80 w-full border-r border-gray-100 dark:border-gray-800 flex-col min-h-[500px]`}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <h3 className="font-bold text-gray-900 dark:text-white">工单支持</h3>
                     <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 text-xs">
@@ -103,8 +103,10 @@ export const AdminTickets = () => {
                             className={`p-4 border-b border-gray-50 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${selectedTicket?.id === t.id ? 'bg-cream-50 dark:bg-cream-900/10 border-l-4 border-l-cream-500' : ''}`}
                         >
                             <div className="flex justify-between mb-1">
-                                <h4 className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">{t.title}</h4>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${t.status === 'open' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
+                                <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate flex-1">{t.title}</h4>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${t.status === 'open' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                                    {t.status}
+                                </span>
                             </div>
                             <div className="text-xs text-gray-400">{formatDate(t.created_at)}</div>
                         </div>
@@ -123,7 +125,7 @@ export const AdminTickets = () => {
                                 {selectedTicket.status === 'open' && (
                                     <button
                                         onClick={() => handleUpdateTicketStatus('closed')}
-                                        className="hidden sm:block text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                                        className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition"
                                     >
                                         关闭工单
                                     </button>
@@ -152,16 +154,19 @@ export const AdminTickets = () => {
                             <button
                                 onClick={handleAdminReply}
                                 disabled={!adminReplyContent.trim() || replying}
-                                className="p-2 bg-cream-600 text-white rounded-xl hover:bg-cream-700 disabled:opacity-50"
+                                className="px-4 py-2 bg-cream-600 text-white rounded-xl hover:bg-cream-700 disabled:opacity-50"
                             >
                                 {replying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send size={20} />}
+                                {replying ? '发送中' : '发送'}
                             </button>
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-400 flex-col gap-2">
-                        <MessageSquare className="w-12 h-12 opacity-20" />
-                        <p>选择工单查看详情</p>
+                    <div className="flex-1 flex items-center justify-center text-gray-400">
+                        <div className="flex flex-col items-center gap-3">
+                            <MessageSquare className="w-12 h-12 opacity-20" />
+                            <p>选择工单查看详情</p>
+                        </div>
                     </div>
                 )}
             </div>

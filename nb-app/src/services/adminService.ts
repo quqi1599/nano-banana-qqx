@@ -82,6 +82,33 @@ export const checkTokenQuota = async (id: string, baseUrl?: string): Promise<Tok
     return request(`/tokens/${id}/check-quota${query ? `?${query}` : ''}`, { method: 'POST' });
 };
 
+// ============================================================================
+// 批量刷新 Token 额度
+// ============================================================================
+export interface TokenRefreshResult {
+    token_id: string;
+    token_name: string;
+    success: boolean;
+    remaining_quota?: number;
+    error?: string;
+}
+
+export interface RefreshAllTokensResult {
+    success_count: number;
+    failure_count: number;
+    total_count: number;
+    results: TokenRefreshResult[];
+    message: string;
+}
+
+/**
+ * 一键刷新所有启用 Token 的额度
+ * 并发查询所有 Token 的余额，返回详细结果
+ */
+export const refreshAllTokensQuota = async (): Promise<RefreshAllTokensResult> => {
+    return request('/tokens/refresh-all-quota', { method: 'POST' });
+};
+
 // ========== 模型计费 ==========
 
 export const getModelPricing = async (): Promise<ModelPricingInfo[]> => {

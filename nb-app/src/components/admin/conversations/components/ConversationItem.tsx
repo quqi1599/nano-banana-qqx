@@ -33,7 +33,14 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
                             </span>
                         )}
                         {conversation.uses_custom_endpoint && (
-                            <span className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded" title={conversation.custom_endpoint}>
+                            <span
+                                className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded cursor-help hover:underline"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(conversation.custom_endpoint || '');
+                                }}
+                                title={conversation.custom_endpoint}
+                            >
                                 <Globe className="w-3 h-3" />
                                 自定义接口
                             </span>
@@ -47,6 +54,20 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
                         {conversation.user_type === 'visitor' && conversation.visitor_id && (
                             <span className="text-xs text-gray-400">
                                 访客 ID: {conversation.visitor_id.slice(0, 8)}...
+                            </span>
+                        )}
+                        {/* API Key 前缀显示（仅未登录用户且有前缀时） */}
+                        {conversation.user_type === 'visitor' && conversation.api_key_prefix && (
+                            <span
+                                className="flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(conversation.api_key_prefix || '');
+                                }}
+                                title="点击复制 API Key 前缀"
+                            >
+                                <Key className="w-3 h-3" />
+                                {conversation.api_key_prefix}
                             </span>
                         )}
                         <span className="flex items-center gap-1">

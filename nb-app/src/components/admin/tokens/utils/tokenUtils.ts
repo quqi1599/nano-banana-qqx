@@ -48,22 +48,25 @@ export const getTokenStatus = (token: TokenInfo) => {
             label: '停用',
             dot: 'bg-gray-400',
             text: 'text-gray-500 dark:text-gray-400',
+            bg: 'bg-gray-100 dark:bg-gray-800',
             detail: '已停用',
         };
     }
     if (isCooling(token)) {
         return {
             label: '冷却中',
-            dot: 'bg-brand-500',
-            text: 'text-brand-600 dark:text-brand-400',
+            dot: 'bg-amber-500',
+            text: 'text-amber-600 dark:text-amber-400',
+            bg: 'bg-amber-100 dark:bg-amber-900/30',
             detail: `冷却至 ${formatDateTime(token.cooldown_until)}`,
         };
     }
     const failureNote = token.failure_count ? `失败 ${token.failure_count}` : '正常';
     return {
         label: '可用',
-        dot: 'bg-green-500',
-        text: 'text-green-600 dark:text-green-400',
+        dot: 'bg-emerald-500',
+        text: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'bg-emerald-100 dark:bg-emerald-900/30',
         detail: failureNote,
     };
 };

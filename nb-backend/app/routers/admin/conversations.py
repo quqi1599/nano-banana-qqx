@@ -128,7 +128,7 @@ def _build_admin_conversation_response(
         user_tags: 用户标签
 
     Returns:
-        管理员对话响应
+        管理员对话响应（包含 api_key_prefix 用于分组显示）
     """
     conv_dict = AdminConversationResponse.model_validate(conversation).model_dump()
     conv_dict["user_email"] = user_email or (
@@ -139,6 +139,10 @@ def _build_admin_conversation_response(
     conv_dict["uses_custom_endpoint"] = bool(
         conversation.custom_endpoint and conversation.custom_endpoint != DEFAULT_API_ENDPOINT
     )
+    # Admin 可以看到 api_key_prefix，用于分组和排查
+    # 如果是登录用户，这个字段为 None
+    # 如果是未登录用户，会记录脱敏的 API Key 前缀
+    conv_dict["api_key_prefix"] = conversation.api_key_prefix
     return AdminConversationResponse(**conv_dict)
 
 

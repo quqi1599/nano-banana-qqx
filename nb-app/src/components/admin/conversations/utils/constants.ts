@@ -18,9 +18,7 @@ export const USER_TYPE_META: Record<AdminUserType, { label: string; badge: strin
 };
 
 export const UserTypeBadge: React.FC<{ type: AdminUserType }> = ({ type }) => (
-    <span
-        className={`text-[10px] font-semibold rounded-full px-2.5 py-0.5 uppercase tracking-wide ${USER_TYPE_META[type].badge}`}
-    >
+    <span className={`text-[10px] font-semibold rounded-full px-2.5 py-0.5 uppercase tracking-wide ${USER_TYPE_META[type]?.badge || ''}`}>
         {USER_TYPE_META[type]?.label || type}
     </span>
 );

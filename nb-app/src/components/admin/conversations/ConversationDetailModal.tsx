@@ -86,12 +86,24 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                                     访客 ID: {conversation.visitor_id.slice(0, 8)}...
                                 </span>
                             )}
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900/5 dark:bg-white/5 text-[11px] text-gray-500 dark:text-gray-300">
-                                <Globe className="w-3 h-3" />
+                            {/* API Key 前缀显示（仅未登录用户且有前缀时） */}
+                            {conversation.user_type === 'visitor' && conversation.api_key_prefix && (
                                 <span
-                                    className="max-w-[220px] truncate"
-                                    title={conversation.custom_endpoint || DEFAULT_API_ENDPOINT}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[11px] text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
+                                    onClick={() => navigator.clipboard.writeText(conversation.api_key_prefix || '')}
+                                    title="点击复制 API Key 前缀"
                                 >
+                                    <Key className="w-3 h-3" />
+                                    {conversation.api_key_prefix}
+                                </span>
+                            )}
+                            <span
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900/5 dark:bg-white/5 text-[11px] text-gray-500 dark:text-gray-300 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                                onClick={() => navigator.clipboard.writeText(conversation.custom_endpoint || DEFAULT_API_ENDPOINT)}
+                                title="点击复制完整 URL"
+                            >
+                                <Globe className="w-3 h-3" />
+                                <span className="break-all">
                                     {conversation.custom_endpoint || DEFAULT_API_ENDPOINT}
                                 </span>
                             </span>

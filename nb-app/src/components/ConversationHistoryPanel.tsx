@@ -1,6 +1,11 @@
 /**
  * 对话历史侧边栏组件
  * 支持收缩折叠、时间线、移动端优化
+ *
+ * 分组逻辑：
+ * - 登录用户：直接显示所有对话（不分组）
+ * - 未登录 + 默认URL：归入"淘宝用户"组
+ * - 未登录 + 自定义URL/API：按 api_key_prefix 分组
  */
 import { useEffect, useState, useMemo } from 'react';
 import { MessageSquare, Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -8,6 +13,9 @@ import { useAppStore } from '../store/useAppStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { Conversation } from '../services/conversationService';
 import { Pagination } from './Pagination';
+
+// 默认中转接口地址
+const DEFAULT_API_ENDPOINT = 'https://nanobanana2.peacedejiai.cc/';
 
 interface ConversationHistoryPanelProps {
     isOpen: boolean;
@@ -18,7 +26,14 @@ interface ConversationHistoryPanelProps {
     onNewConversation: () => void;
 }
 
-// 按日期分组对话
+// ===== 对话分组接口 =====
+interface ConversationGroup {
+    key: string;           // 分组唯一标识
+    label: string;         // 分组显示名称
+    conversations: Conversation[];
+}
+
+// 按日期分组对话（用于时间线显示）
 function groupConversationsByDate(conversations: Conversation[]) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -53,6 +68,66 @@ function groupConversationsByDate(conversations: Conversation[]) {
     });
 
     return groups;
+}
+
+// ===== 按用户类型/API Key 分组对话 =====
+/**
+ * 登录用户：不分组，返回一个包含所有对话的组
+ * 未登录用户：按 api_key_prefix + custom_endpoint 分组
+ */
+function groupConversationsByUser(
+    conversations: Conversation[],
+    isAuthenticated: boolean
+): ConversationGroup[] {
+    if (isAuthenticated) {
+        // 登录用户：不分组，所有对话放在一个组里
+        return [{
+            key: 'my_conversations',
+            label: '我的对话',
+            conversations: conversations
+        }];
+    }
+
+    // 未登录用户：按 API Key 和 URL 分组
+    const groupsMap = new Map<string, Conversation[]>();
+
+    conversations.forEach(conv => {
+        const isDefaultUrl = !conv.custom_endpoint || conv.custom_endpoint === DEFAULT_API_ENDPOINT;
+        const apiKeyPrefix = conv.api_key_prefix;
+
+        let groupKey: string;
+        let groupLabel: string;
+
+        if (isDefaultUrl && !apiKeyPrefix) {
+            // 淘宝用户（使用默认URL，没有自定义API Key前缀）
+            groupKey = 'taobao_users';
+            groupLabel = '🛒 淘宝用户';
+        } else if (isDefaultUrl && apiKeyPrefix) {
+            // 有自定义API Key 但使用默认URL，显示完整前缀
+            groupKey = `api_${apiKeyPrefix}_default_url`;
+            groupLabel = `🔑 ${apiKeyPrefix}`;
+        } else if (!isDefaultUrl && apiKeyPrefix) {
+            // 自定义URL + 自定义API Key，显示完整前缀
+            groupKey = `api_${apiKeyPrefix}_custom_url`;
+            groupLabel = `🔑 ${apiKeyPrefix}`;
+        } else {
+            // 自定义URL但没有API Key前缀（边缘情况）
+            groupKey = `custom_${conv.custom_endpoint}`;
+            groupLabel = `🌐 自定义接口`;
+        }
+
+        if (!groupsMap.has(groupKey)) {
+            groupsMap.set(groupKey, []);
+        }
+        groupsMap.get(groupKey)!.push(conv);
+    });
+
+    // 转换为数组，按对话数量排序（多的在前）
+    return Array.from(groupsMap.entries()).map(([key, convs]) => ({
+        key,
+        label: groupsMap.get(key)?.[0] || key,
+        conversations: convs
+    })).sort((a, b) => b.conversations.length - a.conversations.length);
 }
 
 // 格式化时间
@@ -114,10 +189,19 @@ export const ConversationHistoryPanel = ({
         }
     }, [isOpen, canUseHistory, useLocalHistory, loadConversationList, conversationListPage, conversationListPageSize]);
 
-    const groupedConversations = useMemo(
-        () => groupConversationsByDate(sourceConversations),
-        [sourceConversations]
+    // ===== 按用户类型/API Key 分组，每个组内再按日期分组 =====
+    const userGroups = useMemo(
+        () => groupConversationsByUser(sourceConversations, isAuthenticated),
+        [sourceConversations, isAuthenticated]
     );
+
+    // 为每个用户组内部再按日期分组
+    const groupsWithDateSubgroups = useMemo(() => {
+        return userGroups.map(group => ({
+            ...group,
+            dateGroups: groupConversationsByDate(group.conversations)
+        }));
+    }, [userGroups]);
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -286,120 +370,138 @@ export const ConversationHistoryPanel = ({
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {(Object.entries(groupedConversations) as [string, Conversation[]][]).map(([period, convs]) =>
-                                convs.length > 0 ? (
-                                    <div key={period}>
-                                        {/* 时间线标题 */}
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">
-                                                {period}
+                            {/* 渲染用户/API 分组，每个组内再按日期分组 */}
+                            {groupsWithDateSubgroups.map((userGroup) => (
+                                <div key={userGroup.key} className="space-y-2">
+                                    {/* 用户组标题（仅未登录用户有多组时显示） */}
+                                    {!isAuthenticated && userGroups.length > 1 && (
+                                        <div className="flex items-center gap-2 py-1">
+                                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                                {userGroup.label}
                                             </span>
-                                            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                                            <span className="text-xs text-gray-400">
+                                                ({userGroup.conversations.length})
+                                            </span>
                                         </div>
+                                    )}
 
-                                        {/* 对话列表 */}
-                                        <div className="space-y-2">
-                                            {convs.map((conv) => (
-                                                <div
-                                                    key={conv.id}
-                                                    onClick={() => {
-                                                        if (useLocalHistory) {
-                                                            loadLocalConversation(conv.id);
-                                                        } else {
-                                                            onSelectConversation(conv.id);
-                                                        }
-                                                        if (window.innerWidth < 1024) onClose();
-                                                    }}
-                                                    className={`
-                                                        group p-3 rounded-xl cursor-pointer transition relative
-                                                        ${useLocalHistory
-                                                            ? localConversationId === conv.id
-                                                            : currentConversationId === conv.id
-                                                            ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
-                                                            : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
-                                                        }
-                                                    `}
-                                                >
-                                                    {/* 时间线圆点 */}
-                                                    <div className={`
-                                                        absolute left-0 top-4 w-2 h-2 rounded-full -translate-x-[1px]
-                                                        ${useLocalHistory
-                                                            ? localConversationId === conv.id
-                                                            : currentConversationId === conv.id
-                                                            ? 'bg-amber-500'
-                                                            : 'bg-gray-300 dark:bg-gray-600'
-                                                        }
-                                                    `} />
-
-                                                    {editingId === conv.id ? (
-                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                            <input
-                                                                type="text"
-                                                                value={editingTitle}
-                                                                onChange={(e) => setEditingTitle(e.target.value)}
-                                                                className="flex-1 px-2 py-1 text-sm border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                                                autoFocus
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        handleSaveEdit(conv.id, e as any);
-                                                                    } else if (e.key === 'Escape') {
-                                                                        handleCancelEdit(e as any);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <button
-                                                                onClick={(e) => handleSaveEdit(conv.id, e as any)}
-                                                                className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                                            >
-                                                                <Check className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={handleCancelEdit}
-                                                                className="p-1 text-gray-400 hover:bg-gray-100 rounded"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <div className="flex items-start justify-between gap-2">
-                                                                <div className="flex-1 min-w-0 pl-2">
-                                                                    <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                                                                        {conv.title || '未命名对话'}
-                                                                    </h3>
-                                                                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                                                                        <Clock className="w-3 h-3" />
-                                                                        <span>{formatTime(conv.updated_at)}</span>
-                                                                        <span>·</span>
-                                                                        <span>{conv.message_count} 条消息</span>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    <button
-                                                                        onClick={(e) => handleStartEdit(conv.id, conv.title, e)}
-                                                                        className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition"
-                                                                        title="重命名"
-                                                                    >
-                                                                        <Edit2 className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={(e) => handleDelete(conv.id, e)}
-                                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
-                                                                        title="删除"
-                                                                    >
-                                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
+                                    {/* 该用户组内的日期子分组 */}
+                                    {(Object.entries(userGroup.dateGroups) as [string, Conversation[]][]).map(([period, convs]) =>
+                                        convs.length > 0 ? (
+                                            <div key={`${userGroup.key}-${period}`}>
+                                                {/* 时间线标题 */}
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">
+                                                        {period}
+                                                    </span>
+                                                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null
-                            )}
+
+                                                {/* 对话列表 */}
+                                                <div className="space-y-2">
+                                                    {convs.map((conv) => (
+                                                        <div
+                                                            key={conv.id}
+                                                            onClick={() => {
+                                                                if (useLocalHistory) {
+                                                                    loadLocalConversation(conv.id);
+                                                                } else {
+                                                                    onSelectConversation(conv.id);
+                                                                }
+                                                                if (window.innerWidth < 1024) onClose();
+                                                            }}
+                                                            className={`
+                                                                group p-3 rounded-xl cursor-pointer transition relative
+                                                                ${useLocalHistory
+                                                                    ? localConversationId === conv.id
+                                                                    : currentConversationId === conv.id
+                                                                    ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                                                                    : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
+                                                                }
+                                                            `}
+                                                        >
+                                                            {/* 时间线圆点 */}
+                                                            <div className={`
+                                                                absolute left-0 top-4 w-2 h-2 rounded-full -translate-x-[1px]
+                                                                ${useLocalHistory
+                                                                    ? localConversationId === conv.id
+                                                                    : currentConversationId === conv.id
+                                                                    ? 'bg-amber-500'
+                                                                    : 'bg-gray-300 dark:bg-gray-600'
+                                                                }
+                                                            `} />
+
+                                                            {editingId === conv.id ? (
+                                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={editingTitle}
+                                                                        onChange={(e) => setEditingTitle(e.target.value)}
+                                                                        className="flex-1 px-2 py-1 text-sm border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                                        autoFocus
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') {
+                                                                                handleSaveEdit(conv.id, e as any);
+                                                                            } else if (e.key === 'Escape') {
+                                                                                handleCancelEdit(e as any);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <button
+                                                                        onClick={(e) => handleSaveEdit(conv.id, e as any)}
+                                                                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                                                    >
+                                                                        <Check className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={handleCancelEdit}
+                                                                        className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <div className="flex-1 min-w-0 pl-2">
+                                                                            <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                                                                                {conv.title || '未命名对话'}
+                                                                            </h3>
+                                                                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                                                                <Clock className="w-3 h-3" />
+                                                                                <span>{formatTime(conv.updated_at)}</span>
+                                                                                <span>·</span>
+                                                                                <span>{conv.message_count} 条消息</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                            <button
+                                                                                onClick={(e) => handleStartEdit(conv.id, conv.title, e)}
+                                                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition"
+                                                                                title="重命名"
+                                                                            >
+                                                                                <Edit2 className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={(e) => handleDelete(conv.id, e)}
+                                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                                                                                title="删除"
+                                                                            >
+                                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : null
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     )}
                     {!useLocalHistory && conversationListTotal > conversationListPageSize && (

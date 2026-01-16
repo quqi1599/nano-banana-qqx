@@ -98,6 +98,7 @@ export interface Conversation {
     created_at: string;
     updated_at: string;
     custom_endpoint: string | null;
+    api_key_prefix: string | null;  // API Key 前缀（未登录用户），用于分组显示
 }
 
 export interface ConversationDetail extends Conversation {

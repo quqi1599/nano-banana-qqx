@@ -4,8 +4,9 @@ Token 池管理路由
 import logging
 from datetime import datetime
 from typing import Optional
+import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -304,3 +305,137 @@ async def delete_token(
     logger.info("Admin %s deleted token %s", admin.email, token.id)
 
     return {"message": "删除成功"}
+
+
+# ============================================================================
+# 批量刷新 Token 额度
+# ============================================================================
+async def refresh_single_token_quota(
+    token: TokenPool,
+    db: AsyncSession,
+) -> dict:
+    """
+    刷新单个 Token 的额度
+
+    Args:
+        token: Token 对象
+        db: 数据库会话
+
+    Returns:
+        刷新结果字典
+    """
+    try:
+        plain_key = decrypt_api_key(token.api_key)
+        token_base_url = token.base_url.strip() if token.base_url else None
+        quota = await check_api_key_quota(
+            plain_key, token_base_url or settings.newapi_base_url
+        )
+        if quota is not None:
+            token.remaining_quota = quota
+            token.last_checked_at = datetime.utcnow()
+            await db.commit()
+            await db.refresh(token)
+            logger.info(f"Token {token.name} 额度刷新成功: {quota}")
+            return {
+                "token_id": token.id,
+                "token_name": token.name,
+                "success": True,
+                "remaining_quota": quota,
+            }
+        else:
+            return {
+                "token_id": token.id,
+                "token_name": token.name,
+                "success": False,
+                "error": "无法获取额度信息",
+            }
+    except Exception as e:
+        logger.error(f"Token {token.name} 额度刷新失败: {e}")
+        return {
+            "token_id": token.id,
+            "token_name": token.name,
+            "success": False,
+            "error": str(e),
+        }
+
+
+@router.post("/tokens/refresh-all-quota")
+async def refresh_all_tokens_quota(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    一键刷新所有 Token 的额度
+
+    并发查询所有启用状态的 Token 额度，并更新到数据库。
+
+    Returns:
+        刷新结果汇总，包含成功数量、失败数量和详细信息
+
+    响应示例:
+        {
+            "success_count": 5,
+            "failure_count": 1,
+            "total_count": 6,
+            "results": [...]
+        }
+    """
+    # 获取所有启用状态的 Token
+    result = await db.execute(
+        select(TokenPool).where(TokenPool.is_active == True).order_by(TokenPool.priority.desc())
+    )
+    tokens = result.scalars().all()
+
+    if not tokens:
+        return {
+            "success_count": 0,
+            "failure_count": 0,
+            "total_count": 0,
+            "results": [],
+            "message": "没有可刷新的 Token"
+        }
+
+    # 并发刷新所有 Token 额度（限制并发数为 5，避免过载）
+    semaphore = asyncio.Semaphore(5)
+
+    async def refresh_with_semaphore(token: TokenPool):
+        async with semaphore:
+            return await refresh_single_token_quota(token, db)
+
+    results = await asyncio.gather(
+        *[refresh_with_semaphore(token) for token in tokens],
+        return_exceptions=True
+    )
+
+    # 处理异常结果
+    processed_results = []
+    for r in results:
+        if isinstance(r, Exception):
+            processed_results.append({
+                "token_id": "unknown",
+                "token_name": "unknown",
+                "success": False,
+                "error": str(r)
+            })
+        else:
+            processed_results.append(r)
+
+    # 统计结果
+    success_count = sum(1 for r in processed_results if r.get("success"))
+    failure_count = len(processed_results) - success_count
+
+    # 清除缓存
+    await delete_cache(TOKEN_POOL_CACHE_KEY)
+
+    logger.info(
+        f"Admin {admin.email} 批量刷新 Token 额度完成: "
+        f"成功 {success_count}, 失败 {failure_count}, 总计 {len(tokens)}"
+    )
+
+    return {
+        "success_count": success_count,
+        "failure_count": failure_count,
+        "total_count": len(tokens),
+        "results": processed_results,
+        "message": f"刷新完成：成功 {success_count} 个，失败 {failure_count} 个"
+    }

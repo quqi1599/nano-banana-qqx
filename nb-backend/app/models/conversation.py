@@ -11,7 +11,14 @@ from app.utils.timezone import utc_now_naive
 
 
 class Conversation(Base):
-    """对话表"""
+    """
+    对话表
+
+    分组逻辑：
+    - 登录用户：按 user_id 分组
+    - 未登录 + 默认URL：归入"淘宝用户"组
+    - 未登录 + 自定义URL/API：按 api_key_prefix 分组
+    """
     __tablename__ = "conversations"
 
     id: Mapped[str] = mapped_column(
@@ -24,6 +31,8 @@ class Conversation(Base):
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     model_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     custom_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    # API Key 前缀（脱敏显示，如 sk-***abc），用于未登录用户的对话分组
+    api_key_prefix: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=utc_now_naive
