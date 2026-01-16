@@ -221,39 +221,6 @@ export const SettingsPanel: React.FC = () => {
           </section>
         )}
 
-        {/* Custom Endpoint - Only show for non-authenticated users */}
-        {!isAuthenticated && (
-          <section>
-            <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">中转接口地址</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customEndpointInput}
-                onChange={(e) => handleCustomEndpointChange(e.target.value)}
-                placeholder={DEFAULT_API_ENDPOINT}
-                className="flex-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-3 py-2 text-xs sm:text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-cream-500/50 focus:border-cream-500 transition"
-              />
-              <button
-                onClick={handleSaveCustomEndpoint}
-                disabled={(() => {
-                  const currentEndpoint = settings.customEndpoint || DEFAULT_API_ENDPOINT;
-                  const newEndpoint = customEndpointInput.trim() || DEFAULT_API_ENDPOINT;
-                  return newEndpoint === currentEndpoint;
-                })()}
-                className="px-3 py-2 rounded-lg bg-cream-500 hover:bg-cream-600 text-white text-xs sm:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
-              >
-                保存
-              </button>
-            </div>
-            <p className="mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
-              默认: {DEFAULT_API_ENDPOINT}
-              {settings.customEndpoint && settings.customEndpoint !== DEFAULT_API_ENDPOINT && (
-                <span className="text-amber-600 dark:text-amber-400 ml-1">（已自定义）</span>
-              )}
-            </p>
-          </section>
-        )}
-
         {/* Resolution */}
         <section>
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">图像分辨率</label>
