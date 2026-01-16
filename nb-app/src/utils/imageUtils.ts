@@ -82,47 +82,66 @@ export const compressImage = async (
       // 需要压缩，从高质量开始逐步降低
       let quality = exportType === 'image/png' ? 1 : 0.95;
       const minQuality = 0.5; // 最低质量阈值
-      let resultBlob: Blob | null = null;
-      let resultBase64 = '';
+      const maxAttempts = 20; // 最大尝试次数，防止无限循环
 
-      const tryCompress = () => {
-        const dataUrl = canvas.toDataURL(exportType, quality);
+      // 使用迭代而非递归，防止栈溢出
+      const compressIterative = () => {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          const dataUrl = canvas.toDataURL(exportType, quality);
+          const base64Data = dataUrl.split(',')[1];
+          const blob = base64ToBlob(base64Data, exportType);
 
-        // 获取实际大小
+          // 如果大小符合要求或已达到最低质量
+          if (blob.size <= maxSizeBytes || quality <= minQuality) {
+            // 创建压缩后的 File 对象
+            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+              type: exportType,
+            });
+
+            const reader = new FileReader();
+            reader.onload = () => {
+              resolve({
+                blob: compressedFile,
+                base64: reader.result as string,
+                compressed: true,
+                originalSize,
+                compressedSize: blob.size,
+                quality: exportType === 'image/png' ? undefined : quality,
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(compressedFile);
+            return; // 退出函数
+          }
+
+          // 继续降低质量
+          quality = Math.max(minQuality, quality - 0.05);
+        }
+
+        // 如果所有尝试都失败，使用最低质量返回
+        const dataUrl = canvas.toDataURL(exportType, minQuality);
         const base64Data = dataUrl.split(',')[1];
         const blob = base64ToBlob(base64Data, exportType);
+        const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+          type: exportType,
+        });
 
-        // 如果大小符合要求或已达到最低质量
-        if (blob.size <= maxSizeBytes || quality <= minQuality) {
-          resultBlob = blob;
-          resultBase64 = dataUrl;
-
-          // 创建压缩后的 File 对象
-          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
-            type: exportType,
+        const reader = new FileReader();
+        reader.onload = () => {
+          resolve({
+            blob: compressedFile,
+            base64: reader.result as string,
+            compressed: true,
+            originalSize,
+            compressedSize: blob.size,
+            quality: minQuality,
           });
-
-          const reader = new FileReader();
-          reader.onload = () => {
-            resolve({
-              blob: compressedFile,
-              base64: reader.result as string,
-              compressed: true,
-              originalSize,
-              compressedSize: blob.size,
-              quality: exportType === 'image/png' ? undefined : quality,
-            });
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(compressedFile);
-        } else {
-          // 继续降低质量
-          quality -= 0.05;
-          tryCompress();
-        }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(compressedFile);
       };
 
-      tryCompress();
+      compressIterative();
     };
     img.onerror = () => reject(new Error('图片加载失败'));
     img.src = URL.createObjectURL(file);

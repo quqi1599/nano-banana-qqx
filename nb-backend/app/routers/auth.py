@@ -61,14 +61,55 @@ LOGIN_FAIL_IP_EMAIL_PREFIX = "login_fail_ip_email:"
 
 
 def _get_client_ip(request: Request) -> str:
-    if settings.trust_proxy_headers:
-        forwarded_for = request.headers.get("x-forwarded-for", "")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip.strip()
-    return request.client.host
+    """安全地获取客户端真实 IP 地址
+
+    优先级:
+    1. X-Forwarded-For 最左侧 IP (当 trust_proxy_headers=True)
+    2. X-Real-IP (当 trust_proxy_headers=True)
+    3. 直接连接的 IP
+
+    注意: 只有在正确配置反向代理的情况下才应启用 trust_proxy_headers
+    """
+    # 获取直接连接的 IP 作为 fallback
+    direct_ip = request.client.host if request.client else "unknown"
+
+    if not settings.trust_proxy_headers:
+        # 不信任代理头时，直接使用连接 IP
+        return direct_ip
+
+    # 信任代理时，从代理头中提取真实 IP
+    # X-Forwarded-For 格式: "client, proxy1, proxy2"
+    forwarded_for = request.headers.get("x-forwarded-for", "").strip()
+    if forwarded_for:
+        # 取最左侧的 IP（原始客户端 IP）
+        # 注意：如果伪造代理头，攻击者可以控制这个值
+        # 生产环境应该配置反向代理（如 nginx）来清理这个头
+        ips = [ip.strip() for ip in forwarded_for.split(",") if ip.strip()]
+        if ips:
+            client_ip = ips[0]
+            # 简单验证 IPv4/IPv6 格式，防止注入
+            if _is_valid_ip(client_ip):
+                return client_ip
+
+    # 尝试 X-Real-IP 头
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip and _is_valid_ip(real_ip):
+        return real_ip
+
+    # Fallback: 使用直接连接的 IP
+    return direct_ip
+
+
+def _is_valid_ip(ip: str) -> bool:
+    """简单的 IP 地址格式验证，防止注入攻击"""
+    if not ip:
+        return False
+    # 检查长度限制（IPv6 最长 45 字符）
+    if len(ip) > 45:
+        return False
+    # 只允许 IPv4/IPv6 字符: 0-9, a-f, A-F, :, .
+    allowed_chars = set("0123456789abcdefABCDEF:.")
+    return all(c in allowed_chars for c in ip)
 
 
 async def _record_login_failure(
@@ -254,6 +295,12 @@ def validate_password_strength(password: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="密码不能包含空格",
+        )
+
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]", password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码需包含特殊字符 (例如: !@#$%^&*)",
         )
 
 

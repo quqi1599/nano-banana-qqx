@@ -1,6 +1,8 @@
 """
 管理后台路由
 """
+import csv
+import io
 import uuid
 import hashlib
 import json
@@ -8,12 +10,13 @@ import logging
 import secrets
 import time
 from datetime import datetime, timedelta
-from typing import Optional, Any
+from typing import Optional, Any, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, delete
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.user import User
@@ -50,9 +53,14 @@ from app.schemas.admin import (
     AdminActionConfirmResponse,
     UserTagsUpdate,
     UserTagsResponse,
+    UserCreate,
+    UserPasswordUpdate,
+    UserConversationStats,
+    ConversationTimelineItem,
+    ConversationTimelineResponse,
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
-from app.utils.security import get_admin_user, get_current_user, verify_password
+from app.utils.security import get_admin_user, get_current_user, verify_password, get_password_hash
 from app.utils.rate_limiter import RateLimiter
 from app.utils.balance_utils import check_api_key_quota
 from app.utils.token_security import (
@@ -66,9 +74,24 @@ from app.utils.cache import get_cached_json, set_cached_json, delete_cache
 from app.utils.redis_client import redis_client
 from app.config import get_settings
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.email_config import EmailConfig
+from app.models.email_whitelist import EmailWhitelist
+from app.models.conversation import Conversation, ConversationMessage
+from app.models.visitor import Visitor
+from app.schemas.conversation import AdminConversationResponse, AdminConversationDetailResponse, MessageResponse, UserType
+from app.schemas.visitor import (
+    VisitorResponse,
+    VisitorListResponse,
+    VisitorFilters,
+    VisitorStatsResponse,
+)
+from app.services.conversation_cleanup import cleanup_old_conversations, get_cleanup_history
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+DEFAULT_API_ENDPOINT = settings.default_api_endpoint
 
 router = APIRouter()
 
@@ -358,7 +381,6 @@ async def add_token(
     
     # 尝试查询额度
     try:
-        settings = get_settings()
         base_url = data.base_url.strip() if data.base_url else None
         quota = await check_api_key_quota(
             data.api_key, base_url or settings.newapi_base_url
@@ -398,7 +420,6 @@ async def check_token_quota(
     
     # 查询额度（使用完整的 API Key）
     try:
-        settings = get_settings()
         resolved_base_url = base_url.strip() if base_url else None
         token_base_url = token.base_url.strip() if token.base_url else None
         plain_key = decrypt_api_key(token.api_key)
@@ -678,27 +699,21 @@ async def list_redeem_codes(
 
 # ============ 用户管理 ============
 
-@router.get("/users", response_model=UserListResponse)
-async def list_users(
-    search: Optional[str] = None,
-    is_admin: Optional[bool] = None,
-    is_active: Optional[bool] = None,
-    min_balance: Optional[int] = None,
-    max_balance: Optional[int] = None,
-    created_after: Optional[str] = None,
-    created_before: Optional[str] = None,
-    login_after: Optional[str] = None,
-    login_before: Optional[str] = None,
-    tags: Optional[list[str]] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    admin: User = Depends(get_admin_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """获取用户列表（支持高级筛选）"""
-    # 构建查询
-    query = select(User)
 
+def _apply_user_list_filters(
+    query,
+    search: Optional[str],
+    tags: List[str],
+    is_admin: Optional[bool],
+    is_active: Optional[bool],
+    min_balance: Optional[int],
+    max_balance: Optional[int],
+    created_after: Optional[str],
+    created_before: Optional[str],
+    login_after: Optional[str],
+    login_before: Optional[str],
+):
+    """应用用户列表的筛选条件（复用逻辑避免重复）"""
     # 搜索筛选
     if search:
         query = query.where(
@@ -756,50 +771,56 @@ async def list_users(
         except ValueError:
             pass
 
-    # 获取总数（应用相同的筛选条件）
-    count_query = select(func.count(User.id))
+    return query
 
-    if search:
-        count_query = count_query.where(
-            (User.email.ilike(f"%{search}%")) |
-            (User.nickname.ilike(f"%{search}%"))
-        )
-    for tag in cleaned_tags:
-        count_query = count_query.where(User.tags.contains([tag]))
-    if is_admin is not None:
-        count_query = count_query.where(User.is_admin == is_admin)
-    if is_active is not None:
-        count_query = count_query.where(User.is_active == is_active)
-    if min_balance is not None:
-        count_query = count_query.where(User.credit_balance >= min_balance)
-    if max_balance is not None:
-        count_query = count_query.where(User.credit_balance <= max_balance)
-    if created_after:
-        try:
-            after_date = datetime.strptime(created_after, "%Y-%m-%d")
-            count_query = count_query.where(User.created_at >= after_date)
-        except ValueError:
-            pass
-    if created_before:
-        try:
-            before_date = datetime.strptime(created_before, "%Y-%m-%d")
-            before_date = before_date.replace(hour=23, minute=59, second=59)
-            count_query = count_query.where(User.created_at <= before_date)
-        except ValueError:
-            pass
-    if login_after:
-        try:
-            after_date = datetime.strptime(login_after, "%Y-%m-%d")
-            count_query = count_query.where(User.last_login_at >= after_date)
-        except ValueError:
-            pass
-    if login_before:
-        try:
-            before_date = datetime.strptime(login_before, "%Y-%m-%d")
-            before_date = before_date.replace(hour=23, minute=59, second=59)
-            count_query = count_query.where(User.last_login_at <= before_date)
-        except ValueError:
-            pass
+
+@router.get("/users", response_model=UserListResponse)
+async def list_users(
+    search: Optional[str] = None,
+    is_admin: Optional[bool] = None,
+    is_active: Optional[bool] = None,
+    min_balance: Optional[int] = None,
+    max_balance: Optional[int] = None,
+    created_after: Optional[str] = None,
+    created_before: Optional[str] = None,
+    login_after: Optional[str] = None,
+    login_before: Optional[str] = None,
+    tags: Optional[list[str]] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取用户列表（支持高级筛选）"""
+    # 构建基础查询并应用筛选条件
+    query = _apply_user_list_filters(
+        select(User),
+        search=search,
+        tags=tags or [],
+        is_admin=is_admin,
+        is_active=is_active,
+        min_balance=min_balance,
+        max_balance=max_balance,
+        created_after=created_after,
+        created_before=created_before,
+        login_after=login_after,
+        login_before=login_before,
+    )
+
+    # 构建计数查询并应用相同的筛选条件
+    count_query = _apply_user_list_filters(
+        select(func.count(User.id)),
+        search=search,
+        tags=tags or [],
+        is_admin=is_admin,
+        is_active=is_active,
+        min_balance=min_balance,
+        max_balance=max_balance,
+        created_after=created_after,
+        created_before=created_before,
+        login_after=login_after,
+        login_before=login_before,
+    )
 
     count_result = await db.execute(count_query)
     total = count_result.scalar() or 0
@@ -845,15 +866,16 @@ async def adjust_user_credits(
     user_id: str,
     amount: int,
     reason: str = "管理员调整",
+    type: str = "credit",
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """调整用户积分"""
+    """调整用户积分（支持 credit/pro3/flash）"""
     from app.models.credit import CreditTransaction, TransactionType
-    
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -866,25 +888,35 @@ async def adjust_user_credits(
             detail="不能调整自己的积分",
         )
 
-    old_balance = user.credit_balance
+    # 根据类型调整不同的积分
+    balance_field = type
+    if type not in ("credit", "pro3", "flash"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="无效的积分类型，支持: credit, pro3, flash",
+        )
+
+    old_balance = getattr(user, f"{type}_balance")
     new_balance = old_balance + amount
     if new_balance < 0:
         new_balance = 0
     actual_delta = new_balance - old_balance
-    user.credit_balance = new_balance
-    
-    transaction = CreditTransaction(
-        user_id=user.id,
-        amount=actual_delta,
-        type=TransactionType.BONUS.value if amount > 0 else TransactionType.CONSUME.value,
-        description=reason,
-        balance_after=new_balance,
-    )
-    db.add(transaction)
-    
+    setattr(user, f"{type}_balance", new_balance)
+
+    # 仅 credit 类型记录交易历史
+    if type == "credit":
+        transaction = CreditTransaction(
+            user_id=user.id,
+            amount=actual_delta,
+            type=TransactionType.BONUS.value if amount > 0 else TransactionType.CONSUME.value,
+            description=f"{reason} ({type})",
+            balance_after=new_balance,
+        )
+        db.add(transaction)
+
     await db.commit()
-    
-    return {"message": "调整成功", "new_balance": user.credit_balance}
+
+    return {"message": "调整成功", "new_balance": getattr(user, f"{type}_balance")}
 
 
 @router.put("/users/{user_id}/note")
@@ -908,6 +940,69 @@ async def update_user_note(
     await db.commit()
 
     return {"message": "备注更新成功"}
+
+
+@router.post("/users", response_model=AdminUserResponse)
+async def create_user(
+    data: UserCreate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员创建新用户"""
+    # 检查邮箱是否已存在
+    existing_result = await db.execute(select(User).where(User.email == data.email))
+    if existing_result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该邮箱已被注册",
+        )
+
+    # 创建新用户
+    new_user = User(
+        email=data.email,
+        password_hash=get_password_hash(data.password),
+        nickname=data.nickname,
+        credit_balance=data.credit_balance,
+        pro3_balance=data.pro3_balance,
+        flash_balance=data.flash_balance,
+        is_admin=data.is_admin,
+        is_active=True,
+        note=data.note,
+        tags=data.tags or [],
+    )
+
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+
+    logger.info(f"Admin {admin.email} created new user {new_user.email}")
+
+    return AdminUserResponse.model_validate(new_user)
+
+
+@router.put("/users/{user_id}/password")
+async def change_user_password(
+    user_id: str,
+    data: UserPasswordUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """管理员修改用户密码"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在",
+        )
+
+    user.password_hash = get_password_hash(data.new_password)
+    await db.commit()
+
+    logger.info(f"Admin {admin.email} changed password for user {user.email}")
+
+    return {"message": "密码修改成功"}
 
 
 @router.put("/users/{user_id}/tags")
@@ -1391,9 +1486,6 @@ async def export_users(
     db: AsyncSession = Depends(get_db),
 ):
     """导出用户数据为 CSV（限制最多导出 10000 条记录）"""
-    from fastapi.responses import StreamingResponse
-    import csv
-
     # 构建查询（复用筛选逻辑）
     query = select(User)
 
@@ -1484,9 +1576,6 @@ async def export_users(
 
 
 # ============ 邮箱白名单管理 ============
-
-from app.models.email_whitelist import EmailWhitelist
-from pydantic import BaseModel
 
 
 class EmailWhitelistCreate(BaseModel):
@@ -1596,11 +1685,6 @@ async def delete_email_whitelist(
 
 
 # ============ 邮件配置管理 ============
-
-from app.models.email_config import EmailConfig
-from app.config import get_settings
-
-settings = get_settings()
 
 
 @router.get("/email-config", response_model=list[EmailConfigResponse])
@@ -1713,14 +1797,17 @@ async def update_smtp_config(
     }
 
 
-@router.post("/email-config/test-send")
+@router.post(
+    "/email-config/test-send",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def test_send_email(
     email_type: str = Query(..., description="邮件类型"),
-    test_email: str = Query(..., description="测试接收邮箱"),
+    test_email: str = Query(None, description="测试接收邮箱（不填则发送到管理员邮箱）"),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """测试发送邮件"""
+    """测试发送邮件（限制：每分钟最多5次，且只能发送到管理员自己的邮箱）"""
     from app.services.email_service import send_verification_code, send_ticket_reply_notification
 
     # 检查邮件类型
@@ -1730,19 +1817,27 @@ async def test_send_email(
             detail=f"无效的邮件类型: {email_type}",
         )
 
+    # 安全限制：只能发送到管理员自己的邮箱，防止邮件轰炸
+    target_email = test_email if test_email else admin.email
+    if target_email != admin.email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="出于安全考虑，测试邮件只能发送到您自己的管理员邮箱",
+        )
+
     # 根据类型发送测试邮件
     test_code = "123456"
     success = False
 
     if email_type == "register":
-        success = send_verification_code(test_email, test_code, "register")
+        success = send_verification_code(target_email, test_code, "register")
     elif email_type == "reset":
-        success = send_verification_code(test_email, test_code, "reset")
+        success = send_verification_code(target_email, test_code, "reset")
     elif email_type == "ticket_reply":
-        success = send_ticket_reply_notification(test_email, "测试工单标题", "这是一条测试回复内容")
+        success = send_ticket_reply_notification(target_email, "测试工单标题", "这是一条测试回复内容")
     else:
         # 其他类型使用注册模板测试
-        success = send_verification_code(test_email, test_code, "register")
+        success = send_verification_code(target_email, test_code, "register")
 
     return {
         "success": success,
@@ -1751,10 +1846,6 @@ async def test_send_email(
 
 
 # ============ 对话历史管理 ============
-
-from app.models.conversation import Conversation, ConversationMessage
-from app.schemas.conversation import AdminConversationResponse, AdminConversationDetailResponse, MessageResponse
-from sqlalchemy.orm import selectinload
 
 
 def _normalize_conversation_role(role: str) -> str:
@@ -1796,6 +1887,31 @@ def _serialize_admin_message(message: ConversationMessage) -> MessageResponse:
     )
 
 
+def _determine_user_type(conversation: Conversation, user_tags: Optional[list[str]]) -> UserType:
+    tags = user_tags or []
+    if conversation.user_id:
+        return "api_key" if "api_key" in tags else "user"
+    return "visitor"
+
+
+def _build_admin_conversation_response(
+    conversation: Conversation,
+    user_email: Optional[str],
+    user_nickname: Optional[str],
+    user_tags: Optional[list[str]],
+) -> AdminConversationResponse:
+    conv_dict = AdminConversationResponse.model_validate(conversation).model_dump()
+    conv_dict["user_email"] = user_email or (
+        f"Guest ({conversation.visitor_id[:8]}...)" if conversation.visitor_id else "Guest"
+    )
+    conv_dict["user_nickname"] = user_nickname or "Anonymous"
+    conv_dict["user_type"] = _determine_user_type(conversation, user_tags)
+    conv_dict["uses_custom_endpoint"] = bool(
+        conversation.custom_endpoint and conversation.custom_endpoint != DEFAULT_API_ENDPOINT
+    )
+    return AdminConversationResponse(**conv_dict)
+
+
 @router.get("/conversations")
 async def list_conversations(
     user_id: Optional[str] = None,
@@ -1813,7 +1929,7 @@ async def list_conversations(
     """获取所有用户的对话列表（支持高级筛选）"""
     # 构建查询
     query = (
-        select(Conversation, User.email, User.nickname)
+        select(Conversation, User.email, User.nickname, User.tags)
         .outerjoin(User, Conversation.user_id == User.id)
     )
 
@@ -1902,11 +2018,10 @@ async def list_conversations(
 
     # 构建响应
     response = []
-    for conv, user_email, user_nickname in rows:
-        conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
-        conv_dict["user_email"] = user_email or (f"Guest ({conv.visitor_id[:8]}...)" if conv.visitor_id else "Guest")
-        conv_dict["user_nickname"] = user_nickname or "Anonymous"
-        response.append(AdminConversationResponse(**conv_dict))
+    for conv, user_email, user_nickname, user_tags in rows:
+        response.append(
+            _build_admin_conversation_response(conv, user_email, user_nickname, user_tags)
+        )
 
     return JSONResponse(
         content={
@@ -1926,7 +2041,7 @@ async def get_conversation_detail(
 ):
     """管理员查看对话详情"""
     result = await db.execute(
-        select(Conversation, User.email, User.nickname)
+        select(Conversation, User.email, User.nickname, User.tags)
         .outerjoin(User, Conversation.user_id == User.id)
         .options(selectinload(Conversation.messages))
         .where(Conversation.id == conversation_id)
@@ -1939,11 +2054,9 @@ async def get_conversation_detail(
             detail="对话不存在",
         )
     
-    conversation, user_email, user_nickname = row
+    conversation, user_email, user_nickname, user_tags = row
     messages = [_serialize_admin_message(msg) for msg in conversation.messages]
-    base = AdminConversationResponse.model_validate(conversation).model_dump()
-    base["user_email"] = user_email or (f"Guest ({conversation.visitor_id[:8]}...)" if conversation.visitor_id else "Guest")
-    base["user_nickname"] = user_nickname or "Anonymous"
+    base = _build_admin_conversation_response(conversation, user_email, user_nickname, user_tags).model_dump()
     return AdminConversationDetailResponse(**base, messages=messages)
 
 
@@ -1972,12 +2085,6 @@ async def delete_conversation_admin(
 
 
 # ============ 用户对话统计 ============
-
-from app.schemas.admin import (
-    UserConversationStats,
-    ConversationTimelineItem,
-    ConversationTimelineResponse,
-)
 
 
 @router.get("/users/{user_id}/conversation-stats", response_model=UserConversationStats)
@@ -2097,6 +2204,7 @@ async def get_user_conversation_timeline(
                 Conversation,
                 User.email,
                 User.nickname,
+                User.tags,
                 cast(Conversation.created_at, Date).label("created_date"),
             )
             .outerjoin(User, Conversation.user_id == User.id)
@@ -2104,13 +2212,10 @@ async def get_user_conversation_timeline(
             .where(cast(Conversation.created_at, Date).in_(date_values))
             .order_by(Conversation.created_at.desc())
         )
-        for conv, user_email, user_nickname, created_date in convs_result.all():
-            conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
-            conv_dict["user_email"] = user_email or "未知用户"
-            conv_dict["user_nickname"] = user_nickname
+        for conv, user_email, user_nickname, user_tags, created_date in convs_result.all():
             date_key = str(created_date)
             conversations_by_date.setdefault(date_key, []).append(
-                AdminConversationResponse(**conv_dict)
+                _build_admin_conversation_response(conv, user_email, user_nickname, user_tags)
             )
 
     for date_obj, conv_count, msg_count in date_rows:
@@ -2134,8 +2239,6 @@ async def get_user_conversation_timeline(
 
 
 # ============ 对话清理管理 ============
-
-from app.services.conversation_cleanup import cleanup_old_conversations, get_cleanup_history
 
 
 @router.post("/conversations/cleanup")
@@ -2212,14 +2315,6 @@ async def get_cleanup_stats(
 
 
 # ============ 游客（未登录用户）管理 ============
-
-from app.models.visitor import Visitor
-from app.schemas.visitor import (
-    VisitorResponse,
-    VisitorListResponse,
-    VisitorFilters,
-    VisitorStatsResponse,
-)
 
 
 @router.get("/visitors", response_model=VisitorListResponse)

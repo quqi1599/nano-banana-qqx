@@ -29,11 +29,9 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command: >
-      sh -c 'pass="$$REDIS_PASSWORD";
-      if [ -z "$$pass" ] && [ -n "$$REDIS_URL" ]; then
+      sh -c 'pass="$$REDIS_PASSWORD"; if [ -z "$$pass" ] && [ -n "$$REDIS_URL" ]; then
         pass=$$(echo "$$REDIS_URL" | sed -n "s#redis://:\\([^@]*\\)@.*#\\1#p");
-      fi;
-      if [ -n "$$pass" ]; then
+      fi; if [ -n "$$pass" ]; then
         exec redis-server --requirepass "$$pass";
       else
         exec redis-server;

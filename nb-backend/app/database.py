@@ -12,9 +12,17 @@ from app.config import get_settings
 settings = get_settings()
 
 # 将 postgresql:// 转换为 postgresql+asyncpg://
-database_url = settings.database_url.replace(
-    "postgresql://", "postgresql+asyncpg://"
-)
+# 将 postgresql:// 转换为 postgresql+asyncpg://
+if settings.database_url.startswith("postgresql://"):
+    database_url = settings.database_url.replace(
+        "postgresql://", "postgresql+asyncpg://", 1
+    )
+elif settings.database_url.startswith("postgres://"):
+    database_url = settings.database_url.replace(
+        "postgres://", "postgresql+asyncpg://", 1
+    )
+else:
+    database_url = settings.database_url
 
 engine = create_async_engine(
     database_url,

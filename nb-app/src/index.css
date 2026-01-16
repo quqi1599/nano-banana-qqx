@@ -105,6 +105,18 @@
   /* Warm Dark Text */
   --color-cream-950: #2D2620;
 
+  /* Brand Primary Color (#fe9900) */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-300: #fdba74;
+  --color-brand-400: #fb923c;
+  --color-brand-500: #fe9900;
+  --color-brand-600: #ea8800;
+  --color-brand-700: #c27300;
+  --color-brand-800: #9a5c00;
+  --color-brand-900: #6b4100;
+
   /* Enhanced Dark Mode Colors */
   --color-dark-bg: #0a0a0f;
   --color-dark-surface: #12121a;

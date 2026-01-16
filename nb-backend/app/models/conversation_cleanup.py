@@ -3,7 +3,7 @@
 """
 from typing import Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
@@ -26,5 +26,5 @@ class ConversationCleanup(Base):
     conversation_updated_at: Mapped[datetime] = mapped_column(DateTime, comment="对话更新时间")
     cleanup_reason: Mapped[str] = mapped_column(String(50), default="auto_14days", comment="清理原因: auto_14days, manual, user_delete")
     cleaned_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc), comment="清理时间（UTC）"
+        DateTime, default=datetime.utcnow, comment="清理时间（UTC）"
     )

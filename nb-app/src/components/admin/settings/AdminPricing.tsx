@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Loader2 } from 'lucide-react';
+import { Coins } from 'lucide-react';
 import { getModelPricing, createModelPricing, updateModelPricing, ModelPricingInfo } from '../../../services/adminService';
+import { ErrorAlert, InlineLoading } from '../common';
 
 export const AdminPricing = () => {
     const [pricing, setPricing] = useState<ModelPricingInfo[]>([]);
@@ -63,12 +64,7 @@ export const AdminPricing = () => {
 
     return (
         <div className="space-y-6 animate-fade-in-up">
-            {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm flex items-center gap-3">
-                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500"></span>
-                    {error}
-                </div>
-            )}
+            <ErrorAlert message={error} onDismiss={() => setError('')} />
 
             <div className="bg-gradient-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 p-6 rounded-2xl border border-cream-100 dark:border-gray-800 shadow-sm">
                 <h4 className="font-bold text-cream-800 dark:text-cream-400 mb-4 flex items-center gap-2">
@@ -125,7 +121,7 @@ export const AdminPricing = () => {
                     </div>
                 ))}
             </div>
-            {loading && <div className="text-center text-gray-500"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>}
+            {loading && <InlineLoading className="text-center text-gray-500" />}
         </div>
     );
 };

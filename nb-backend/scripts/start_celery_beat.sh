@@ -16,8 +16,9 @@ LOG_DIR="${PROJECT_ROOT}/logs"
 mkdir -p "${LOG_DIR}"
 
 # 启动 Celery Beat（定时任务调度器）
+# 使用 Redis 作为调度器后端（需安装 celery-redbeat 或 django-celery-beat）
 celery -A app.celery_app beat \
     --loglevel=info \
     --pidfile="${LOG_DIR}/celery-beat.pid" \
     --logfile="${LOG_DIR}/celery-beat.log" \
-    --scheduler=redisbeat.RedisScheduler  # 使用 Redis 作为调度器后端（需安装 celery-redbeat）
+    --scheduler=redisbeat.RedisScheduler

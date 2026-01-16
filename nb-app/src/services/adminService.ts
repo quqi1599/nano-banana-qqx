@@ -162,6 +162,8 @@ export interface AdminUser {
     email: string;
     nickname: string | null;
     credit_balance: number;
+    pro3_balance: number;
+    flash_balance: number;
     is_admin: boolean;
     is_active: boolean;
     created_at: string;
@@ -404,6 +406,48 @@ export const updateUserTags = async (userId: string, tags: string[]): Promise<{ 
         method: 'PUT',
         body: JSON.stringify({ tags }),
     });
+};
+
+// 创建用户
+export interface CreateUserRequest {
+    email: string;
+    password: string;
+    nickname?: string;
+    credit_balance?: number;
+    pro3_balance?: number;
+    flash_balance?: number;
+    is_admin?: boolean;
+    note?: string;
+    tags?: string[];
+}
+
+export const createUser = async (data: CreateUserRequest): Promise<AdminUser> => {
+    return request('/users', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+};
+
+// 修改用户密码
+export const changeUserPassword = async (userId: string, newPassword: string): Promise<{ message: string }> => {
+    return request(`/users/${userId}/password`, {
+        method: 'PUT',
+        body: JSON.stringify({ new_password: newPassword }),
+    });
+};
+
+// 调整用户积分（支持 pro3 和 flash）
+export interface AdjustUserCreditsOptions {
+    userId: string;
+    amount: number;
+    reason?: string;
+    type?: 'credit' | 'pro3' | 'flash';
+}
+
+export const adjustUserBalance = async (options: AdjustUserCreditsOptions): Promise<{ message: string; new_balance: number }> => {
+    const { userId, amount, reason = '管理员调整', type = 'credit' } = options;
+    const params = new URLSearchParams({ amount: String(amount), reason, type });
+    return request(`/users/${userId}/credits?${params.toString()}`, { method: 'PUT' });
 };
 
 // ========== 统计数据 ==========
@@ -687,23 +731,47 @@ export interface ProviderInfo {
     api_url: string | null;
 }
 
-export interface SmtpConfigInfo {
-    id: string;
+export interface SmtpConfigBase {
     name: string;
     provider: string;
+    provider_name?: string;
+    smtp_host?: string | null;
+    smtp_port?: number | null;
+    smtp_encryption: string;
+    smtp_user?: string | null;
+    smtp_password?: string | null;
+    from_email?: string | null;
+    from_name: string;
+    reply_to?: string | null;
+    api_key?: string | null;
+    api_url?: string | null;
+    is_enabled: boolean;
+    is_default: boolean;
+    daily_limit?: number | null;
+    hourly_limit?: number | null;
+    description?: string | null;
+}
+
+export interface SmtpConfigRequired {
+    name: string;
+    provider: string;
+    smtp_encryption: string;
+    from_name: string;
+    is_enabled: boolean;
+    is_default: boolean;
+}
+
+export interface SmtpConfigInfo extends SmtpConfigBase {
+    id: string;
     provider_name: string;
     smtp_host: string;
     smtp_port: number;
-    smtp_encryption: string;
     smtp_user: string | null;
     smtp_password: string | null;
     from_email: string | null;
-    from_name: string;
     reply_to: string | null;
     api_key: string | null;
     api_url: string | null;
-    is_enabled: boolean;
-    is_default: boolean;
     daily_limit: number | null;
     hourly_limit: number | null;
     description: string | null;
@@ -718,45 +786,9 @@ export interface EmailSettingsSummary {
     providers: ProviderInfo[];
 }
 
-export interface SmtpConfigCreate {
-    name: string;
-    provider: string;
-    smtp_host?: string;
-    smtp_port?: number;
-    smtp_encryption: string;
-    smtp_user?: string;
-    smtp_password?: string;
-    from_email?: string;
-    from_name: string;
-    reply_to?: string;
-    api_key?: string;
-    api_url?: string;
-    is_enabled: boolean;
-    is_default: boolean;
-    daily_limit?: number;
-    hourly_limit?: number;
-    description?: string;
-}
+export interface SmtpConfigCreate extends Partial<SmtpConfigBase>, SmtpConfigRequired {}
 
-export interface SmtpConfigUpdate {
-    name?: string;
-    provider?: string;
-    smtp_host?: string;
-    smtp_port?: number;
-    smtp_encryption?: string;
-    smtp_user?: string;
-    smtp_password?: string;
-    from_email?: string;
-    from_name?: string;
-    reply_to?: string;
-    api_key?: string;
-    api_url?: string;
-    is_enabled?: boolean;
-    is_default?: boolean;
-    daily_limit?: number;
-    hourly_limit?: number;
-    description?: string;
-}
+export interface SmtpConfigUpdate extends Partial<SmtpConfigBase> {}
 
 // 邮件配置使用不同的 API 基础路径
 const emailRequest = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
@@ -844,9 +876,10 @@ export interface TestEmailResult {
 }
 
 export const testSendEmail = async (configId: string | null, testEmail: string): Promise<TestEmailResult> => {
-    const payload = configId
-        ? { config_id: configId, test_email: testEmail }
-        : { config_id: null, test_email: testEmail };
+    const payload = {
+        config_id: configId && configId.trim() ? configId : null,
+        test_email: testEmail,
+    };
     return emailRequest('/test-send', {
         method: 'POST',
         body: JSON.stringify(payload),

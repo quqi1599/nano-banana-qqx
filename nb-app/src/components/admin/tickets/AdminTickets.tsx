@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketStatus } from '../../../services/ticketService';
+import { ErrorAlert, InlineLoading } from '../common';
+import { formatDate } from '../../../utils/formatters';
 
 export const AdminTickets = () => {
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -71,11 +73,7 @@ export const AdminTickets = () => {
 
     return (
         <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm animate-fade-in-up">
-            {error && (
-                <div className="fixed top-4 right-4 z-50 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm shadow-xl">
-                    {error}
-                </div>
-            )}
+            <ErrorAlert message={error} onDismiss={() => setError('')} className="fixed top-4 right-4 z-50 shadow-xl" />
 
             <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} lg:w-80 w-full border-r border-gray-100 dark:border-gray-800 flex-col`}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
@@ -96,7 +94,7 @@ export const AdminTickets = () => {
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                    {loading && <div className="p-4 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>}
+                    {loading && <InlineLoading />}
                     {!loading && tickets.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">暂无工单</div>}
                     {tickets.map(t => (
                         <div
@@ -108,7 +106,7 @@ export const AdminTickets = () => {
                                 <h4 className="font-medium text-sm text-gray-900 dark:text-white line-clamp-1">{t.title}</h4>
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${t.status === 'open' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>{t.status}</span>
                             </div>
-                            <div className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString()}</div>
+                            <div className="text-xs text-gray-400">{formatDate(t.created_at)}</div>
                         </div>
                     ))}
                 </div>

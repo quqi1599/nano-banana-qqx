@@ -33,6 +33,37 @@ export interface PendingReferenceImage {
   timestamp: number;
 }
 
+// Toast 定时器管理器 - 防止内存泄漏
+const toastTimers = new Map<string, NodeJS.Timeout>();
+
+const scheduleToastRemoval = (id: string, callback: () => void) => {
+  // 清除已存在的定时器（如果有的话）
+  if (toastTimers.has(id)) {
+    clearTimeout(toastTimers.get(id)!);
+  }
+
+  // 创建新的定时器
+  const timer = setTimeout(() => {
+    callback();
+    toastTimers.delete(id);
+  }, 3000);
+
+  toastTimers.set(id, timer);
+};
+
+const clearToastTimer = (id: string) => {
+  if (toastTimers.has(id)) {
+    clearTimeout(toastTimers.get(id)!);
+    toastTimers.delete(id);
+  }
+};
+
+// 清理所有定时器（用于组件卸载时）
+export const clearAllToastTimers = () => {
+  toastTimers.forEach(timer => clearTimeout(timer));
+  toastTimers.clear();
+};
+
 interface UiState {
   toasts: Toast[];
   dialog: DialogOptions | null;
@@ -69,18 +100,21 @@ export const useUiStore = create<UiState>((set) => ({
       toasts: [...state.toasts, { id, message, type }]
     }));
 
-    // Auto remove after 3 seconds
-    setTimeout(() => {
+    // 使用统一管理的定时器
+    scheduleToastRemoval(id, () => {
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id)
       }));
-    }, 3000);
+    });
   },
 
-  removeToast: (id) =>
+  removeToast: (id) => {
+    // 清除定时器并移除 toast
+    clearToastTimer(id);
     set((state) => ({
       toasts: state.toasts.filter((t) => t.id !== id)
-    })),
+    }));
+  },
 
   showDialog: (options) => set({ dialog: options }),
 

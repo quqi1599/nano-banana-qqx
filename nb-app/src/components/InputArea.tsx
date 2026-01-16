@@ -86,8 +86,12 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   }, [pendingReferenceImage, attachments.length, setPendingReferenceImage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Check if device is likely mobile/tablet based on screen width
-    const isMobile = window.innerWidth < 768;
+    // Use more reliable mobile detection:
+    // 1. Check user agent for actual mobile devices
+    // 2. Check for touch screen capability combined with screen width
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isTouchScreen = 'ontouchstart' in window;
+    const isMobile = isMobileDevice || (isTouchScreen && window.innerWidth < 768);
 
     if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
       e.preventDefault();

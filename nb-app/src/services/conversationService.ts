@@ -112,9 +112,13 @@ export interface ConversationMessagesPage {
     page_size: number;
 }
 
+export type AdminUserType = 'user' | 'api_key' | 'visitor';
+
 export interface AdminConversation extends Conversation {
     user_email: string;
     user_nickname: string | null;
+    user_type: AdminUserType;
+    uses_custom_endpoint: boolean;
 }
 
 export interface AdminConversationDetail extends AdminConversation {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Activity, AlertCircle, CheckCircle, Clock, Download, Layers,
     PauseCircle, Play, RefreshCw, Server, Trash2, XCircle, Zap
@@ -7,6 +7,8 @@ import {
     DashboardData, getQueueDashboard, getQueueTasks, getQueueWorkers,
     retryTask, cancelTask, purgeQueue, restartWorkers, TaskInfo, WorkerInfo
 } from '../../../services/adminService';
+import { ADMIN_CONFIG } from '../../../constants/admin';
+import { LoadingState } from '../common';
 
 // 队列状态卡片
 interface QueueStatCardProps {
@@ -20,9 +22,8 @@ interface QueueStatCardProps {
 const QueueStatCard: React.FC<QueueStatCardProps> = ({ name, count, icon: Icon, color, onClick }) => (
     <button
         onClick={onClick}
-        className={`bg-white dark:bg-gray-900 rounded-2xl p-5 border border-cream-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all ${
-            onClick ? 'cursor-pointer hover:border-cream-200 dark:hover:border-gray-700' : ''
-        }`}
+        className={`bg-white dark:bg-gray-900 rounded-2xl p-5 border border-cream-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all ${onClick ? 'cursor-pointer hover:border-cream-200 dark:hover:border-gray-700' : ''
+            }`}
     >
         <div className="flex items-center justify-between">
             <div>
@@ -154,16 +155,14 @@ interface WorkerCardProps {
 }
 
 const WorkerCard: React.FC<WorkerCardProps> = ({ worker }) => (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${
-        worker.status === 'online'
+    <div className={`flex items-center gap-3 p-3 rounded-xl border ${worker.status === 'online'
             ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
             : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-    }`}>
-        <div className={`p-2 rounded-lg ${
-            worker.status === 'online'
+        }`}>
+        <div className={`p-2 rounded-lg ${worker.status === 'online'
                 ? 'bg-green-500'
                 : 'bg-gray-400'
-        }`}>
+            }`}>
             <Server size={16} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
@@ -176,11 +175,10 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker }) => (
                     : '离线'}
             </p>
         </div>
-        <div className={`w-2.5 h-2.5 rounded-full ${
-            worker.status === 'online'
+        <div className={`w-2.5 h-2.5 rounded-full ${worker.status === 'online'
                 ? 'bg-green-500 animate-pulse'
                 : 'bg-gray-400'
-        }`} />
+            }`} />
     </div>
 );
 
@@ -257,7 +255,7 @@ export const QueueMonitor: React.FC = () => {
         try {
             const [dashData, tasksData, workersData] = await Promise.all([
                 getQueueDashboard(),
-                getQueueTasks({ queue: selectedQueue || undefined, status: selectedStatus || undefined, limit: 20 }),
+                getQueueTasks({ queue: selectedQueue || undefined, status: selectedStatus || undefined, limit: ADMIN_CONFIG.PAGE_SIZE }),
                 getQueueWorkers(),
             ]);
             setDashboard(dashData);
@@ -338,14 +336,20 @@ export const QueueMonitor: React.FC = () => {
         addLog('success', `已导出 ${tasks.length} 个任务`);
     }, [tasks, addLog]);
 
+    // 使用 ref 保存最新的 loadData 回调，避免定时器重置
+    const loadDataRef = useRef(loadData);
+    useEffect(() => {
+        loadDataRef.current = loadData;
+    }, [loadData]);
+
     // 自动刷新
     useEffect(() => {
         if (!autoRefresh) return;
         const interval = setInterval(() => {
-            loadData();
+            loadDataRef.current();
         }, 5000);
         return () => clearInterval(interval);
-    }, [autoRefresh, loadData]);
+    }, [autoRefresh]);
 
     // 初始加载
     useEffect(() => {
@@ -361,11 +365,8 @@ export const QueueMonitor: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="flex flex-col items-center gap-3">
-                    <RefreshCw className="animate-spin text-cream-500" size={32} />
-                    <p className="text-gray-500">加载队列数据中...</p>
-                </div>
+            <div className="h-64">
+                <LoadingState message="加载队列数据中..." className="h-full" />
             </div>
         );
     }
@@ -384,11 +385,10 @@ export const QueueMonitor: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setAutoRefresh(!autoRefresh)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                            autoRefresh
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${autoRefresh
                                 ? 'bg-green-100 dark:bg-green-900/20 text-green-600'
                                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600'
-                        }`}
+                            }`}
                     >
                         <Play size={16} />
                         自动刷新
@@ -403,7 +403,7 @@ export const QueueMonitor: React.FC = () => {
                     </button>
                     <button
                         onClick={handleRestartWorkers}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-100 dark:bg-amber-900/20 hover:bg-amber-200 dark:hover:bg-amber-900/30 text-amber-600 text-sm font-medium transition-all"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cream-100 dark:bg-cream-900/20 hover:bg-cream-200 dark:hover:bg-cream-900/30 text-cream-600 text-sm font-medium transition-all"
                     >
                         <Zap size={16} />
                         重启 Workers

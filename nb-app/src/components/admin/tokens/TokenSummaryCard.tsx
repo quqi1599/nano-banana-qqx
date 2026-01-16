@@ -11,7 +11,7 @@ export const TokenSummaryCard = ({ label, value, tone, helper }: TokenSummaryCar
     const toneMap = {
         neutral: 'bg-gray-400',
         ok: 'bg-green-500',
-        warn: 'bg-amber-500',
+        warn: 'bg-brand-500',
         low: 'bg-orange-500',
     };
 

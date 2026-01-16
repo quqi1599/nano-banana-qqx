@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
     # 数据库
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/nbnb"
+    database_url: str = "postgresql://postgres@localhost:5432/nbnb"
     db_pool_size: int = 10
     db_max_overflow: int = 20
     db_pool_timeout: int = 30
@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # API keys
     openai_api_key: str = ""
     newapi_base_url: str = "https://api.openai.com"
+    default_api_endpoint: str = "https://nanobanana2.peacedejiai.cc"
     
     # Admin
     admin_email: str = ""
@@ -113,6 +114,7 @@ class Settings(BaseSettings):
     
     # Metrics
     metrics_enabled: bool = True
+    metrics_basic_auth: str = ""  # 格式: "username:password"，留空则不保护
 
     # Celery / Queue
     celery_broker: str = ""  # 默认使用 redis_url
@@ -170,31 +172,67 @@ class Settings(BaseSettings):
     
     def validate_secrets(self) -> None:
         """
-        验证生产环境必需的配置项
+        验证生产环境必需的配置项，开发环境给出警告
         """
-        if not self.is_production():
-            return
-
         problems: List[str] = []
+        warnings: List[str] = []
 
         if not self.jwt_secret_key or len(self.jwt_secret_key) < 32:
-            problems.append("JWT_SECRET_KEY 太弱或未配置")
+            msg = "JWT_SECRET_KEY 太弱或未配置"
+            if self.is_production():
+                problems.append(msg)
+            else:
+                warnings.append(msg)
+
         if not self.captcha_secret_key or len(self.captcha_secret_key) < 32:
-            problems.append("CAPTCHA_SECRET_KEY 太弱或未配置")
+            msg = "CAPTCHA_SECRET_KEY 太弱或未配置"
+            if self.is_production():
+                problems.append(msg)
+            else:
+                warnings.append(msg)
+
         if not self.admin_password or self.admin_password == "admin123" or len(self.admin_password) < 12:
-            problems.append("ADMIN_PASSWORD 太弱或仍为默认值")
+            msg = "ADMIN_PASSWORD 太弱或仍为默认值"
+            if self.is_production():
+                problems.append(msg)
+            else:
+                warnings.append(msg)
+
         if not self.admin_emails_list:
-            problems.append("ADMIN_EMAILS/ADMIN_EMAIL 未配置管理员白名单")
+            msg = "ADMIN_EMAILS/ADMIN_EMAIL 未配置管理员白名单"
+            if self.is_production():
+                problems.append(msg)
+            else:
+                warnings.append(msg)
+
         if self.flower_enabled and (not self.flower_password or len(self.flower_password) < 12):
-            problems.append("FLOWER_PASSWORD 太弱或未配置")
+            msg = "FLOWER_PASSWORD 太弱或未配置"
+            if self.is_production():
+                problems.append(msg)
+            else:
+                warnings.append(msg)
+
         if not self.token_encryption_key:
-            problems.append("TOKEN_ENCRYPTION_KEY 未配置")
+            msg = "TOKEN_ENCRYPTION_KEY 未配置"
+            if self.is_production():
+                problems.append(msg)
+            else:
+                warnings.append(msg)
         else:
             try:
                 Fernet(self.token_encryption_key.encode())
             except Exception:
-                problems.append("TOKEN_ENCRYPTION_KEY 格式无效")
+                msg = "TOKEN_ENCRYPTION_KEY 格式无效"
+                if self.is_production():
+                    problems.append(msg)
+                else:
+                    warnings.append(msg)
 
+        # 开发环境输出警告
+        if warnings and self.is_development():
+            logger.warning("⚠️ 开发环境配置安全警告: " + "; ".join(warnings))
+
+        # 生产环境抛出错误
         if problems:
             raise RuntimeError("生产环境配置不安全: " + "; ".join(problems))
     

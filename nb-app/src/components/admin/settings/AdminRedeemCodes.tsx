@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Check, Copy, Loader2 } from 'lucide-react';
 import { generateRedeemCodes, getRedeemCodes, RedeemCodeInfo } from '../../../services/adminService';
+import { ErrorAlert } from '../common';
+import { formatDate } from '../../../utils/formatters';
 
 export const AdminRedeemCodes = () => {
     const [codes, setCodes] = useState<RedeemCodeInfo[]>([]);
@@ -60,36 +62,17 @@ export const AdminRedeemCodes = () => {
         setTimeout(() => setCopiedCode(null), 2000);
     };
 
-    const formatDate = (value?: string | null) => {
-        if (!value) return '—';
-        const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(value);
-        const normalized = hasTimezone ? value : `${value}Z`;
-        const date = new Date(normalized);
-        if (Number.isNaN(date.getTime())) return value;
-        return date.toLocaleString('zh-CN', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
-
     return (
         <div className="space-y-6 animate-fade-in-up">
-            {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm flex items-center gap-3">
-                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500"></span>
-                    {error}
-                </div>
-            )}
+            <ErrorAlert message={error} onDismiss={() => setError('')} />
 
-            <div className="bg-gradient-to-br from-amber-50 to-white dark:from-gray-900 dark:to-gray-800 p-6 rounded-2xl border border-amber-100 dark:border-gray-800 shadow-sm">
+            <div className="bg-gradient-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 p-6 rounded-2xl border border-cream-100 dark:border-gray-800 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-bold text-amber-800 dark:text-amber-400 flex items-center gap-2">
+                    <h4 className="font-bold text-cream-800 dark:text-cream-400 flex items-center gap-2">
                         <Gift className="w-5 h-5" />
                         生成兑换码
                     </h4>
-                    <span className="text-xs text-amber-700/70 dark:text-amber-200/60">一码一次 · 永久积分</span>
+                    <span className="text-xs text-cream-700/70 dark:text-cream-200/60">一码一次 · 永久积分</span>
                 </div>
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -100,7 +83,7 @@ export const AdminRedeemCodes = () => {
                                 min="1"
                                 value={generateCount}
                                 onChange={(e) => setGenerateCount(Number(e.currentTarget.value))}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                         </div>
                         <div>
@@ -110,7 +93,7 @@ export const AdminRedeemCodes = () => {
                                 min="1"
                                 value={generateAmount}
                                 onChange={(e) => setGenerateAmount(Number(e.currentTarget.value))}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                         </div>
                         <div>
@@ -124,7 +107,7 @@ export const AdminRedeemCodes = () => {
                                     setGenerateExpiresDays(next === '' ? '' : Number(next));
                                 }}
                                 placeholder="留空/0 为永久"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                         </div>
                         <div className="sm:col-span-2">
@@ -134,7 +117,7 @@ export const AdminRedeemCodes = () => {
                                 value={generateRemark}
                                 onChange={(e) => setGenerateRemark(e.currentTarget.value)}
                                 placeholder="如：活动赠送 / 渠道合作"
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 focus:ring-2 focus:ring-brand-500 outline-none"
                             />
                         </div>
                     </div>
@@ -142,7 +125,7 @@ export const AdminRedeemCodes = () => {
                         <button
                             onClick={handleGenerateCodes}
                             disabled={loading}
-                            className="px-8 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition font-bold shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                            className="px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition font-bold shadow-lg shadow-brand-500/20 disabled:opacity-50"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : '生成'}
                         </button>
@@ -180,7 +163,7 @@ export const AdminRedeemCodes = () => {
                     <h4 className="font-bold text-gray-900 dark:text-white">最近兑换码</h4>
                     <button
                         onClick={loadData}
-                        className="text-xs font-semibold text-amber-600 hover:text-amber-700"
+                        className="text-xs font-semibold text-cream-600 hover:text-brand-700"
                     >
                         刷新
                     </button>
@@ -192,7 +175,7 @@ export const AdminRedeemCodes = () => {
                         codes.map((code) => (
                             <div
                                 key={code.id}
-                                className="grid grid-cols-1 sm:grid-cols-6 gap-3 items-center rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:border-amber-200 dark:hover:border-amber-800 transition"
+                                className="grid grid-cols-1 sm:grid-cols-6 gap-3 items-center rounded-xl border border-gray-100 dark:border-gray-800 p-3 hover:border-cream-200 dark:hover:border-cream-800 transition"
                             >
                                 <div className="sm:col-span-2">
                                     <div className="text-xs text-gray-400 mb-1">兑换码</div>
@@ -200,7 +183,7 @@ export const AdminRedeemCodes = () => {
                                 </div>
                                 <div>
                                     <div className="text-xs text-gray-400 mb-1">积分</div>
-                                    <div className="font-semibold text-amber-600">{code.credit_amount}</div>
+                                    <div className="font-semibold text-cream-600">{code.credit_amount}</div>
                                 </div>
                                 <div className="sm:col-span-2">
                                     <div className="text-xs text-gray-400 mb-1">备注</div>
@@ -216,7 +199,7 @@ export const AdminRedeemCodes = () => {
                                     </span>
                                     <button
                                         onClick={() => handleCopyCode(code.code)}
-                                        className="text-xs text-gray-400 hover:text-amber-600 flex items-center gap-1"
+                                        className="text-xs text-gray-400 hover:text-cream-600 flex items-center gap-1"
                                     >
                                         {copiedCode === code.code ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                                         {copiedCode === code.code ? '已复制' : '复制'}

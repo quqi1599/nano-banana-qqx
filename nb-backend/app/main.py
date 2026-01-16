@@ -6,9 +6,11 @@ import time
 import uuid
 import secrets
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Response, HTTPException, Request
+from fastapi import FastAPI, Response, HTTPException, Request, status, Depends
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
@@ -18,9 +20,11 @@ from app.database import init_db
 from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations, queue, email_config
 from app.utils.request_context import request_id_ctx_var, RequestIdFilter, JsonFormatter
 from app.utils.metrics import REQUEST_COUNT, REQUEST_LATENCY, IN_PROGRESS, get_route_name
+from app.utils.security import verify_metrics_basic_auth
 
 # Initialize settings
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -39,6 +43,41 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "status": "error",
+            "message": exc.detail,
+            "code": exc.status_code
+        },
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "status": "error",
+            "message": "Validation Error",
+            "details": exc.errors(),
+            "code": 422
+        },
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "status": "error",
+            "message": "Internal Server Error",
+            "code": 500
+        },
+    )
 
 @app.middleware("http")
 async def request_context_middleware(request, call_next):
@@ -82,7 +121,25 @@ async def csrf_middleware(request: Request, call_next):
     }:
         return await call_next(request)
 
-    if request.headers.get("authorization") or request.headers.get("x-api-key"):
+    # 验证 Authorization 或 X-API-Key 头存在且格式正确
+    # 防止攻击者发送空或伪造的头部来绕过 CSRF 检查
+    auth_header = request.headers.get("authorization", "")
+    api_key_header = request.headers.get("x-api-key", "")
+
+    # 检查 Authorization 头格式 (Bearer <token>)
+    has_valid_auth = False
+    if auth_header:
+        if auth_header.startswith("Bearer ") and len(auth_header) > 7:
+            has_valid_auth = True
+        else:
+            logger.warning(f"无效的 Authorization 头格式: {auth_header[:20]}...")
+
+    # 检查 X-API-Key 头不为空
+    has_valid_api_key = bool(api_key_header and api_key_header.strip())
+
+    if has_valid_auth or has_valid_api_key:
+        # 头部存在且格式正确，跳过 CSRF 验证
+        # 注意：实际的有效性会在路由层由依赖项验证
         return await call_next(request)
 
     auth_cookie = request.cookies.get(settings.auth_cookie_name)
@@ -149,8 +206,9 @@ async def health_check():
     """健康检查"""
     return {"status": "ok", "service": "nbnb-backend"}
 
-@app.get("/metrics")
+@app.get("/metrics", dependencies=[Depends(verify_metrics_basic_auth)])
 async def metrics():
+    """Prometheus 指标端点（支持 Basic Auth 认证）"""
     if not settings.metrics_enabled:
         raise HTTPException(status_code=404, detail="Metrics disabled")
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

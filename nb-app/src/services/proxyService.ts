@@ -2,40 +2,14 @@
  * 后端代理服务 - 通过后端调用 AI API（次数计费模式）
  */
 
-import type { Content, Part as SDKPart } from "@google/genai";
+import type { Content } from "@google/genai";
 import { AppSettings, Part } from '../types';
 import { getBackendUrl } from '../utils/backendUrl';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { buildRequestOptions } from '../utils/request';
-import { processSdkParts, appendSdkPart } from '../utils/partUtils';
+import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';
 
 const API_BASE = `${getBackendUrl()}/api`;
-
-// Helper to construct user content
-const constructUserContent = (
-    prompt: string,
-    images: { base64Data: string; mimeType: string }[]
-): Content => {
-    const userParts: SDKPart[] = [];
-
-    images.forEach((img) => {
-        userParts.push({
-            inlineData: {
-                mimeType: img.mimeType,
-                data: img.base64Data,
-            },
-        });
-    });
-
-    if (prompt.trim()) {
-        userParts.push({ text: prompt });
-    }
-
-    return {
-        role: "user",
-        parts: userParts,
-    };
-};
 
 // Helper to format proxy API errors
 const formatProxyError = (error: any): Error => {
@@ -236,22 +210,32 @@ export const streamContentViaProxy = async function* (
                 const data = JSON.parse(buffer);
                 buffer = '';
 
+                // 验证数据结构
                 const candidates = data.candidates;
-                if (!candidates || candidates.length === 0) continue;
+                if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
+                  console.warn('Proxy API 返回数据格式异常: 缺少 candidates 数组');
+                  continue;
+                }
 
                 const newParts = candidates[0].content?.parts || [];
 
                 for (const part of newParts) {
-                    appendSdkPart(currentParts, part);
+                  appendSdkPart(currentParts, part);
                 }
 
                 yield {
-                    userContent: currentUserContent,
-                    modelParts: currentParts
+                  userContent: currentUserContent,
+                  modelParts: currentParts
                 };
-            } catch {
+              } catch (parseError) {
                 // JSON 不完整，继续读取
-            }
+                // 记录解析错误以便调试
+                if (buffer.length > 10000) {
+                  // 如果 buffer 过大但仍无法解析，可能是数据损坏，清空重试
+                  console.warn('Proxy API JSON 解析失败，buffer 过大，清空重试:', parseError);
+                  buffer = '';
+                }
+              }
         }
     } catch (error) {
         if ((error as Error).name === 'AbortError') {

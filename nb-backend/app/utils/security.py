@@ -328,3 +328,64 @@ async def get_admin_user(
             detail="需要管理员权限",
         )
     return current_user
+
+
+async def verify_metrics_basic_auth(
+    authorization: Optional[str] = Header(None),
+) -> None:
+    """
+    验证 Metrics 端点的 Basic Auth 认证
+
+    使用方法：
+    1. 在环境变量中设置 METRICS_BASIC_AUTH="username:password"
+    2. 访问 /metrics 时需要提供 Basic Auth
+
+    Prometheus 配置示例：
+    bearer_token: username
+    basic_auth:
+        username: username
+        password: password
+    """
+    import base64
+
+    metrics_auth = settings.metrics_basic_auth
+    if not metrics_auth:
+        # 未配置认证，直接放行
+        return
+
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="需要认证",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    if not authorization.startswith("Basic "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="需要 Basic Auth 认证",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    try:
+        # 解码 Basic Auth
+        encoded_credentials = authorization[6:]  # 去掉 "Basic "
+        decoded = base64.b64decode(encoded_credentials).decode("utf-8")
+        provided_username, provided_password = decoded.split(":", 1)
+
+        # 验证用户名密码
+        expected_username, expected_password = metrics_auth.split(":", 1)
+        if provided_username == expected_username and provided_password == expected_password:
+            return
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证失败",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证信息格式错误",
+            headers={"WWW-Authenticate": "Basic"},
+        )

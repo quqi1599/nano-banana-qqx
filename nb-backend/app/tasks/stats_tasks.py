@@ -36,7 +36,7 @@ def collect_hourly_stats_task(self) -> Dict[str, Any]:
     db = get_task_db()
 
     try:
-        from sqlalchemy import func, and_
+        from sqlalchemy import func, and_, select
         from app.models.user import User
         from app.models.credit import CreditTransaction
         from app.models.usage_log import UsageLog
@@ -58,22 +58,22 @@ def collect_hourly_stats_task(self) -> Dict[str, Any]:
 
         # 新用户数
         stats["users"]["new"] = db.execute(
-            func.count(User.id).where(User.created_at >= hour_ago)
+            select(func.count(User.id)).where(User.created_at >= hour_ago)
         ).scalar() or 0
 
         # 总用户数
-        stats["users"]["total"] = db.execute(func.count(User.id)).scalar() or 0
+        stats["users"]["total"] = db.execute(select(func.count(User.id))).scalar() or 0
 
         # 活跃用户数（有 API 调用）
         stats["users"]["active"] = db.execute(
-            func.count(func.distinct(UsageLog.user_id)).where(
+            select(func.count(func.distinct(UsageLog.user_id))).where(
                 UsageLog.created_at >= hour_ago
             )
         ).scalar() or 0
 
         # 积分消耗
         stats["credits"]["used"] = int(db.execute(
-            func.sum(func.abs(CreditTransaction.amount)).where(
+            select(func.sum(func.abs(CreditTransaction.amount))).where(
                 and_(
                     CreditTransaction.amount < 0,
                     CreditTransaction.created_at >= hour_ago,
@@ -83,23 +83,24 @@ def collect_hourly_stats_task(self) -> Dict[str, Any]:
 
         # 积分充值
         stats["credits"]["added"] = int(db.execute(
-            func.sum(CreditTransaction.amount).where(
+            select(func.sum(CreditTransaction.amount)).where(
                 and_(
                     CreditTransaction.amount > 0,
                     CreditTransaction.created_at >= hour_ago,
                 )
-            ).scalar() or 0)
+            )
+        ).scalar() or 0)
 
         # 新对话数
         stats["conversations"]["new"] = db.execute(
-            func.count(Conversation.id).where(
+            select(func.count(Conversation.id)).where(
                 Conversation.created_at >= hour_ago
             )
         ).scalar() or 0
 
         # API 调用次数
         stats["api_calls"] = db.execute(
-            func.count(UsageLog.id).where(UsageLog.created_at >= hour_ago)
+            select(func.count(UsageLog.id)).where(UsageLog.created_at >= hour_ago)
         ).scalar() or 0
 
         # 可以在这里写入统计表
@@ -152,7 +153,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
     db = get_task_db()
 
     try:
-        from sqlalchemy import func, and_
+        from sqlalchemy import func, and_, select
         from app.models.user import User
         from app.models.credit import CreditTransaction
         from app.models.usage_log import UsageLog
@@ -177,7 +178,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
 
         # 新用户
         report["users"]["new"] = db.execute(
-            func.count(User.id).where(
+            select(func.count(User.id)).where(
                 and_(
                     User.created_at >= yesterday,
                     User.created_at < today,
@@ -187,12 +188,12 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
 
         # 总用户
         report["users"]["total"] = db.execute(
-            func.count(User.id).where(User.created_at < today)
+            select(func.count(User.id)).where(User.created_at < today)
         ).scalar() or 0
 
         # 活跃用户
         report["users"]["active"] = db.execute(
-            func.count(func.distinct(UsageLog.user_id)).where(
+            select(func.count(func.distinct(UsageLog.user_id))).where(
                 and_(
                     UsageLog.created_at >= yesterday,
                     UsageLog.created_at < today,
@@ -202,7 +203,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
 
         # 积分消耗
         report["credits"]["used"] = int(db.execute(
-            func.sum(func.abs(CreditTransaction.amount)).where(
+            select(func.sum(func.abs(CreditTransaction.amount))).where(
                 and_(
                     CreditTransaction.amount < 0,
                     CreditTransaction.created_at >= yesterday,
@@ -213,7 +214,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
 
         # 积分充值
         report["credits"]["added"] = int(db.execute(
-            func.sum(CreditTransaction.amount).where(
+            select(func.sum(CreditTransaction.amount)).where(
                 and_(
                     CreditTransaction.amount > 0,
                     CreditTransaction.created_at >= yesterday,
@@ -224,7 +225,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
 
         # API 调用
         report["api_calls"] = db.execute(
-            func.count(UsageLog.id).where(
+            select(func.count(UsageLog.id)).where(
                 and_(
                     UsageLog.created_at >= yesterday,
                     UsageLog.created_at < today,

@@ -1,9 +1,9 @@
 /**
  * 增强版用户管理面板
- * 功能：高级筛选、批量操作、标签管理、实时搜索、移动端适配
+ * 功能：高级筛选、批量操作、标签管理、实时搜索、移动端适配、创建用户、修改密码
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown, MessageSquare, List, Clock } from 'lucide-react';
+import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown, MessageSquare, List, Clock, Plus, Key, Eye, EyeOff, Edit3 } from 'lucide-react';
 import {
     getUsersAdvanced,
     exportUsers,
@@ -15,6 +15,9 @@ import {
     getUserUsageLogs,
     updateUserTags,
     getUserTags,
+    createUser,
+    changeUserPassword,
+    adjustUserBalance,
     type AdminUser,
     type UserFilters,
     type UserTagsResponse,
@@ -87,6 +90,32 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
     // Toast 消息
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    // 创建用户模态框
+    const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+    const [newUserEmail, setNewUserEmail] = useState('');
+    const [newUserPassword, setNewUserPassword] = useState('');
+    const [newUserNickname, setNewUserNickname] = useState('');
+    const [newUserCredit, setNewUserCredit] = useState(0);
+    const [newUserPro3, setNewUserPro3] = useState(0);
+    const [newUserFlash, setNewUserFlash] = useState(0);
+    const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
+    const [newUserNote, setNewUserNote] = useState('');
+    const [newUserTags, setNewUserTags] = useState('');
+    const [creatingUser, setCreatingUser] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
+    // 修改密码模态框
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [passwordUserId, setPasswordUserId] = useState('');
+    const [passwordUserEmail, setPasswordUserEmail] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [changingPassword, setChangingPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+
+    // 积分类型选择
+    const [creditType, setCreditType] = useState<'credit' | 'pro3' | 'flash'>('credit');
 
     // ===== 工具函数 =====
     const showToast = (message: string, type: 'success' | 'error') => {
@@ -384,6 +413,130 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
         }
     };
 
+    // ===== 创建用户 =====
+    const openCreateUserModal = () => {
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserNickname('');
+        setNewUserCredit(0);
+        setNewUserPro3(0);
+        setNewUserFlash(0);
+        setNewUserIsAdmin(false);
+        setNewUserNote('');
+        setNewUserTags('');
+        setShowCreateUserModal(true);
+    };
+
+    const handleCreateUser = async () => {
+        if (!newUserEmail || !newUserEmail.includes('@')) {
+            showToast('请输入有效的邮箱地址', 'error');
+            return;
+        }
+        if (newUserPassword.length < 6) {
+            showToast('密码至少需要6个字符', 'error');
+            return;
+        }
+
+        setCreatingUser(true);
+        try {
+            const tags = newUserTags.split(',').map(t => t.trim()).filter(t => t);
+            await createUser({
+                email: newUserEmail,
+                password: newUserPassword,
+                nickname: newUserNickname || undefined,
+                credit_balance: newUserCredit,
+                pro3_balance: newUserPro3,
+                flash_balance: newUserFlash,
+                is_admin: newUserIsAdmin,
+                note: newUserNote || undefined,
+                tags,
+            });
+            showToast('用户创建成功', 'success');
+            setShowCreateUserModal(false);
+            loadUsers();
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setCreatingUser(false);
+        }
+    };
+
+    // ===== 修改密码 =====
+    const openPasswordModal = (user: AdminUser) => {
+        setPasswordUserId(user.id);
+        setPasswordUserEmail(user.email);
+        setNewPassword('');
+        setConfirmPassword('');
+        setShowPasswordModal(true);
+    };
+
+    const handleChangePassword = async () => {
+        if (newPassword.length < 6) {
+            showToast('密码至少需要6个字符', 'error');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            showToast('两次输入的密码不一致', 'error');
+            return;
+        }
+
+        setChangingPassword(true);
+        try {
+            await changeUserPassword(passwordUserId, newPassword);
+            showToast('密码修改成功', 'success');
+            setShowPasswordModal(false);
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setChangingPassword(false);
+        }
+    };
+
+    // ===== 更新积分调整处理函数以支持多种积分类型 =====
+    const handleAdjustCreditsWithType = async () => {
+        if (!activeUser) return;
+        if (creditAdjustAmount === 0) {
+            showToast('请输入调整金额', 'error');
+            return;
+        }
+        if (!creditAdjustReason.trim()) {
+            showToast('请填写调整原因', 'error');
+            return;
+        }
+
+        setCreditAdjustLoading(true);
+        try {
+            const targetUserId = activeUser.id;
+            const result = await adjustUserBalance({
+                userId: targetUserId,
+                amount: creditAdjustAmount,
+                reason: creditAdjustReason.trim(),
+                type: creditType,
+            });
+            const newBalance = result.new_balance;
+            showToast('积分调整成功', 'success');
+            setCreditAdjustAmount(0);
+            setCreditAdjustReason('');
+            setCreditType('credit');
+
+            // Update local user data
+            const updateKey = creditType === 'credit' ? 'credit_balance' :
+                            creditType === 'pro3' ? 'pro3_balance' : 'flash_balance';
+            setActiveUser(prev => prev ? { ...prev, [updateKey]: newBalance } : prev);
+            setUsers(prev => prev.map(user => (
+                user.id === targetUserId ? { ...user, [updateKey]: newBalance } : user
+            )));
+            loadUsers();
+            if (creditType === 'credit') {
+                loadCreditHistory();
+            }
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setCreditAdjustLoading(false);
+        }
+    };
+
     // ===== 渲染 =====
     return (
         <div className="space-y-4 sm:space-y-6">
@@ -426,6 +579,13 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                 >
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">导出</span>
+                </button>
+                <button
+                    onClick={openCreateUserModal}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition shadow-lg shadow-amber-500/20"
+                >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline">新建用户</span>
                 </button>
             </div>
 
@@ -657,7 +817,11 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                     {/* 余额 */}
                                     <div className="col-span-1 sm:col-span-2">
                                         <div className="text-xs text-gray-400 sm:hidden">余额</div>
-                                        <span className="font-mono font-bold text-amber-600">{user.credit_balance}</span>
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                            <span className="font-mono font-bold text-amber-600">C:{user.credit_balance}</span>
+                                            <span className="font-mono font-bold text-purple-600">P3:{user.pro3_balance}</span>
+                                            <span className="font-mono font-bold text-blue-600">F:{user.flash_balance}</span>
+                                        </div>
                                     </div>
 
                                     {/* 标签 */}
@@ -756,6 +920,13 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                             title="积分管理"
                                         >
                                             <CreditCard className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => openPasswordModal(user)}
+                                            className="text-gray-400 hover:text-blue-500 transition"
+                                            title="修改密码"
+                                        >
+                                            <Key className="w-4 h-4" />
                                         </button>
                                         {onViewConversations && (
                                             <button
@@ -905,6 +1076,22 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                         </div>
 
                         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-80px)]">
+                            {/* 当前余额显示 */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+                                    <div className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase">通用积分</div>
+                                    <div className="text-xl font-mono font-bold text-amber-700 dark:text-amber-300">{activeUser.credit_balance}</div>
+                                </div>
+                                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
+                                    <div className="text-xs text-purple-600 dark:text-purple-400 font-bold uppercase">Pro3 次数</div>
+                                    <div className="text-xl font-mono font-bold text-purple-700 dark:text-purple-300">{activeUser.pro3_balance}</div>
+                                </div>
+                                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase">Flash 次数</div>
+                                    <div className="text-xl font-mono font-bold text-blue-700 dark:text-blue-300">{activeUser.flash_balance}</div>
+                                </div>
+                            </div>
+
                             {/* 快速调整表单 */}
                             <div className="bg-amber-50/50 dark:bg-amber-900/5 rounded-2xl border border-amber-100 dark:border-amber-900/30 p-4">
                                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-bold text-sm mb-4">
@@ -912,6 +1099,18 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                     分配积分
                                 </div>
                                 <div className="flex flex-col md:flex-row items-end gap-3">
+                                    <div className="w-full md:w-28">
+                                        <label className="text-[10px] font-bold text-amber-700/70 dark:text-amber-400/50 mb-1.5 block uppercase tracking-wider">类型</label>
+                                        <select
+                                            value={creditType}
+                                            onInput={(e) => setCreditType((e.target as HTMLSelectElement).value as 'credit' | 'pro3' | 'flash')}
+                                            className="w-full px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-amber-500 text-sm h-10"
+                                        >
+                                            <option value="credit">通用积分</option>
+                                            <option value="pro3">Pro3 次数</option>
+                                            <option value="flash">Flash 次数</option>
+                                        </select>
+                                    </div>
                                     <div className="w-full md:w-32">
                                         <label className="text-[10px] font-bold text-amber-700/70 dark:text-amber-400/50 mb-1.5 block uppercase tracking-wider">调整数额</label>
                                         <input
@@ -933,7 +1132,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                         />
                                     </div>
                                     <button
-                                        onClick={handleAdjustCredits}
+                                        onClick={handleAdjustCreditsWithType}
                                         disabled={creditAdjustLoading}
                                         className="h-10 px-6 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 disabled:opacity-50 transition-all shadow-md shadow-amber-500/20 text-sm whitespace-nowrap"
                                     >
@@ -1057,6 +1256,239 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 创建用户模态框 */}
+            {showCreateUserModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">新建用户</h3>
+                                <button
+                                    onClick={() => setShowCreateUserModal(false)}
+                                    className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        邮箱地址 <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={newUserEmail}
+                                        onInput={(e) => setNewUserEmail((e.target as HTMLInputElement).value)}
+                                        placeholder="user@example.com"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        密码 <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={newUserPassword}
+                                            onInput={(e) => setNewUserPassword((e.target as HTMLInputElement).value)}
+                                            placeholder="至少6个字符"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500 pr-10"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        昵称
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newUserNickname}
+                                        onInput={(e) => setNewUserNickname((e.target as HTMLInputElement).value)}
+                                        placeholder="可选"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">通用积分</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newUserCredit}
+                                            onInput={(e) => setNewUserCredit(Number((e.target as HTMLInputElement).value))}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pro3 次数</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newUserPro3}
+                                            onInput={(e) => setNewUserPro3(Number((e.target as HTMLInputElement).value))}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Flash 次数</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newUserFlash}
+                                            onInput={(e) => setNewUserFlash(Number((e.target as HTMLInputElement).value))}
+                                            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        标签 (逗号分隔)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newUserTags}
+                                        onInput={(e) => setNewUserTags((e.target as HTMLInputElement).value)}
+                                        placeholder="如: vip,测试用户"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        备注
+                                    </label>
+                                    <textarea
+                                        value={newUserNote}
+                                        onInput={(e) => setNewUserNote((e.target as HTMLTextAreaElement).value)}
+                                        placeholder="可选"
+                                        rows={2}
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        id="isAdmin"
+                                        checked={newUserIsAdmin}
+                                        onInput={(e) => setNewUserIsAdmin((e.target as HTMLInputElement).checked)}
+                                        className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500"
+                                    />
+                                    <label htmlFor="isAdmin" className="text-sm text-gray-700 dark:text-gray-300">
+                                        设为管理员
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowCreateUserModal(false)}
+                                    className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={handleCreateUser}
+                                    disabled={creatingUser}
+                                    className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 disabled:opacity-50 transition"
+                                >
+                                    {creatingUser ? '创建中...' : '创建用户'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 修改密码模态框 */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">修改密码</h3>
+                                <button
+                                    onClick={() => setShowPasswordModal(false)}
+                                    className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                                为用户 <span className="font-bold text-gray-700 dark:text-gray-300">{passwordUserEmail}</span> 设置新密码
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        新密码 <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={showNewPassword ? 'text' : 'password'}
+                                            value={newPassword}
+                                            onInput={(e) => setNewPassword((e.target as HTMLInputElement).value)}
+                                            placeholder="至少6个字符"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500 pr-10"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        确认密码 <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onInput={(e) => setConfirmPassword((e.target as HTMLInputElement).value)}
+                                        placeholder="再次输入新密码"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowPasswordModal(false)}
+                                    className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                                >
+                                    取消
+                                </button>
+                                <button
+                                    onClick={handleChangePassword}
+                                    disabled={changingPassword}
+                                    className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 disabled:opacity-50 transition"
+                                >
+                                    {changingPassword ? '修改中...' : '确认修改'}
+                                </button>
                             </div>
                         </div>
                     </div>

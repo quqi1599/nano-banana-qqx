@@ -17,6 +17,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
 import { getDashboardStats, getLoginFailureIps, DashboardStats, LoginFailureResult } from '../services/adminService';
 import { getApiBaseUrl } from '../utils/endpointUtils';
+import { ADMIN_CONFIG } from '../constants/admin';
 
 interface AdminDashboardProps {
     onLogout: () => void;
@@ -56,7 +57,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const loadLoginFailures = async () => {
         setLoginFailuresLoading(true);
         try {
-            const data = await getLoginFailureIps(50);
+            const data = await getLoginFailureIps(ADMIN_CONFIG.LOGIN_FAILURE_LIMIT);
             setLoginFailures(data);
         } catch (err) {
             setError((err as Error).message);
@@ -74,7 +75,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
                     includeDailyStats: false,
                     includeModelStats: false,
                 }),
-                getLoginFailureIps(50),
+                getLoginFailureIps(ADMIN_CONFIG.LOGIN_FAILURE_LIMIT),
             ]);
             setStats(data);
             setDailyStatsLoaded(false);

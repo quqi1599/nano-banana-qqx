@@ -1,6 +1,9 @@
 import { AppSettings } from '../types';
 import { resolveApiBaseUrl } from '../utils/endpointUtils';
 
+// New API 的计费单位：1美元 = 500000分
+const NEW_API_CREDIT_TO_USD_RATE = 1 / 500000;
+
 export interface BalanceInfo {
   hardLimitUsd: number;
   usage: number;
@@ -94,10 +97,10 @@ const fetchBalanceNewApi = async (
     throw new Error(data.message || 'New API 返回数据格式错误');
   }
 
-  // New API 的额度单位是"分"，需要转换为美元（÷ 500000）
+  // New API 的额度单位是"分"，需要转换为美元
   // 参考: 1美元 = 500000分（New API 的计费单位）
-  const quotaInUsd = data.data.quota / 500000;
-  const usedInUsd = data.data.used_quota / 500000;
+  const quotaInUsd = data.data.quota * NEW_API_CREDIT_TO_USD_RATE;
+  const usedInUsd = data.data.used_quota * NEW_API_CREDIT_TO_USD_RATE;
   const remaining = quotaInUsd - usedInUsd;
 
   const isUnlimited = quotaInUsd >= 100000000;

@@ -2,7 +2,7 @@
 对话相关的 Pydantic Schemas
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 
 
@@ -77,10 +77,15 @@ class ConversationMessagesResponse(BaseModel):
     page_size: int
 
 
+UserType = Literal["user", "api_key", "visitor"]
+
+
 class AdminConversationResponse(ConversationResponse):
     """管理员对话响应（含用户信息）"""
     user_email: Optional[str] = None
     user_nickname: Optional[str] = None
+    user_type: UserType
+    uses_custom_endpoint: bool = False
     custom_endpoint: Optional[str] = None
 
 

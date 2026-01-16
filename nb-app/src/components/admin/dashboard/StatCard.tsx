@@ -15,7 +15,7 @@ interface StatCardProps {
 
 export const StatCard: React.FC<StatCardProps> = ({ label, value, suffix, icon: Icon, color, trend }) => {
     const colorStyles = {
-        amber: 'bg-amber-100/50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
+        amber: 'bg-cream-100/50 text-cream-600 dark:bg-cream-500/10 dark:text-cream-400',
         orange: 'bg-orange-100/50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400',
         blue: 'bg-blue-100/50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
         green: 'bg-green-100/50 text-green-600 dark:bg-green-500/10 dark:text-green-400',

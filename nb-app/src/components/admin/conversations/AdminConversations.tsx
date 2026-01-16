@@ -1,24 +1,21 @@
+/**
+ * Admin Conversations - 管理员查看对话列表
+ * Refactored into smaller components for better maintainability
+ */
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    Search, MessageSquare, Trash2, X, Loader2, User, Bot, Clock,
-    Filter, Calendar, Hash, List, CalendarDays, ChevronDown,
-    BarChart3, MessageCircle, Globe
-} from 'lucide-react';
-import {
-    adminGetConversationsFiltered,
-    adminGetConversation,
-    adminDeleteConversation,
-    adminGetUserConversationStats,
-    adminGetUserConversationTimeline,
-    AdminConversation,
-    AdminConversationDetail,
-    ConversationFilters,
-    UserConversationStats,
-    ConversationTimelineItem,
-} from '../../../services/conversationService';
+import { Search, Filter, X, MessageSquare, Loader2, Calendar, MessageCircle, Bot, Globe } from 'lucide-react';
+import { UserTypeBadge, getInputValue } from './utils/constants';
+import { Pagination } from '../common';
+import { useConversationFilters } from './hooks/useConversationFilters';
+import { useConversationData } from './hooks/useConversationData';
+import { ConversationList } from './ConversationList';
+import { ConversationTimeline } from './ConversationTimeline';
+import { ConversationDetailModal } from './ConversationDetailModal';
+import { FiltersPanel } from './FiltersPanel';
+import { formatDate, formatFullDate } from '../../../../utils/formatters';
+import { ADMIN_CONFIG } from '../../../../constants/admin';
 
-// 类型安全的输入值获取函数
-const getInputValue = (e: Event): string => (e.target as HTMLInputElement).value;
+type ViewMode = 'list' | 'timeline';
 
 interface AdminConversationsProps {
     userId?: string | null;
@@ -26,90 +23,72 @@ interface AdminConversationsProps {
     onClearUserFilter?: () => void;
 }
 
-type ViewMode = 'list' | 'timeline';
-
-export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: AdminConversationsProps) => {
-    // 状态管理
-    const [conversations, setConversations] = useState<AdminConversation[]>([]);
-    const [selectedConversation, setSelectedConversation] = useState<AdminConversationDetail | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [loadingDetail, setLoadingDetail] = useState(false);
-    const [error, setError] = useState('');
-
-    // 分页
-    const [page, setPage] = useState(1);
-    const [pageSize] = useState(20);
-    const [total, setTotal] = useState(0);
-
-    // 视图模式
+export const AdminConversations: React.FC<AdminConversationsProps> = ({
+    userId,
+    userInfo,
+    onClearUserFilter,
+}) => {
+    // View mode state
     const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [page, setPage] = useState(1);
+    const pageSize = ADMIN_CONFIG.PAGE_SIZE;
 
-    // 筛选状态
-    const [searchQuery, setSearchQuery] = useState('');
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState<ConversationFilters>({ user_id: userId || undefined });
+    // Filters
+    const {
+        filters,
+        setFilters,
+        updateFilter,
+        clearFilters,
+        hasActiveFilters,
+        searchQuery,
+        setSearchQuery,
+        showFilters,
+        setShowFilters,
+    } = useConversationFilters(userId);
 
-    // 时间线状态
-    const [timeline, setTimeline] = useState<ConversationTimelineItem[]>([]);
-    const [timelineLoading, setTimelineLoading] = useState(false);
-    const [timelineTotal, setTimelineTotal] = useState(0);
+    // Data loading
+    const {
+        conversations,
+        selectedConversation,
+        loading,
+        loadingDetail,
+        error,
+        setError,
+        loadConversations,
+        loadTimeline,
+        handleDeleteConversation,
+        stats,
+        timeline,
+        timelineLoading,
+        timelineTotal,
+    } = useConversationData(filters, searchQuery, userId, page, pageSize, viewMode);
 
-    // 统计数据
-    const [stats, setStats] = useState<UserConversationStats | null>(null);
-
-    // 当 userId prop 变化时更新筛选
+    // Load conversations when filters or viewMode changes
     useEffect(() => {
-        setFilters(prev => ({ ...prev, user_id: userId || undefined }));
-        setPage(1);
-    }, [userId]);
-
-    // 加载对话列表
-    const loadConversations = useCallback(async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const currentFilters = { ...filters };
-            if (searchQuery) currentFilters.search = searchQuery;
-            if (userId) currentFilters.user_id = userId;
-
-            const result = await adminGetConversationsFiltered(currentFilters, page, pageSize);
-            setConversations(result.conversations);
-            setTotal(result.total);
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setLoading(false);
+        if (viewMode === 'list') {
+            loadConversations();
+        } else {
+            loadTimeline();
         }
-    }, [filters, searchQuery, page, pageSize, userId]);
+    }, [viewMode, loadConversations, loadTimeline, filters, searchQuery, userId, page, pageSize]);
 
-    // 加载用户统计
-    const loadStats = useCallback(async () => {
-        if (!userId) return;
-        try {
-            const result = await adminGetUserConversationStats(userId);
-            setStats(result);
-        } catch (err) {
-            console.error('加载统计失败:', err);
-        }
-    }, [userId]);
+    const handleViewDetail = useCallback((id: string) => {
+        const loadConversationDetail = async () => {
+            const { adminGetConversation } = await import('../../../../services/conversationService');
+            setLoadingDetail(true);
+            try {
+                const data = await adminGetConversation(id);
+                setSelectedConversation(data);
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setLoadingDetail(false);
+            }
+        };
+        loadConversationDetail();
+    }, [loadConversationDetail]);
 
-    // 加载时间线
-    const loadTimeline = useCallback(async () => {
-        if (!userId) return;
-        setTimelineLoading(true);
-        try {
-            const result = await adminGetUserConversationTimeline(userId, page, pageSize);
-            setTimeline(result.timeline);
-            setTimelineTotal(result.total);
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setTimelineLoading(false);
-        }
-    }, [userId, page, pageSize]);
-
-    // 初始加载和依赖变化时重新加载
-    useEffect(() => {
+    const reloadCurrentView = useCallback(() => {
         if (viewMode === 'list') {
             loadConversations();
         } else {
@@ -117,87 +96,27 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
         }
     }, [viewMode, loadConversations, loadTimeline]);
 
-    // 加载用户统计
-    useEffect(() => {
-        if (userId) {
-            loadStats();
-        } else {
-            setStats(null);
-        }
-    }, [userId, loadStats]);
-
-    // 加载对话详情
-    const loadConversationDetail = async (id: string) => {
-        setLoadingDetail(true);
-        try {
-            const data = await adminGetConversation(id);
-            setSelectedConversation(data);
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setLoadingDetail(false);
-        }
-    };
-
-    // 删除对话
-    const handleDeleteConversation = async (id: string, e?: React.MouseEvent<HTMLButtonElement>) => {
-        if (e) e.stopPropagation();
-        if (!confirm('确定要删除此对话吗？')) return;
-        try {
-            await adminDeleteConversation(id);
-            if (selectedConversation?.id === id) {
-                setSelectedConversation(null);
-            }
-            if (viewMode === 'list') {
-                loadConversations();
-            } else {
-                loadTimeline();
-            }
-        } catch (err) {
-            setError((err as Error).message);
-        }
-    };
-
-    // 更新筛选条件
-    const updateFilter = (key: keyof ConversationFilters, value: any) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
-        setPage(1);
-    };
-
-    // 清除筛选
-    const clearFilters = () => {
-        setFilters({ user_id: userId || undefined });
-        setSearchQuery('');
-        setPage(1);
-    };
-
-    // 格式化日期
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('zh-CN', {
-            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-    };
-
-    // 检查是否有活跃筛选
-    const hasActiveFilters = Object.keys(filters).some(k =>
-        k !== 'user_id' && filters[k as keyof ConversationFilters] !== undefined
-    ) || searchQuery.length > 0;
-
     return (
         <div className="space-y-4">
             {/* 错误提示 */}
             {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm flex items-center gap-3">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm flex items-center gap-3 animate-fade-in-up">
                     <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500"></span>
                     {error}
+                    <button
+                        onClick={() => setError('')}
+                        className="ml-auto p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-500 hover:text-red-700 transition"
+                    >
+                        <X className="w-3 h-3" />
+                    </button>
                 </div>
             )}
 
             {/* 用户筛选信息条 */}
             {userId && userInfo && (
-                <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/30 rounded-2xl">
+                <div className="flex items-center justify-between p-4 bg-cream-50 dark:bg-cream-900/20 border border-cream-200 dark:border-cream-900/30 rounded-2xl">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center font-bold text-white">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cream-400 to-cream-300 flex items-center justify-center font-bold text-white">
                             {userInfo.nickname?.[0] || userInfo.email[0].toUpperCase()}
                         </div>
                         <div>
@@ -222,8 +141,8 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                <MessageSquare className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            <div className="w-10 h-10 rounded-lg bg-cream-100 dark:bg-cream-900/30 flex items-center justify-center">
+                                <MessageSquare className="w-5 h-5 text-cream-600 dark:text-cream-400" />
                             </div>
                             <div>
                                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total_conversations}</div>
@@ -280,8 +199,11 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                         type="text"
                         placeholder="搜索对话标题或用户邮箱..."
                         value={searchQuery}
-                        onChange={(e) => { setSearchQuery(getInputValue(e)); setPage(1); }}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm"
+                        onChange={(e) => {
+                            setSearchQuery(getInputValue(e));
+                            setPage(1);
+                        }}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-brand-500 outline-none transition text-sm"
                     />
                 </div>
 
@@ -290,13 +212,13 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                     onClick={() => setShowFilters(!showFilters)}
                     className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition ${
                         showFilters || hasActiveFilters
-                            ? 'bg-amber-500 text-white'
+                            ? 'bg-brand-500 text-white'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                     }`}
                 >
                     <Filter className="w-4 h-4" />
                     <span>筛选</span>
-                    {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-red-500 rounded-full" />}
+                    {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-red-500 rounded-full />}
                 </button>
 
                 {/* 视图切换 */}
@@ -330,58 +252,13 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
 
             {/* 高级筛选面板 */}
             {showFilters && (
-                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-gray-700 dark:text-gray-300">高级筛选</h3>
-                        {hasActiveFilters && (
-                            <button
-                                onClick={clearFilters}
-                                className="text-sm text-amber-600 hover:text-amber-700 flex items-center gap-1"
-                            >
-                                <X className="w-3 h-3" />
-                                清空筛选
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {/* 模型筛选 */}
-                        <select
-                            value={filters.model_name ?? ''}
-                            onChange={(e) => updateFilter('model_name', getInputValue(e) || undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-                        >
-                            <option value="">全部模型</option>
-                            <option value="gemini-3-pro-image-preview">Gemini 3 Pro</option>
-                            <option value="gemini-2.5-flash-image-preview">Gemini 2.5 Flash</option>
-                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
-                        </select>
-
-                        {/* 消息数量范围 */}
-                        <input
-                            type="number"
-                            placeholder="最少消息数"
-                            value={filters.min_messages ?? ''}
-                            onChange={(e) => updateFilter('min_messages', getInputValue(e) ? Number(getInputValue(e)) : undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-                        <input
-                            type="number"
-                            placeholder="最多消息数"
-                            value={filters.max_messages ?? ''}
-                            onChange={(e) => updateFilter('max_messages', getInputValue(e) ? Number(getInputValue(e)) : undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-
-                        {/* 时间范围 */}
-                        <input
-                            type="date"
-                            value={filters.date_from ?? ''}
-                            onChange={(e) => updateFilter('date_from', getInputValue(e) || undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
-                        />
-                    </div>
-                </div>
+                <FiltersPanel
+                    filters={filters}
+                    updateFilter={updateFilter}
+                    clearFilters={clearFilters}
+                    onClose={() => setShowFilters(false)}
+                    searchQuery={searchQuery}
+                />
             )}
 
             {/* 对话列表 */}
@@ -390,9 +267,8 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                 {viewMode === 'list' && (
                     <>
                         {loading ? (
-                            <div className="p-8 text-center text-gray-400">
-                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                                加载中...
+                            <div className="p-12 text-center text-gray-400">
+                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-cream-500" />
                             </div>
                         ) : conversations.length === 0 ? (
                             <div className="p-12 text-center text-gray-400">
@@ -405,20 +281,24 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                     <div
                                         key={c.id}
                                         className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition cursor-pointer"
-                                        onClick={() => loadConversationDetail(c.id)}
+                                        onClick={() => {
+                                            const { adminGetConversation } = import('../../../../services/conversationService');
+                                            adminGetConversation(c.id).then(data => setSelectedConversation(data));
+                                        }}
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
                                                     <h4 className="font-medium text-gray-900 dark:text-white truncate">
                                                         {c.title || '新对话'}
                                                     </h4>
+                                                    <UserTypeBadge type={c.user_type} />
                                                     {c.model_name && (
                                                         <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded">
                                                             {c.model_name}
                                                         </span>
                                                     )}
-                                                    {c.custom_endpoint && c.custom_endpoint !== 'https://nanobanana2.peacedejiai.cc' && (
+                                                    {c.uses_custom_endpoint && (
                                                         <span className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded" title={c.custom_endpoint}>
                                                             <Globe className="w-3 h-3" />
                                                             自定义接口
@@ -430,8 +310,13 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                                         <User className="w-3 h-3" />
                                                         {c.user_email?.split('@')[0]}
                                                     </span>
+                                                    {c.user_type === 'visitor' && c.visitor_id && (
+                                                        <span className="text-xs text-gray-400">
+                                                            访客 ID: {c.visitor_id.slice(0, 8)}...
+                                                        </span>
+                                                    )}
                                                     <span className="flex items-center gap-1">
-                                                        <Hash className="w-3 h-3" />
+                                                        <span className="w-3 h-3" />
                                                         {c.message_count} 条消息
                                                     </span>
                                                     <span className="flex items-center gap-1">
@@ -453,29 +338,13 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                         )}
 
                         {/* 分页 */}
-                        {total > pageSize && (
-                            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                                <div className="text-sm text-gray-500">
-                                    共 {total} 条对话，第 {page} / {Math.ceil(total / pageSize)} 页
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                                    >
-                                        上一页
-                                    </button>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
-                                        disabled={page >= Math.ceil(total / pageSize)}
-                                        className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                                    >
-                                        下一页
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        <Pagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={conversations.length}
+                            onPageChange={(p) => setPage(p)}
+                            itemLabel="条对话"
+                        />
                     </>
                 )}
 
@@ -483,9 +352,8 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                 {viewMode === 'timeline' && userId && (
                     <>
                         {timelineLoading ? (
-                            <div className="p-8 text-center text-gray-400">
-                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                                加载中...
+                            <div className="p-12 text-center text-gray-400">
+                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-cream-500" />
                             </div>
                         ) : timeline.length === 0 ? (
                             <div className="p-12 text-center text-gray-400">
@@ -499,14 +367,9 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                         {/* 日期头部 */}
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
-                                                <Calendar className="w-4 h-4 text-amber-500" />
+                                                <Calendar className="w-4 h-4 text-cream-500" />
                                                 <span className="font-medium text-gray-900 dark:text-white">
-                                                    {new Date(day.date).toLocaleDateString('zh-CN', {
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric',
-                                                        weekday: 'short'
-                                                    })}
+                                                    {formatFullDate(day.date)}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -521,20 +384,24 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                                 <div
                                                     key={conv.id}
                                                     className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
-                                                    onClick={() => loadConversationDetail(conv.id)}
+                                                    onClick={() => {
+                                                        const { adminGetConversation } = import('../../../../services/conversationService');
+                                                        adminGetConversation(conv.id).then(data => setSelectedConversation(data));
+                                                    }}
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex flex-wrap items-center gap-2">
                                                                 <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
                                                                     {conv.title || '新对话'}
                                                                 </span>
+                                                                <UserTypeBadge type={conv.user_type} />
                                                                 {conv.model_name && (
                                                                     <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded">
                                                                         {conv.model_name.split('-').slice(0, 2).join('-')}
                                                                     </span>
                                                                 )}
-                                                                {conv.custom_endpoint && conv.custom_endpoint !== 'https://nanobanana2.peacedejiai.cc' && (
+                                                                {conv.uses_custom_endpoint && (
                                                                     <span className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded" title={conv.custom_endpoint}>
                                                                         <Globe className="w-3 h-3" />
                                                                     </span>
@@ -542,7 +409,12 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                                             </div>
                                                             <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
                                                                 <span>{conv.message_count} 条消息</span>
-                                                                <span>{new Date(conv.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                <span>{formatTime(conv.created_at)}</span>
+                                                                {conv.user_type === 'visitor' && conv.visitor_id && (
+                                                                    <span className="text-[11px] text-gray-500">
+                                                                        访客 ID: {conv.visitor_id.slice(0, 8)}...
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <button
@@ -560,124 +432,25 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                             </div>
                         )}
 
-                        {/* 时间线分页 */}
-                        {timelineTotal > pageSize && (
-                            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                                <div className="text-sm text-gray-500">
-                                    共 {timelineTotal} 天，第 {page} / {Math.ceil(timelineTotal / pageSize)} 页
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                                    >
-                                        上一页
-                                    </button>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(Math.ceil(timelineTotal / pageSize), p + 1))}
-                                        disabled={page >= Math.ceil(timelineTotal / pageSize)}
-                                        className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                                    >
-                                        下一页
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {/* 分页 */}
+                        <Pagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={timelineTotal}
+                            onPageChange={(p) => setPage(p)}
+                            itemLabel="天"
+                        />
                     </>
                 )}
             </div>
 
             {/* 对话详情弹窗 */}
             {selectedConversation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200">
-                        {/* 头部 */}
-                        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold text-gray-900 dark:text-white line-clamp-1">
-                                    {selectedConversation.title || '新对话'}
-                                </h3>
-                                <p className="text-xs text-gray-500">
-                                    {selectedConversation.user_email} • {formatDate(selectedConversation.created_at)}
-                                </p>
-                                {selectedConversation.custom_endpoint && selectedConversation.custom_endpoint !== 'https://nanobanana2.peacedejiai.cc' && (
-                                    <div className="flex items-center gap-1 mt-1 text-xs text-blue-600 dark:text-blue-400">
-                                        <Globe className="w-3 h-3" />
-                                        <span className="truncate max-w-[200px]" title={selectedConversation.custom_endpoint}>
-                                            {selectedConversation.custom_endpoint}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setSelectedConversation(null)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* 消息列表 */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {loadingDetail ? (
-                                <div className="text-center p-4">
-                                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-500" />
-                                </div>
-                            ) : (
-                                selectedConversation.messages.map((msg, idx) => (
-                                    <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                            msg.role === 'user' || msg.role === 'assistant'
-                                                ? 'bg-amber-100 text-amber-700'
-                                                : 'bg-gray-100 text-gray-600'
-                                        }`}>
-                                            {msg.role === 'user' || msg.role === 'assistant' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                                        </div>
-                                        <div className={`max-w-[80%] ${msg.role === 'user' || msg.role === 'assistant' ? 'flex flex-col items-end' : 'flex flex-col items-start'}`}>
-                                            <div className={`p-3 rounded-2xl ${
-                                                msg.role === 'user' || msg.role === 'assistant'
-                                                    ? 'bg-amber-500 text-white rounded-tr-none'
-                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                                            }`}>
-                                                {msg.content && (
-                                                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-                                                )}
-                                                {/* 思考过程标记 */}
-                                                {msg.is_thought && (
-                                                    <span className="inline-flex items-center gap-1 text-xs opacity-70 mt-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                                        思考过程 {msg.thinking_duration && `(${msg.thinking_duration.toFixed(1)}s)`}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {/* 图片渲染 */}
-                                            {msg.images && msg.images.length > 0 && (
-                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                    {msg.images.map((img, imgIdx) => (
-                                                        <img
-                                                            key={imgIdx}
-                                                            src={`data:${img.mimeType};base64,${img.base64}`}
-                                                            alt={`消息图片 ${imgIdx + 1}`}
-                                                            className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition"
-                                                            onClick={() => {
-                                                                // 点击放大
-                                                                const win = window.open();
-                                                                if (win) {
-                                                                    win.document.write(`<img src="data:${img.mimeType};base64,${img.base64}" style="max-width:100%;height:auto;" />`);
-                                                                }
-                                                            }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <ConversationDetailModal
+                    conversation={selectedConversation}
+                    loading={loadingDetail}
+                    onClose={() => setSelectedConversation(null)}
+                />
             )}
         </div>
     );

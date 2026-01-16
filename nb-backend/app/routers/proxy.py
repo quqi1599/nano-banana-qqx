@@ -22,6 +22,12 @@ from app.models.model_pricing import ModelPricing
 from app.utils.security import get_current_user
 from app.utils.token_security import decrypt_api_key, encrypt_api_key, hash_api_key, build_key_parts
 from app.config import get_settings
+from app.services.credit_service import (
+    CreditService,
+    CreditOperationError,
+    reserve_user_credits,
+    refund_user_credits,
+)
 
 router = APIRouter()
 settings = get_settings()
@@ -166,7 +172,19 @@ async def get_credits_for_model(db: AsyncSession, model_name: str) -> int:
 
 
 async def get_available_tokens(db: AsyncSession, lock: bool = False) -> list[TokenPool]:
-    """获取可用的 Token 列表（按优先级轮询）"""
+    """获取可用的 Token 列表（智能负载均衡）
+
+    负载均衡策略：
+    1. 首先按优先级降序排列（高优先级优先）
+    2. 相同优先级内，按使用次数升序（使用少的优先，避免热点）
+    3. 使用次数相同时，按最后使用时间升序（最久未使用的优先）
+    4. 从未使用过的（last_used_at IS NULL）优先
+
+    这样可以：
+    - 确保高优先级 token 优先被使用
+    - 在同优先级内实现负载均衡，避免单个 token 过载
+    - 自动分散请求到多个 token
+    """
     now = datetime.utcnow()
     query = (
         select(TokenPool)
@@ -174,8 +192,10 @@ async def get_available_tokens(db: AsyncSession, lock: bool = False) -> list[Tok
         .where(
             (TokenPool.cooldown_until == None) | (TokenPool.cooldown_until <= now)
         )
-        .order_by(TokenPool.priority.desc())
-        .order_by(TokenPool.last_used_at.asc().nullsfirst())
+        # 排序策略：优先级 > 使用频率 > 最后使用时间
+        .order_by(TokenPool.priority.desc())  # 高优先级在前
+        .order_by(TokenPool.total_requests.asc())  # 使用少的在前（负载均衡）
+        .order_by(TokenPool.last_used_at.asc().nullsfirst())  # 最久未使用的在前
     )
     # Avoid holding row locks during upstream calls; lock only when updating token state.
 
@@ -189,70 +209,6 @@ async def get_available_tokens(db: AsyncSession, lock: bool = False) -> list[Tok
         )
 
     return tokens
-
-
-async def reserve_user_credits(
-    db: AsyncSession,
-    user_id: str,
-    credits_to_use: int,
-    model_name: str,
-) -> int:
-    async with db.begin():
-        result = await db.execute(
-            update(User)
-            .where(User.id == user_id, User.credit_balance >= credits_to_use)
-            .values(credit_balance=User.credit_balance - credits_to_use)
-            .returning(User.credit_balance)
-        )
-        balance_after = result.scalar_one_or_none()
-        if balance_after is None:
-            balance_result = await db.execute(
-                select(User.credit_balance).where(User.id == user_id)
-            )
-            current_balance = balance_result.scalar_one_or_none()
-            if current_balance is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="用户不存在",
-                )
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail=f"次数不足，需要 {credits_to_use} 次，当前余额 {current_balance}",
-            )
-        db.add(CreditTransaction(
-            user_id=user_id,
-            amount=-credits_to_use,
-            type=TransactionType.CONSUME.value,
-            description=f"使用模型: {model_name}",
-            balance_after=balance_after,
-        ))
-        return balance_after
-
-
-async def refund_user_credits(
-    db: AsyncSession,
-    user_id: str,
-    credits_to_refund: int,
-    model_name: str,
-    reason: str,
-) -> None:
-    async with db.begin():
-        result = await db.execute(
-            update(User)
-            .where(User.id == user_id)
-            .values(credit_balance=User.credit_balance + credits_to_refund)
-            .returning(User.credit_balance)
-        )
-        balance_after = result.scalar_one_or_none()
-        if balance_after is None:
-            return
-        db.add(CreditTransaction(
-            user_id=user_id,
-            amount=credits_to_refund,
-            type=TransactionType.BONUS.value,
-            description=f"{reason}: {model_name}",
-            balance_after=balance_after,
-        ))
 
 
 def mark_token_failure(token: TokenPool, now: datetime) -> None:
@@ -333,7 +289,13 @@ async def proxy_generate(
             target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:generateContent"
             try:
                 plain_key = decrypt_api_key(token.api_key)
-            except RuntimeError:
+            except RuntimeError as e:
+                # 记录详细错误信息以便调试加密配置问题
+                logger.error(
+                    f"Token 解密失败: token_id={token.id}, "
+                    f"error_type={type(e).__name__}, "
+                    f"error={str(e)[:200]}"
+                )
                 await _apply_token_update(
                     db,
                     token,
@@ -341,7 +303,7 @@ async def proxy_generate(
                     update_request_counters=False,
                     mark_failure=True,
                 )
-                last_error_detail = "Token 解密失败"
+                last_error_detail = f"Token 解密失败: {type(e).__name__}"
                 continue
 
             key_updates = _build_key_updates(token, plain_key)

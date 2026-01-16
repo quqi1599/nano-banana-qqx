@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Menu, Search, Sun, Moon } from 'lucide-react';
 import { useAppStore } from '../../../store/useAppStore';
 
@@ -9,6 +9,19 @@ interface AdminHeaderProps {
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar }) => {
     const { settings, updateSettings } = useAppStore();
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        const trimmed = searchTerm.trim();
+        if (!trimmed) return;
+        window.dispatchEvent(new CustomEvent('admin-search', { detail: trimmed }));
+    };
+
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(event.target.value);
+    };
 
     const toggleTheme = () => {
         const nextTheme = settings.theme === 'light' ? 'dark' : 'light';
@@ -36,6 +49,10 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
                         <input
                             type="text"
+                            aria-label="管理员搜索"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                            onKeyDown={handleSearchKeyDown}
                             placeholder="搜索..."
                             className="bg-gray-50/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 text-sm rounded-full pl-10 pr-4 py-1.5 w-64 focus:ring-2 focus:ring-cream-500/20 focus:border-cream-500 outline-none transition-all placeholder:text-gray-400"
                         />

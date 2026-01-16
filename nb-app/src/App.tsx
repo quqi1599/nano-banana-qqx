@@ -270,7 +270,7 @@ const App: React.FC = () => {
       addToast('已忽略 URL 中的 apikey 参数，请通过弹窗输入 API Key（更安全）', 'info');
       const sanitizedUrl = new URL(window.location.href);
       sanitizedUrl.searchParams.delete('apikey');
-      window.history.replaceState({}, '', sanitizedUrl.toString());
+      window.history.pushState({}, '', sanitizedUrl.toString());
     }
   }, [addToast, showDialog, updateSettings, hasHydrated]);
 

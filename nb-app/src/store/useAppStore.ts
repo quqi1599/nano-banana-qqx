@@ -429,6 +429,7 @@ export const useAppStore = create<AppState>()(
       cleanInvalidHistory: async () => {
         const { imageHistory } = get();
         let hasChanges = false;
+        let removedCount = 0;
 
         const newHistoryPromises = imageHistory.map(async (img) => {
           // Case 1: 已经是新格式 (有缩略图)
@@ -461,14 +462,22 @@ export const useAppStore = create<AppState>()(
                 base64Data: undefined
               } as ImageHistoryItem;
             } catch (e) {
-              console.error(`Failed to migrate image ${img.id}`, e);
-              // 迁移失败，可能数据坏了，返回 null 标记删除
-              return null;
+              console.warn(`图片缩略图生成失败，保留原图: ${img.id}`, e);
+              // 迁移失败但保留原图：尝试存入 IDB，移除 base64Data
+              try {
+                await setVal(`image_data_${img.id}`, img.base64Data);
+                return { ...img, base64Data: undefined } as ImageHistoryItem;
+              } catch (idbError) {
+                console.error(`IDB 存储失败，跳过该图片: ${img.id}`, idbError);
+                // IDB 也失败了，只能保留原状
+                return img;
+              }
             }
           }
 
           // Case 3: 坏数据 (无缩略图，无 base64Data) -> 删除
           hasChanges = true;
+          removedCount++;
           // 尝试清理残留 IDB
           try {
             await delVal(`image_data_${img.id}`);
@@ -481,6 +490,9 @@ export const useAppStore = create<AppState>()(
 
         if (hasChanges || validHistory.length !== imageHistory.length) {
           set({ imageHistory: validHistory });
+          if (removedCount > 0) {
+            console.warn(`已清理 ${removedCount} 张损坏的图片（无有效数据）`);
+          }
         }
       },
 
@@ -915,22 +927,20 @@ export const useAppStore = create<AppState>()(
       },
 
       syncCurrentMessage: async (message) => {
-        const apiKey = get().apiKey?.trim();
-        const hasCookieAuth = !!getCsrfToken();
-        const visitorId = get().visitorId;
+        const state = get();
+        // 简化条件判断：只要有任意一种认证方式即可同步
+        const canSync = !!getCsrfToken() || !!state.apiKey?.trim() || !!state.visitorId;
 
-        if (!hasCookieAuth && !apiKey && !visitorId) return;
+        if (!canSync) return;
 
-        set((state) => {
-          if (state.pendingSyncQueue.some((item) => item.message.id === message.id)) {
-            return {};
-          }
-          return {
-            pendingSyncQueue: [
-              ...state.pendingSyncQueue,
-              { message, attempts: 0, nextRetryAt: Date.now() },
-            ],
-          };
+        // 避免重复添加同一条消息
+        if (state.pendingSyncQueue.some((item) => item.message.id === message.id)) return;
+
+        set({
+          pendingSyncQueue: [
+            ...state.pendingSyncQueue,
+            { message, attempts: 0, nextRetryAt: Date.now() },
+          ],
         });
 
         await get().processSyncQueue();

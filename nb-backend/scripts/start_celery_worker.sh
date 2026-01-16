@@ -16,7 +16,15 @@ LOG_DIR="${PROJECT_ROOT}/logs"
 mkdir -p "${LOG_DIR}"
 
 # 从环境变量读取并发数，默认为 CPU 核心数
-CONCURRENCY="${CELERY_CONCURRENCY:-$(nproc)}"
+# 兼容 Linux (nproc) 和 macOS (sysctl)
+get_cpu_count() {
+    if command -v nproc >/dev/null 2>&1; then
+        nproc
+    else
+        sysctl -n hw.ncpu 2>/dev/null || echo 4
+    fi
+}
+CONCURRENCY="${CELERY_CONCURRENCY:-$(get_cpu_count)}"
 
 # 启动 Celery Worker
 # -A: 指定 celery 应用模块

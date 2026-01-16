@@ -74,6 +74,8 @@ class AdminUserResponse(BaseModel):
     email: str
     nickname: Optional[str]
     credit_balance: int
+    pro3_balance: int
+    flash_balance: int
     is_admin: bool
     is_active: bool
     created_at: datetime
@@ -97,6 +99,24 @@ class UserListResponse(BaseModel):
 class UserNoteUpdate(BaseModel):
     """更新备注"""
     note: Optional[str] = None
+
+
+class UserCreate(BaseModel):
+    """创建用户请求"""
+    email: str = Field(..., min_length=3, max_length=255)
+    password: str = Field(..., min_length=6, max_length=100)
+    nickname: Optional[str] = Field(None, max_length=100)
+    credit_balance: int = Field(0, ge=0)
+    pro3_balance: int = Field(0, ge=0)
+    flash_balance: int = Field(0, ge=0)
+    is_admin: bool = False
+    note: Optional[str] = Field(None, max_length=500)
+    tags: list[str] = []
+
+
+class UserPasswordUpdate(BaseModel):
+    """修改用户密码请求"""
+    new_password: str = Field(..., min_length=6, max_length=100)
 
 
 class UserTagsUpdate(BaseModel):

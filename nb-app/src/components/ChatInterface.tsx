@@ -197,13 +197,15 @@ export const ChatInterface: React.FC = () => {
     await executeSingleGeneration(text, attachments);
   };
 
-  const executeSingleGeneration = async (text: string, attachments: Attachment[]) => {
+  const executeSingleGeneration = async (text: string, attachments: Attachment[], overrideSettings?: Partial<typeof settings>) => {
     const useProxy = isAuthenticated || hasCookieAuth;
     const apiKeyValue = apiKey || '';
     // Capture the current messages state *before* adding the new user message.
     // This allows us to generate history up to this point.
     const currentMessages = useAppStore.getState().messages;
     const history = buildHistory(currentMessages);
+    // Use override settings if provided, otherwise use global settings
+    const effectiveSettings = overrideSettings ? { ...settings, ...overrideSettings } : settings;
 
     setLoading(true);
     const msgId = Date.now().toString();
@@ -264,13 +266,13 @@ export const ChatInterface: React.FC = () => {
       let thinkingDuration = 0;
       let isThinking = false;
 
-      if (settings.streamResponse) {
+      if (effectiveSettings.streamResponse) {
         const stream = useProxy
           ? streamContentViaProxy(
             history,
             text,
             imagesPayload,
-            settings,
+            effectiveSettings,
             abortControllerRef.current.signal
           )
           : streamGeminiResponse(
@@ -278,7 +280,7 @@ export const ChatInterface: React.FC = () => {
             history,
             text,
             imagesPayload,
-            settings,
+            effectiveSettings,
             abortControllerRef.current.signal
           );
 
@@ -308,7 +310,7 @@ export const ChatInterface: React.FC = () => {
             history,
             text,
             imagesPayload,
-            settings,
+            effectiveSettings,
             abortControllerRef.current.signal
           )
           : await generateContent(
@@ -316,7 +318,7 @@ export const ChatInterface: React.FC = () => {
             history,
             text,
             imagesPayload,
-            settings,
+            effectiveSettings,
             abortControllerRef.current.signal
           );
 
@@ -349,7 +351,7 @@ export const ChatInterface: React.FC = () => {
               base64Data: part.inlineData.data,
               prompt: text || '图片生成',
               timestamp: Date.now(),
-              modelName: settings.modelName,
+              modelName: effectiveSettings.modelName,
             });
           }
         });
@@ -549,7 +551,6 @@ export const ChatInterface: React.FC = () => {
     addToast(`开始串行编排，共 ${steps.length} 步`, 'info');
 
     let currentAttachments = initialAttachments;
-    const originalSettings = useAppStore.getState().settings;
     let hasError = false;
     let wasAborted = false;
 
@@ -561,17 +562,13 @@ export const ChatInterface: React.FC = () => {
 
       const step = steps[i];
       setBatchProgress({ current: i + 1, total: steps.length });
-      let stepModelOverridden = false;
 
       try {
-        // 如果步骤指定了模型，临时切换模型
-        if (step.modelName) {
-          useAppStore.getState().updateSettings({ modelName: step.modelName });
-          stepModelOverridden = true;
-        }
+        // 准备步骤特定的设置（不修改全局状态）
+        const stepSettings = step.modelName ? { modelName: step.modelName } : undefined;
 
-        // 执行单次生成
-        await executeSingleGeneration(step.prompt, currentAttachments);
+        // 执行单次生成，传入步骤特定的设置
+        await executeSingleGeneration(step.prompt, currentAttachments, stepSettings);
 
         if (signal.aborted) {
           wasAborted = true;
@@ -620,10 +617,6 @@ export const ChatInterface: React.FC = () => {
         addToast(`步骤 ${i + 1} 失败，终止编排`, 'error');
         hasError = true;
         break;
-      } finally {
-        if (stepModelOverridden) {
-          useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-        }
       }
     }
 
@@ -644,7 +637,6 @@ export const ChatInterface: React.FC = () => {
     setBatchProgress({ current: 0, total: steps.length });
     addToast(`开始并行编排，共 ${steps.length} 个任务`, 'info');
 
-    const originalSettings = useAppStore.getState().settings;
     const useProxy = isAuthenticated || hasCookieAuth;
     const apiKeyValue = apiKey || '';
 
@@ -698,14 +690,10 @@ export const ChatInterface: React.FC = () => {
     // 为每个步骤创建独立的执行任务
     const tasks = steps.map(async (step, index) => {
       if (signal.aborted) return;
-      let stepModelOverridden = false;
 
       try {
-        // 临时切换模型
-        if (step.modelName) {
-          useAppStore.getState().updateSettings({ modelName: step.modelName });
-          stepModelOverridden = true;
-        }
+        // 准备步骤特定的设置（不修改全局状态）
+        const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
 
         if (signal.aborted) return;
 
@@ -720,7 +708,6 @@ export const ChatInterface: React.FC = () => {
         }));
 
         // 执行生成
-        const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
         const result = useProxy
           ? await generateContentViaProxy(
             history,
@@ -789,18 +776,11 @@ export const ChatInterface: React.FC = () => {
 
         completed++;
         setBatchProgress({ current: completed, total: steps.length });
-      } finally {
-        if (stepModelOverridden) {
-          useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-        }
       }
     });
 
     // 等待所有任务完成
     await Promise.all(tasks);
-
-    // 恢复原始设置
-    useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
 
     setBatchProgress({ current: 0, total: 0 });
     if (signal.aborted) {
@@ -829,7 +809,6 @@ export const ChatInterface: React.FC = () => {
     setBatchProgress({ current: 0, total: totalTasks });
     addToast(`开始批量组合生成，共 ${initialAttachments.length} 图 × ${steps.length} 词 = ${totalTasks} 张`, 'info');
 
-    const originalSettings = useAppStore.getState().settings;
     const useProxy = isAuthenticated || hasCookieAuth;
     const apiKeyValue = apiKey || '';
 
@@ -896,14 +875,10 @@ export const ChatInterface: React.FC = () => {
 
         const task = (async () => {
           if (signal.aborted) return;
-          let stepModelOverridden = false;
 
           try {
-            // 临时切换模型
-            if (step.modelName) {
-              useAppStore.getState().updateSettings({ modelName: step.modelName });
-              stepModelOverridden = true;
-            }
+            // 准备步骤特定的设置（不修改全局状态）
+            const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
 
             if (signal.aborted) return;
 
@@ -918,7 +893,6 @@ export const ChatInterface: React.FC = () => {
             }];
 
             // 执行生成
-            const stepSettings = step.modelName ? { ...settings, modelName: step.modelName } : settings;
             const result = useProxy
               ? await generateContentViaProxy(
                 history,
@@ -987,10 +961,6 @@ export const ChatInterface: React.FC = () => {
 
             completed++;
             setBatchProgress({ current: completed, total: totalTasks });
-          } finally {
-            if (stepModelOverridden) {
-              useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
-            }
           }
         })();
 
@@ -1000,9 +970,6 @@ export const ChatInterface: React.FC = () => {
 
     // 等待所有任务完成
     await Promise.all(tasks);
-
-    // 恢复原始设置
-    useAppStore.getState().updateSettings({ modelName: originalSettings.modelName });
 
     setBatchProgress({ current: 0, total: 0 });
     if (signal.aborted) {

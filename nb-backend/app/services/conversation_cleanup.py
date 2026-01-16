@@ -15,7 +15,7 @@
 """
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from sqlalchemy.orm import selectinload
 import logging
 
@@ -147,12 +147,23 @@ async def cleanup_old_conversations(db: AsyncSession, dry_run: bool = False) -> 
             stats["by_user"][email]["conversation_count"] += 1
             stats["by_user"][email]["message_count"] += len(conv.messages)
 
-    # 执行删除：仅删除 Conversation 表的数据
+    # 执行批量删除：仅删除 Conversation 表的数据
     # ConversationMessage 通过 ORM cascade="all, delete-orphan" 自动级联删除
     # 不会影响 users 表或任何其他表
-    logger.info(f"开始删除 {len(conversations_to_cleanup)} 个对话...")
-    for conv in conversations_to_cleanup:
-        await db.delete(conv)
+    logger.info(f"开始批量删除 {len(conversations_to_cleanup)} 个对话...")
+
+    # 收集所有要删除的对话 ID
+    conversation_ids = [conv.id for conv in conversations_to_cleanup]
+
+    # 使用批量删除，避免逐条删除的性能问题
+    # 分批删除，每批 1000 条，防止单次 SQL 语句过大
+    batch_size = 1000
+    for i in range(0, len(conversation_ids), batch_size):
+        batch_ids = conversation_ids[i:i + batch_size]
+        await db.execute(
+            delete(Conversation).where(Conversation.id.in_(batch_ids))
+        )
+        logger.info(f"已删除 {min(i + batch_size, len(conversation_ids))}/{len(conversation_ids)} 个对话")
 
     # 批量添加清理记录（审计表）
     db.add_all(cleanup_records)

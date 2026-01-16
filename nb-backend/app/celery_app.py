@@ -42,6 +42,11 @@ celery_app.conf.update(
     # 时区
     timezone="Asia/Shanghai",
     enable_utc=True,
+    # 任务超时设置（防止长时间运行的任务阻塞 worker）
+    task_time_limit=3600,           # 硬超时：1小时后强制终止任务
+    task_soft_time_limit=3000,      # 软超时：50秒后发送 SoftTimeLimitExceeded 异常
+    task_acks_late=True,            # 任务执行完成后才确认
+    worker_prefetch_multiplier=1,   # 每次只预取一个任务
     # 任务路由
     task_routes={
         "app.tasks.email_tasks.*": {"queue": "email"},
@@ -55,9 +60,6 @@ celery_app.conf.update(
         "app.tasks.email_tasks.send_email_task": {"rate_limit": "10/m"},
         "app.tasks.api_tasks.proxy_api_task": {"rate_limit": "30/m"},
     },
-    # 失败任务重试配置
-    task_acks_late=True,
-    worker_prefetch_multiplier=1,
     # 失败任务处理
     task_reject_on_worker_lost=True,
     # 定时任务

@@ -2,6 +2,9 @@ import React from 'react';
 import { Activity, BarChart3, Coins, Image, Users, TrendingUp } from 'lucide-react';
 import { DashboardStats, LoginFailureResult } from '../../../services/adminService';
 import { StatCard } from './StatCard';
+import { ADMIN_CONFIG } from '../../../constants/admin';
+import { LoadingState } from '../common';
+import { formatDate, formatTtl } from '../../../utils/formatters';
 
 interface AdminOverviewProps {
     stats: DashboardStats | null;
@@ -33,11 +36,8 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
     // Show loading state when data is being loaded
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-amber-500 border-t-transparent mb-2"></div>
-                    <p className="text-gray-500 text-sm">加载中...</p>
-                </div>
+            <div className="h-64">
+                <LoadingState message="加载数据中..." className="h-full" />
             </div>
         );
     }
@@ -50,22 +50,6 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
             </div>
         );
     }
-
-    const formatShortDate = (value?: string | null) => {
-        if (!value) return '—';
-        return new Date(value).toLocaleString('zh-CN', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    };
-
-    const formatTtl = (value?: number | null) => {
-        if (!value || value <= 0) return '—';
-        const minutes = Math.ceil(value / 60);
-        return `${minutes} 分钟`;
-    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -141,7 +125,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         stats.model_stats.length > 0 ? (
                             <div className="space-y-5">
                                 {stats.model_stats.map((m, idx) => {
-                                    const colors = ['bg-amber-500', 'bg-orange-500', 'bg-yellow-500', 'bg-lime-500', 'bg-emerald-500'];
+                                    const colors = ADMIN_CONFIG.CHART_COLORS;
                                     const percent = Math.min(100, (m.total_requests / Math.max(1, stats.total_requests_today)) * 100);
                                     return (
                                         <div key={m.model_name}>
@@ -260,7 +244,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                     <div className="text-center py-8 text-gray-400">加载中...</div>
                 ) : loginFailures?.items?.length ? (
                     <div className="space-y-3">
-                        {loginFailures.items.slice(0, 10).map((item) => (
+                        {loginFailures.items.slice(0, ADMIN_CONFIG.LOGIN_FAILURE_LIMIT).map((item) => (
                             <div
                                 key={item.ip}
                                 className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 px-4 py-3"
@@ -268,7 +252,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                                 <div>
                                     <div className="text-sm font-medium text-gray-900 dark:text-white">{item.ip}</div>
                                     <div className="text-xs text-gray-400">
-                                        最近 {formatShortDate(item.last_seen)} · {item.last_email || '—'}
+                                        最近 {formatDate(item.last_seen)} · {item.last_email || '—'}
                                     </div>
                                 </div>
                                 <div className="text-right">

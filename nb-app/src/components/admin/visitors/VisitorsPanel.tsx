@@ -4,9 +4,9 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import {
-    Users, Search, Filter, X, Trash2, Calendar, MessageSquare,
-    Image as ImageIcon, Globe, Clock, BarChart3, Loader2,
-    ChevronDown, ChevronRight
+    Users, Search, Filter, X, Trash2, MessageSquare,
+    Image as ImageIcon, Globe, Clock,
+    ChevronRight
 } from 'lucide-react';
 import {
     getVisitors,
@@ -17,12 +17,10 @@ import {
     type VisitorFilters,
     type VisitorStats
 } from '../../services/adminService';
+import { ErrorAlert, LoadingState, Pagination, InlineLoading } from '../common';
+import { formatDate, formatShortDate } from '../../../utils/formatters';
 
-interface VisitorsPanelProps {
-    apiBase?: string;
-}
-
-export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
+export function VisitorsPanel() {
     // 状态管理
     const [visitors, setVisitors] = useState<VisitorInfo[]>([]);
     const [stats, setStats] = useState<VisitorStats | null>(null);
@@ -51,18 +49,6 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
     const showToast = (message: string, type: 'success' | 'error') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
-    };
-
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleString('zh-CN', {
-            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-        });
-    };
-
-    const formatShortDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString('zh-CN', {
-            month: 'numeric', day: 'numeric'
-        });
     };
 
     // 加载游客列表
@@ -172,12 +158,7 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
             )}
 
             {/* 错误提示 */}
-            {error && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 rounded-2xl text-sm flex items-center gap-3">
-                    <span className="flex-shrink-0 w-2 h-2 rounded-full bg-red-500"></span>
-                    {error}
-                </div>
-            )}
+            <ErrorAlert message={error} onDismiss={() => setError('')} />
 
             {/* 统计卡片 */}
             {stats && (
@@ -217,8 +198,8 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                     </div>
                     <div className="p-4 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                <Globe className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            <div className="w-10 h-10 rounded-lg bg-cream-100 dark:bg-cream-900/30 flex items-center justify-center">
+                                <Globe className="w-5 h-5 text-cream-600 dark:text-cream-400" />
                             </div>
                             <div>
                                 <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -258,16 +239,15 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                         placeholder="搜索 visitor_id 或 API 端点..."
                         value={searchQuery}
                         onInput={(e) => { setSearchQuery((e.target as HTMLInputElement).value); setPage(1); }}
-                        className="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm"
+                        className="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-brand-500 outline-none transition text-sm"
                     />
                 </div>
                 <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl font-medium transition ${
-                        showFilters || hasActiveFilters
-                            ? 'bg-amber-500 text-white'
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl font-medium transition ${showFilters || hasActiveFilters
+                            ? 'bg-brand-500 text-white'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                    }`}
+                        }`}
                 >
                     <Filter className="w-4 h-4" />
                     <span className="hidden sm:inline">筛选</span>
@@ -283,7 +263,7 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                         {hasActiveFilters && (
                             <button
                                 onClick={clearFilters}
-                                className="text-sm text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                                className="text-sm text-brand-600 hover:text-brand-700 flex items-center gap-1"
                             >
                                 <X className="w-3 h-3" />
                                 清空筛选
@@ -297,21 +277,21 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                             placeholder="API 端点"
                             value={filters.endpoint ?? ''}
                             onChange={(e) => updateFilter('endpoint', (e.target as HTMLInputElement).value || undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                         />
                         <input
                             type="number"
                             placeholder="最少对话数"
                             value={filters.min_conversations ?? ''}
                             onChange={(e) => updateFilter('min_conversations', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                         />
                         <input
                             type="number"
                             placeholder="最少消息数"
                             value={filters.min_messages ?? ''}
                             onChange={(e) => updateFilter('min_messages', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : undefined)}
-                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                         />
                     </div>
 
@@ -322,7 +302,7 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                                 type="date"
                                 value={filters.first_seen_after ?? ''}
                                 onChange={(e) => updateFilter('first_seen_after', (e.target as HTMLInputElement).value || undefined)}
-                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                             />
                         </div>
                         <div>
@@ -331,7 +311,7 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                                 type="date"
                                 value={filters.first_seen_before ?? ''}
                                 onChange={(e) => updateFilter('first_seen_before', (e.target as HTMLInputElement).value || undefined)}
-                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                             />
                         </div>
                     </div>
@@ -341,10 +321,7 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
             {/* 游客列表 */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                 {loading ? (
-                    <div className="p-8 text-center text-gray-400">
-                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                        加载中...
-                    </div>
+                    <LoadingState />
                 ) : visitors.length === 0 ? (
                     <div className="p-12 text-center text-gray-400">
                         <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -408,9 +385,7 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                                 {expandedVisitorId === visitor.id && (
                                     <div className="px-3 sm:px-4 py-3 bg-gray-50 dark:bg-gray-800/50">
                                         {loadingDetails[visitor.id] ? (
-                                            <div className="flex items-center justify-center py-4">
-                                                <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
-                                            </div>
+                                            <InlineLoading className="py-4" />
                                         ) : visitorDetails[visitor.id] ? (
                                             <div className="space-y-3">
                                                 {/* 统计数据 */}
@@ -466,29 +441,13 @@ export function VisitorsPanel({ apiBase }: VisitorsPanelProps) {
                 )}
 
                 {/* 分页 */}
-                {total > pageSize && (
-                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                        <div className="text-sm text-gray-500">
-                            共 {total} 个游客，第 {page} / {Math.ceil(total / pageSize)} 页
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                            >
-                                上一页
-                            </button>
-                            <button
-                                onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
-                                disabled={page >= Math.ceil(total / pageSize)}
-                                className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                            >
-                                下一页
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={setPage}
+                    itemLabel="个游客"
+                />
             </div>
         </div>
     );

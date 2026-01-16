@@ -255,7 +255,7 @@ export const EmailSettings: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
       </div>
     );
   }
@@ -275,7 +275,7 @@ export const EmailSettings: React.FC = () => {
             resetForm();
             setShowCreateModal(true);
           }}
-          className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-medium hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/30"
+          className="px-4 py-2 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-medium hover:from-brand-600 hover:to-brand-700 transition-all flex items-center gap-2 shadow-lg shadow-brand-500/30"
         >
           <MailPlus size={18} />
           添加配置
@@ -308,7 +308,7 @@ export const EmailSettings: React.FC = () => {
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+            <div className="p-3 rounded-xl bg-cream-100 dark:bg-cream-900/20 text-cream-600 dark:text-cream-400">
               <Star size={20} />
             </div>
             <div>
@@ -335,7 +335,7 @@ export const EmailSettings: React.FC = () => {
                 resetForm();
                 setShowCreateModal(true);
               }}
-              className="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+              className="mt-4 px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors"
             >
               添加第一个配置
             </button>
@@ -354,7 +354,7 @@ export const EmailSettings: React.FC = () => {
                     <div className="flex items-center gap-2 mb-2">
                       <h4 className="font-semibold text-gray-900 dark:text-white">{config.name}</h4>
                       {config.is_default && (
-                        <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-xs font-medium rounded-full flex items-center gap-1">
+                        <span className="px-2 py-0.5 bg-cream-100 dark:bg-cream-900/20 text-cream-600 dark:text-cream-400 text-xs font-medium rounded-full flex items-center gap-1">
                           <Star size={10} />
                           默认
                         </span>
@@ -464,7 +464,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: getInputValue(e) })}
                       placeholder="如：阿里云主邮箱"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -474,7 +474,7 @@ export const EmailSettings: React.FC = () => {
                     <select
                       value={formData.provider}
                       onChange={(e) => handleProviderChange(getInputValue(e))}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     >
                       {summary?.providers.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -493,7 +493,7 @@ export const EmailSettings: React.FC = () => {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: getInputValue(e) })}
                     placeholder="可选描述信息"
-                    className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -511,7 +511,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.smtp_host}
                       onChange={(e) => setFormData({ ...formData, smtp_host: getInputValue(e) })}
                       placeholder="smtp.example.com"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -522,7 +522,7 @@ export const EmailSettings: React.FC = () => {
                       type="number"
                       value={formData.smtp_port}
                       onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(getInputValue(e)) || 465 })}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -539,7 +539,7 @@ export const EmailSettings: React.FC = () => {
                           value={method}
                           checked={formData.smtp_encryption === method}
                           onChange={(e) => setFormData({ ...formData, smtp_encryption: getInputValue(e) })}
-                          className="w-4 h-4 text-amber-500 focus:ring-amber-500"
+                          className="w-4 h-4 text-brand-500 focus:ring-brand-500"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300 uppercase">{method}</span>
                       </label>
@@ -556,7 +556,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.smtp_user}
                       onChange={(e) => setFormData({ ...formData, smtp_user: getInputValue(e) })}
                       placeholder="user@example.com"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -569,7 +569,7 @@ export const EmailSettings: React.FC = () => {
                         value={formData.smtp_password}
                         onChange={(e) => setFormData({ ...formData, smtp_password: getInputValue(e) })}
                         placeholder="••••••••"
-                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
                       <button
                         type="button"
@@ -596,7 +596,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.from_email}
                       onChange={(e) => setFormData({ ...formData, from_email: getInputValue(e) })}
                       placeholder="noreply@example.com"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -608,7 +608,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.from_name}
                       onChange={(e) => setFormData({ ...formData, from_name: getInputValue(e) })}
                       placeholder="NanoBanana"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -621,7 +621,7 @@ export const EmailSettings: React.FC = () => {
                     value={formData.reply_to}
                     onChange={(e) => setFormData({ ...formData, reply_to: getInputValue(e) })}
                     placeholder="support@example.com"
-                    className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -639,7 +639,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.api_key}
                       onChange={(e) => setFormData({ ...formData, api_key: getInputValue(e) })}
                       placeholder="输入 API 密钥"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   {formData.provider === 'mailgun' && (
@@ -652,7 +652,7 @@ export const EmailSettings: React.FC = () => {
                         value={formData.api_url}
                         onChange={(e) => setFormData({ ...formData, api_url: getInputValue(e) })}
                         placeholder="https://api.mailgun.net/v3/"
-                        className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
                     </div>
                   )}
@@ -672,7 +672,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.daily_limit || ''}
                       onChange={(e) => setFormData({ ...formData, daily_limit: getInputValue(e) ? parseInt(getInputValue(e)) : null })}
                       placeholder="无限制"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -684,7 +684,7 @@ export const EmailSettings: React.FC = () => {
                       value={formData.hourly_limit || ''}
                       onChange={(e) => setFormData({ ...formData, hourly_limit: getInputValue(e) ? parseInt(getInputValue(e)) : null })}
                       placeholder="无限制"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -697,7 +697,7 @@ export const EmailSettings: React.FC = () => {
                     type="checkbox"
                     checked={formData.is_enabled}
                     onChange={(e) => setFormData({ ...formData, is_enabled: getCheckboxValue(e) })}
-                    className="w-4 h-4 text-amber-500 focus:ring-amber-500 rounded"
+                    className="w-4 h-4 text-brand-500 focus:ring-brand-500 rounded"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">启用此配置</span>
                 </label>
@@ -706,7 +706,7 @@ export const EmailSettings: React.FC = () => {
                     type="checkbox"
                     checked={formData.is_default}
                     onChange={(e) => setFormData({ ...formData, is_default: getCheckboxValue(e) })}
-                    className="w-4 h-4 text-amber-500 focus:ring-amber-500 rounded"
+                    className="w-4 h-4 text-brand-500 focus:ring-brand-500 rounded"
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">设为默认</span>
                 </label>
@@ -728,7 +728,7 @@ export const EmailSettings: React.FC = () => {
               <button
                 onClick={showEditModal ? handleUpdate : handleCreate}
                 disabled={submitting}
-                className="px-6 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-medium hover:from-brand-600 hover:to-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -756,7 +756,7 @@ export const EmailSettings: React.FC = () => {
             value={testEmailAddress}
             onChange={(e) => setTestEmailAddress(getInputValue(e))}
             placeholder="输入测试邮箱地址"
-            className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+            className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
           />
           <button
             onClick={() => handleTestSend(null)}
@@ -821,7 +821,7 @@ export const EmailSettings: React.FC = () => {
                       </p>
                     )}
                     {testResult.details.hint && (
-                      <p className="text-amber-700 dark:text-amber-400 mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                      <p className="text-cream-700 dark:text-cream-400 mt-2 p-2 bg-cream-100 dark:bg-cream-900/30 rounded-lg">
                         💡 {testResult.details.hint}
                       </p>
                     )}

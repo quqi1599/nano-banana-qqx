@@ -25,9 +25,17 @@ def _get_sync_sessionmaker() -> sessionmaker:
         settings = get_settings()
         _sync_engine = create_engine(
             settings.database_url.replace("postgresql+asyncpg://", "postgresql://"),
-            pool_pre_ping=True,
-            pool_size=5,
-            max_overflow=10,
+            # 连接池配置
+            pool_pre_ping=True,         # 每次获取连接时测试可用性
+            pool_size=5,                # 核心连接数
+            max_overflow=10,            # 最大溢出连接数
+            pool_recycle=3600,          # 连接回收时间（1小时），防止长时间闲置被数据库关闭
+            pool_timeout=30,            # 获取连接的超时时间（秒）
+            # 连接参数
+            connect_args={
+                "connect_timeout": 10,  # 连接超时（秒）
+                "options": "-c statement_timeout=30000",  # 语句超时30秒
+            },
         )
         _SessionLocal = sessionmaker(bind=_sync_engine)
     return _SessionLocal
