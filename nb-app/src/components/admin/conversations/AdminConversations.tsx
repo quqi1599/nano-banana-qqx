@@ -209,7 +209,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                 >
                     <Filter className="w-4 h-4" />
                     <span>筛选</span>
-                    {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-red-500 rounded-full />}
+                    {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-red-500 rounded-full" />}
                 </button>
 
                 {/* 视图切换 */}
