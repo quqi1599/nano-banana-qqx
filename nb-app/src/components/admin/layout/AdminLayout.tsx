@@ -15,16 +15,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab
 
     const getTitle = () => {
         switch (activeTab) {
-            case 'dashboard': return 'Dashboard Overview';
-            case 'tokens': return 'Token Management';
-            case 'pricing': return 'Models & Pricing';
-            case 'codes': return 'Redeem Codes';
-            case 'users': return 'User Management';
-            case 'tickets': return 'Support Tickets';
-            case 'conversations': return 'Conversations';
-            case 'queue': return 'Queue Monitoring';
-            case 'email': return 'Email Settings';
-            default: return 'Admin Console';
+            case 'dashboard': return '总览';
+            case 'tokens': return 'Token 管理';
+            case 'pricing': return '模型与定价';
+            case 'codes': return '兑换码';
+            case 'users': return '用户管理';
+            case 'tickets': return '工单支持';
+            case 'conversations': return '会话查看';
+            case 'queue': return '队列监控';
+            case 'email': return '邮件配置';
+            default: return '管理控制台';
         }
     };
 

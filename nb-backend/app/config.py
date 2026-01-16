@@ -165,6 +165,8 @@ class Settings(BaseSettings):
             problems.append("CAPTCHA_SECRET_KEY 太弱或未配置")
         if not self.admin_password or self.admin_password == "admin123" or len(self.admin_password) < 12:
             problems.append("ADMIN_PASSWORD 太弱或仍为默认值")
+        if not self.admin_emails_list:
+            problems.append("ADMIN_EMAILS/ADMIN_EMAIL 未配置管理员白名单")
         if self.flower_enabled and (not self.flower_password or len(self.flower_password) < 12):
             problems.append("FLOWER_PASSWORD 太弱或未配置")
         if not self.token_encryption_key:

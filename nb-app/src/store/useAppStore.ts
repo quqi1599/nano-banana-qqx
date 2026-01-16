@@ -21,7 +21,18 @@ import { getCsrfToken } from '../utils/csrf';
 
 // Custom IndexedDB storage
 const API_KEY_STORAGE = 'nbnb_api_key';
+const VISITOR_ID_STORAGE = 'nbnb_visitor_id';
 const SYNC_BASE_DELAY_MS = 1000;
+
+const getOrGenerateVisitorId = () => {
+  let id = localStorage.getItem(VISITOR_ID_STORAGE);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(VISITOR_ID_STORAGE, id);
+  }
+  return id;
+};
+
 const SYNC_MAX_ATTEMPTS = 5;
 let syncQueueTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -46,8 +57,15 @@ const storage: StateStorage = {
   },
 };
 
+interface PendingSyncItem {
+  message: ChatMessage;
+  attempts: number;
+  nextRetryAt: number;
+}
+
 interface AppState {
   apiKey: string | null;
+  visitorId: string | null;
   settings: AppSettings;
   messages: ChatMessage[]; // Single Source of Truth
   imageHistory: ImageHistoryItem[]; // 图片历史记录
@@ -74,6 +92,7 @@ interface AppState {
 
   setInstallPrompt: (prompt: BeforeInstallPromptEvent | null) => void;
   setApiKey: (key: string) => void;
+  setVisitorId: (id: string) => void;
   fetchBalance: () => Promise<BalanceInfo | undefined>;
   incrementUsageCount: () => void;
   resetUsageCount: () => void;
@@ -104,16 +123,12 @@ interface AppState {
   processSyncQueue: () => Promise<void>;
 }
 
-interface PendingSyncItem {
-  message: ChatMessage;
-  attempts: number;
-  nextRetryAt: number;
-}
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       apiKey: null,
+      visitorId: getOrGenerateVisitorId(),
       settings: {
         resolution: '1K',
         aspectRatio: 'Auto',
@@ -158,6 +173,11 @@ export const useAppStore = create<AppState>()(
         }
         set({ apiKey: trimmed || null });
       },
+      setVisitorId: (id) => {
+        localStorage.setItem(VISITOR_ID_STORAGE, id);
+        set({ visitorId: id });
+      },
+
 
       fetchBalance: async () => {
         const { apiKey, settings } = get();
@@ -500,6 +520,17 @@ export const useAppStore = create<AppState>()(
       },
 
       processSyncQueue: async () => {
+        // Allow anonymous sync if visitorId is present
+        const apiKey = get().apiKey?.trim();
+        const hasCookieAuth = !!getCsrfToken();
+        const visitorId = get().visitorId;
+
+        if (!hasCookieAuth && !apiKey && !visitorId) {
+          console.log('[Conversation] 未认证且无游客标识，跳过同步');
+          set({ isSyncQueueRunning: false, isSyncing: false, pendingSyncQueue: [] });
+          return;
+        }
+
         if (get().isSyncQueueRunning) return;
         set({ isSyncQueueRunning: true, isSyncing: true });
 
@@ -613,7 +644,9 @@ export const useAppStore = create<AppState>()(
       syncCurrentMessage: async (message) => {
         const apiKey = get().apiKey?.trim();
         const hasCookieAuth = !!getCsrfToken();
-        if (!hasCookieAuth && !apiKey) return;
+        const visitorId = get().visitorId;
+
+        if (!hasCookieAuth && !apiKey && !visitorId) return;
 
         set((state) => {
           if (state.pendingSyncQueue.some((item) => item.message.id === message.id)) {
@@ -677,6 +710,7 @@ export const useAppStore = create<AppState>()(
       },
       partialize: (state) => ({
         apiKey: state.apiKey,
+        visitorId: state.visitorId,
         settings: state.settings,
         imageHistory: state.imageHistory, // 持久化图片历史记录
         endpointHistory: state.endpointHistory, // 持久化 API 接口地址历史记录

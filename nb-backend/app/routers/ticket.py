@@ -28,8 +28,7 @@ def get_admin_emails():
     """获取管理员通知邮箱列表"""
     if settings.admin_notification_emails:
         return [e.strip() for e in settings.admin_notification_emails.split(',') if e.strip()]
-    # 如果没有配置，使用默认管理员邮箱
-    return [settings.admin_email] if settings.admin_email else []
+    return settings.admin_emails_list
 
 # ========== 用户端 API ==========
 

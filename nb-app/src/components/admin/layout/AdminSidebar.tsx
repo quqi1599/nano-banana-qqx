@@ -42,8 +42,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
                     </div>
                     {!collapsed && (
                         <div>
-                            <h1 className="font-bold text-gray-900 dark:text-white leading-none">Admin</h1>
-                            <p className="text-[10px] text-cream-600 dark:text-cream-400 font-medium tracking-wider mt-1 uppercase">管理控制台</p>
+                            <h1 className="font-bold text-gray-900 dark:text-white leading-none">管理后台</h1>
+                            <p className="text-[10px] text-cream-600 dark:text-cream-400 font-medium tracking-wider mt-1 uppercase">控制台</p>
                         </div>
                     )}
                 </div>

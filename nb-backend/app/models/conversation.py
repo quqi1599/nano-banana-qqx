@@ -16,17 +16,20 @@ class Conversation(Base):
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    user_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
     )
+    visitor_id: Mapped[Optional[str]] = mapped_column(String(36), index=True, nullable=True)
     title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     model_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc)
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc)
+        DateTime, 
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), 
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # 关系
@@ -54,7 +57,7 @@ class ConversationMessage(Base):
     is_thought: Mapped[bool] = mapped_column(Boolean, default=False)
     thinking_duration: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now(timezone.utc)
+        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # 关系

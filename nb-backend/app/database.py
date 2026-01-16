@@ -20,8 +20,10 @@ engine = create_async_engine(
     database_url,
     echo=False,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_timeout=settings.db_pool_timeout,
+    pool_recycle=settings.db_pool_recycle,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -79,27 +81,27 @@ async def seed_admin_user():
     from app.models.user import User
     from app.utils.security import get_password_hash
     
-    if not settings.admin_email or not settings.admin_password:
-        print("WARNING: Skipping admin seed; configure ADMIN_EMAIL and ADMIN_PASSWORD.")
+    if not settings.admin_emails_list or not settings.admin_password:
+        print("WARNING: Skipping admin seed; configure ADMIN_EMAILS and ADMIN_PASSWORD.")
         return
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(
-            select(User).where(User.email == settings.admin_email)
+            select(User).where(User.email == settings.primary_admin_email)
         )
         if result.scalar_one_or_none():
             return
         
         admin = User(
-            email=settings.admin_email,
+            email=settings.primary_admin_email,
             password_hash=get_password_hash(settings.admin_password),
             nickname="管理员",
             is_admin=True,
-            credit_balance=999999,
+            credit_balance=settings.admin_seed_credit_balance,
         )
         session.add(admin)
         await session.commit()
-        print(f"✅ Admin user created: {settings.admin_email}")
+        print(f"✅ Admin user created: {settings.primary_admin_email}")
 
 
 async def seed_model_pricing():

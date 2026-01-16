@@ -8,13 +8,24 @@ import { buildRequestOptions } from '../utils/request';
 const API_BASE = getBackendUrl();
 const API_KEY_STORAGE = 'nbnb_api_key';
 
+const VISITOR_ID_STORAGE = 'nbnb_visitor_id';
+
 const buildRequestWithAuth = (options: RequestInit = {}): RequestInit => {
     const requestOptions = buildRequestOptions(options);
     const headers = new Headers(requestOptions.headers || {});
+
+    // API KEY 认证
     const apiKey = localStorage.getItem(API_KEY_STORAGE);
     if (apiKey && !headers.has('X-API-Key')) {
         headers.set('X-API-Key', apiKey);
     }
+
+    // 匿名游客标识
+    const visitorId = localStorage.getItem(VISITOR_ID_STORAGE);
+    if (visitorId && !headers.has('X-Visitor-Id')) {
+        headers.set('X-Visitor-Id', visitorId);
+    }
+
     return {
         ...requestOptions,
         headers,

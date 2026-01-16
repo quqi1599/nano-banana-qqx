@@ -212,16 +212,11 @@ async def init_first_admin(
                 detail="初始化令牌无效",
             )
 
-    # 获取配置的管理员邮箱列表
-    raw_admin_emails = ",".join(
-        [value for value in [settings.admin_emails, settings.admin_email] if value]
-    )
-    allowed_emails = [e.strip().lower() for e in raw_admin_emails.split(',') if e.strip()]
-
+    allowed_emails = settings.admin_emails_list
     if not allowed_emails:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="系统未配置管理员邮箱列表，请联系系统管理员",
+            detail="系统未配置管理员邮箱白名单，请联系系统管理员",
         )
 
     # 检查当前用户邮箱是否在白名单中
@@ -1887,8 +1882,8 @@ async def list_conversations(
     response = []
     for conv, user_email, user_nickname in rows:
         conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
-        conv_dict["user_email"] = user_email or "未知用户"
-        conv_dict["user_nickname"] = user_nickname
+        conv_dict["user_email"] = user_email or (f"Guest ({conv.visitor_id[:8]}...)" if conv.visitor_id else "Guest")
+        conv_dict["user_nickname"] = user_nickname or "Anonymous"
         response.append(AdminConversationResponse(**conv_dict))
 
     return JSONResponse(
@@ -1923,11 +1918,11 @@ async def get_conversation_detail(
         )
     
     conversation, user_email, user_nickname = row
-    conv_dict = AdminConversationDetailResponse.model_validate(conversation).model_dump()
-    conv_dict["user_email"] = user_email or "未知用户"
-    conv_dict["user_nickname"] = user_nickname
-    conv_dict["messages"] = [_serialize_admin_message(msg) for msg in conversation.messages]
-    return AdminConversationDetailResponse(**conv_dict)
+    messages = [_serialize_admin_message(msg) for msg in conversation.messages]
+    base = AdminConversationResponse.model_validate(conversation).model_dump()
+    base["user_email"] = user_email or (f"Guest ({conversation.visitor_id[:8]}...)" if conversation.visitor_id else "Guest")
+    base["user_nickname"] = user_nickname or "Anonymous"
+    return AdminConversationDetailResponse(**base, messages=messages)
 
 
 @router.delete("/conversations/{conversation_id}")

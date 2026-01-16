@@ -22,6 +22,15 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # 安装依赖
 pip install -r requirements.txt
 
+## 依赖安全
+
+- `requirements.txt` 已固定版本；生产部署前建议使用 `pip-audit` 扫描已知漏洞：
+
+```bash
+pip install pip-audit
+pip-audit -r requirements.txt
+```
+
 # 启动 PostgreSQL 和 Redis
 docker-compose up -d postgres redis
 

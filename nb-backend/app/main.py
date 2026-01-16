@@ -117,6 +117,7 @@ app.add_middleware(
         "Authorization",
         "X-Request-ID",
         "X-API-Key",
+        "X-Visitor-Id",
         settings.csrf_header_name,
     ],
     expose_headers=["X-Request-ID", "X-Total-Count"],

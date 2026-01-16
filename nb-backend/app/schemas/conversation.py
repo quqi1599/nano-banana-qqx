@@ -49,7 +49,8 @@ class ConversationUpdate(BaseModel):
 class ConversationResponse(BaseModel):
     """对话响应"""
     id: str
-    user_id: str
+    user_id: Optional[str] = None
+    visitor_id: Optional[str] = None
     title: Optional[str] = None
     model_name: Optional[str] = None
     message_count: int
@@ -76,7 +77,7 @@ class ConversationMessagesResponse(BaseModel):
 
 class AdminConversationResponse(ConversationResponse):
     """管理员对话响应（含用户信息）"""
-    user_email: str
+    user_email: Optional[str] = None
     user_nickname: Optional[str] = None
 
 

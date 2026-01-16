@@ -6,6 +6,15 @@ import { downloadImage, openImageInNewTab, downloadDatasetZip } from '../utils/i
 import { WeChatQRModal } from './WeChatQRModal';
 const MarkdownRenderer = React.lazy(() => import('./MarkdownRenderer'));
 
+// Lazy-loaded markdown component with Suspense fallback
+const LazyMarkdown: React.FC<{ children: string }> = ({ children }) => {
+  return (
+    <Suspense fallback={<p className="whitespace-pre-wrap break-words">{children}</p>}>
+      <MarkdownRenderer text={children} />
+    </Suspense>
+  );
+};
+
 interface Props {
   message: ChatMessage;
   isLast: boolean;
@@ -236,50 +245,7 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
     if (part.text) {
       return (
         <div key={index} className="markdown-content leading-relaxed wrap-break-word overflow-hidden">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              // Custom components to ensure styles match the theme
-              p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-cream-500 hover:underline">
-                  {children}
-                </a>
-              ),
-              ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-              li: ({ children }) => <li className="pl-1">{children}</li>,
-              code: ({ children }) => (
-                <code className="rounded bg-gray-200 dark:bg-gray-800/50 px-1 py-0.5 font-mono text-sm text-cream-700 dark:text-cream-300">
-                  {children}
-                </code>
-              ),
-              pre: ({ children }) => (
-                <pre className="mb-3 overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-900 p-3 text-sm border border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
-                  {children}
-                </pre>
-              ),
-              blockquote: ({ children }) => (
-                <blockquote className="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-1 my-3 text-gray-500 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-900/30 rounded-r">
-                  {children}
-                </blockquote>
-              ),
-              table: ({ children }) => (
-                <div className="overflow-x-auto mb-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">{children}</table>
-                </div>
-              ),
-              thead: ({ children }) => <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">{children}</thead>,
-              tbody: ({ children }) => <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900/50">{children}</tbody>,
-              tr: ({ children }) => <tr>{children}</tr>,
-              th: ({ children }) => (
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{children}</th>
-              ),
-              td: ({ children }) => <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{children}</td>,
-            }}
-          >
-            {part.text}
-          </ReactMarkdown>
+          <LazyMarkdown>{part.text}</LazyMarkdown>
         </div>
       );
     }

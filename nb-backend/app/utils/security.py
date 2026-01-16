@@ -177,49 +177,44 @@ async def get_current_user(
     return user
 
 
-async def get_current_user_or_api_key(
+async def get_current_user_optional(
     credentials: HTTPAuthorizationCredentials = Depends(optional_security),
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     request: Request = None,
     db: AsyncSession = Depends(get_db),
-) -> User:
-    """获取当前用户（支持 JWT 或 API Key）"""
+) -> Optional[User]:
+    """获取当前用户（可选，支持 JWT 或 API Key）"""
     token = get_token_from_request(credentials, request)
     if token:
-        payload = decode_token(token)
-        await _ensure_token_not_revoked(payload)
-        user_id = payload.get("sub")
+        try:
+            payload = decode_token(token)
+            await _ensure_token_not_revoked(payload)
+            user_id = payload.get("sub")
+            if not user_id:
+                return None
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            if not user or not user.is_active:
+                return None
+            return user
+        except Exception:
+            return None
 
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效的认证令牌",
-            )
+    if x_api_key and x_api_key.strip():
+        try:
+            return await _get_user_from_api_key(x_api_key, request, db)
+        except HTTPException:
+            return None
 
-        result = await db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
+    return None
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户不存在",
-            )
 
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="用户已被禁用",
-            )
-
-        return user
-
-    if not x_api_key or not x_api_key.strip():
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="未提供认证信息",
-        )
-
-    api_key = x_api_key.strip()
+async def _get_user_from_api_key(
+    api_key: str,
+    request: Optional[Request],
+    db: AsyncSession,
+) -> User:
+    api_key = api_key.strip()
     if len(api_key) < settings.api_key_user_min_length:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -276,6 +271,51 @@ async def get_current_user_or_api_key(
         )
 
     return user
+
+
+async def get_current_user_or_api_key(
+    credentials: HTTPAuthorizationCredentials = Depends(optional_security),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """获取当前用户（支持 JWT 或 API Key）"""
+    token = get_token_from_request(credentials, request)
+    if token:
+        payload = decode_token(token)
+        await _ensure_token_not_revoked(payload)
+        user_id = payload.get("sub")
+
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效的认证令牌",
+            )
+
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在",
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="用户已被禁用",
+            )
+
+        return user
+
+    if not x_api_key or not x_api_key.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证信息",
+        )
+
+    return await _get_user_from_api_key(x_api_key, request, db)
 
 
 async def get_admin_user(

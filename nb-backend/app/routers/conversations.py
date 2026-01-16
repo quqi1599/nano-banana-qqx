@@ -4,9 +4,9 @@
 from datetime import datetime
 from typing import List, Optional
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc, func
+from sqlalchemy import select, and_, desc, func, or_
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
@@ -21,7 +21,7 @@ from app.schemas.conversation import (
     MessageCreate,
     MessageResponse,
 )
-from app.utils.security import get_current_user_or_api_key
+from app.utils.security import get_current_user_optional
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -75,15 +75,46 @@ def _serialize_message(message: ConversationMessage) -> MessageResponse:
     )
 
 
+def _should_merge_visitor_history(current_user: Optional[User]) -> bool:
+    if not current_user:
+        return False
+    tags = current_user.tags or []
+    return "api_key" in tags
+
+
+def _get_conversation_filter(current_user: Optional[User], visitor_id: Optional[str]):
+    if current_user:
+        if visitor_id and _should_merge_visitor_history(current_user):
+            return or_(
+                Conversation.user_id == current_user.id,
+                Conversation.visitor_id == visitor_id,
+            )
+        return Conversation.user_id == current_user.id
+    if visitor_id:
+        return Conversation.visitor_id == visitor_id
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="未登录且未提供游客标识",
+    )
+
+
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     data: ConversationCreate,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """创建新对话"""
+    if not current_user and not x_visitor_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="需要登录或提供游客标识以创建对话",
+        )
+
     conversation = Conversation(
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
+        visitor_id=x_visitor_id if not current_user else None,
         title=data.title,
         model_name=data.model_name,
     )
@@ -96,15 +127,17 @@ async def create_conversation(
 @router.get("", response_model=List[ConversationResponse])
 async def get_conversations(
     response: Response,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
     page: Optional[int] = Query(None, ge=1),
     page_size: Optional[int] = Query(None, ge=1, le=100),
 ):
-    """获取当前用户的对话列表"""
+    """获取当前用户（或游客）的对话列表"""
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     query = (
         select(Conversation)
-        .where(Conversation.user_id == current_user.id)
+        .where(filters)
         .order_by(desc(Conversation.updated_at))
     )
 
@@ -112,9 +145,7 @@ async def get_conversations(
         resolved_page = page or 1
         resolved_page_size = page_size or 20
         count_result = await db.execute(
-            select(func.count(Conversation.id)).where(
-                Conversation.user_id == current_user.id
-            )
+            select(func.count(Conversation.id)).where(filters)
         )
         total = count_result.scalar() or 0
         response.headers["X-Total-Count"] = str(total)
@@ -130,17 +161,19 @@ async def get_conversations(
 @router.get("/{conversation_id}", response_model=ConversationDetailResponse)
 async def get_conversation(
     conversation_id: str,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """获取对话详情（含消息）"""
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     result = await db.execute(
         select(Conversation)
         .options(selectinload(Conversation.messages))
         .where(
             and_(
                 Conversation.id == conversation_id,
-                Conversation.user_id == current_user.id,
+                filters,
             )
         )
     )
@@ -163,15 +196,17 @@ async def get_conversation_messages(
     response: Response,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """获取对话消息分页"""
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     exists_result = await db.execute(
         select(Conversation.id).where(
             and_(
                 Conversation.id == conversation_id,
-                Conversation.user_id == current_user.id,
+                filters,
             )
         )
     )
@@ -211,16 +246,18 @@ async def get_conversation_messages(
 async def add_message(
     conversation_id: str,
     data: MessageCreate,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """向对话添加消息"""
     # 验证对话所有权
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     result = await db.execute(
         select(Conversation).where(
             and_(
                 Conversation.id == conversation_id,
-                Conversation.user_id == current_user.id,
+                filters,
             )
         )
     )
@@ -265,15 +302,17 @@ async def add_message(
 async def update_conversation(
     conversation_id: str,
     data: ConversationUpdate,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """更新对话标题"""
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     result = await db.execute(
         select(Conversation).where(
             and_(
                 Conversation.id == conversation_id,
-                Conversation.user_id == current_user.id,
+                filters,
             )
         )
     )
@@ -294,15 +333,17 @@ async def update_conversation(
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
     conversation_id: str,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """删除对话"""
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     result = await db.execute(
         select(Conversation).where(
             and_(
                 Conversation.id == conversation_id,
-                Conversation.user_id == current_user.id,
+                filters,
             )
         )
     )
@@ -322,15 +363,17 @@ async def delete_conversation(
 @router.delete("/{conversation_id}/messages", status_code=status.HTTP_204_NO_CONTENT)
 async def clear_conversation_messages(
     conversation_id: str,
-    current_user: User = Depends(get_current_user_or_api_key),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    x_visitor_id: Optional[str] = Header(None, alias="X-Visitor-Id"),
     db: AsyncSession = Depends(get_db),
 ):
     """清空对话消息（保留对话，用于重新开始）"""
+    filters = _get_conversation_filter(current_user, x_visitor_id)
     result = await db.execute(
         select(Conversation).where(
             and_(
                 Conversation.id == conversation_id,
-                Conversation.user_id == current_user.id,
+                filters,
             )
         )
     )
@@ -343,12 +386,6 @@ async def clear_conversation_messages(
         )
 
     # 删除所有消息
-    await db.execute(
-        select(ConversationMessage).where(
-            ConversationMessage.conversation_id == conversation_id
-        )
-    )
-    # 使用 delete() 直接删除
     from sqlalchemy import delete
     await db.execute(
         delete(ConversationMessage).where(

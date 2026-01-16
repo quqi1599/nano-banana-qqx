@@ -400,7 +400,7 @@ export const AdminTokens = () => {
                                                         type="url"
                                                         value={baseUrlDraft}
                                                         onChange={(e) => setTokenBaseUrlDrafts((prev) => ({ ...prev, [token.id]: e.currentTarget.value }))}
-                                                        placeholder="Override Base URL"
+                                                        placeholder="自定义基础地址"
                                                         className="w-full min-w-[180px] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-xs focus:ring-1 focus:ring-cream-500 outline-none transition"
                                                     />
                                                     {baseUrlDirty && (
