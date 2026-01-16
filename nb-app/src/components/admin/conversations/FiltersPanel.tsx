@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Calendar } from 'lucide-react';
-import { ConversationFilters } from '../../../../services/conversationService';
+import { ConversationFilters } from '../../../services/conversationService';
 import { getInputValue } from '../utils/constants';
 
 interface FiltersPanelProps {

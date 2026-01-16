@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronUp, ChevronDown, ArrowUpDown, Copy, Check, Eye, EyeOff, RefreshCw, Power, Trash2, Loader2, Key } from 'lucide-react';
-import { TokenInfo } from '../../../../../services/adminService';
+import { TokenInfo } from '../../../services/adminService';
 import { getTokenStatus, formatQuota, getQuotaProgress, isLowBalance, formatDateTime } from '../utils/tokenUtils';
 
 interface TokenTableProps {

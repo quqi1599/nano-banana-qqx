@@ -12,8 +12,8 @@ import { ConversationList } from './ConversationList';
 import { ConversationTimeline } from './ConversationTimeline';
 import { ConversationDetailModal } from './ConversationDetailModal';
 import { FiltersPanel } from './FiltersPanel';
-import { formatDate, formatFullDate, formatTime } from '../../../../utils/formatters';
-import { ADMIN_CONFIG } from '../../../../constants/admin';
+import { formatDate, formatFullDate, formatTime } from '../../../utils/formatters';
+import { ADMIN_CONFIG } from '../../../constants/admin';
 
 type ViewMode = 'list' | 'timeline';
 

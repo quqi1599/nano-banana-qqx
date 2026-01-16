@@ -1,6 +1,6 @@
 import React from 'react';
 import { RefreshCw, Power } from 'lucide-react';
-import { TokenInfo } from '../../../../../services/adminService';
+import { TokenInfo } from '../../../services/adminService';
 import { getTokenStatus, formatQuota, getQuotaProgress, isLowBalance } from '../utils/tokenUtils';
 
 interface TokenMobileCardProps {

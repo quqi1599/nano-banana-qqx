@@ -1,8 +1,8 @@
 import React from 'react';
 import { MessageSquare, Loader2 } from 'lucide-react';
-import { AdminConversation } from '../../../../../services/conversation/compositionService';
+import { AdminConversation } from '../../../services/conversation/compositionService';
 import { ConversationItem } from '../components/ConversationItem';
-import { formatDate } from '../../../../../utils/formatters';
+import { formatDate } from '../../../utils/formatters';
 
 interface ConversationListProps {
     conversations: AdminConversation[];
