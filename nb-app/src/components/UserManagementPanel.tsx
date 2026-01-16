@@ -60,11 +60,12 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectAll, setSelectAll] = useState(false);
 
-    // 批量操作模态框
+    // ===== 批量操作模态框 =====
+    // 用于批量禁用/启用用户、批量调整积分时的二次确认
     const [batchAction, setBatchAction] = useState<'disable' | 'enable' | 'credits' | null>(null);
-    const [batchReason, setBatchReason] = useState('');
-    const [batchAmount, setBatchAmount] = useState(0);
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const [batchReason, setBatchReason] = useState('');           // 操作原因（必填）
+    const [batchAmount, setBatchAmount] = useState(0);             // 积分调整金额
+    const [batchConfirmPassword, setBatchConfirmPassword] = useState('');  // 管理员密码确认（与修改密码的 confirmPassword 区分）
     const [batchLoading, setBatchLoading] = useState(false);
 
     // 单用户积分管理
@@ -242,7 +243,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             // 1. 获取确认令牌
             const confirmResult = await requestAdminActionConfirmation(
                 batchAction === 'credits' ? 'batch_credits' : 'batch_status',
-                confirmPassword
+                batchConfirmPassword
             );
 
             // 2. 执行批量操作
@@ -261,7 +262,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             setBatchAction(null);
             setBatchReason('');
             setBatchAmount(0);
-            setConfirmPassword('');
+            setBatchConfirmPassword('');
             loadUsers();
         } catch (error) {
             showToast((error as Error).message, 'error');
@@ -1020,8 +1021,8 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                     </label>
                                     <input
                                         type="password"
-                                        value={confirmPassword}
-                                        onInput={(e) => setConfirmPassword((e.target as HTMLInputElement).value)}
+                                        value={batchConfirmPassword}
+                                        onInput={(e) => setBatchConfirmPassword((e.target as HTMLInputElement).value)}
                                         placeholder="请输入管理员密码..."
                                         className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-amber-500"
                                     />

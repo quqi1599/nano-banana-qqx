@@ -6,13 +6,24 @@ from datetime import datetime
 from typing import Optional, List, Literal
 
 
+# ============================================================================
 # Token 池管理
+# ============================================================================
+# 用于管理 NewAPI 类型的 Token，支持自定义中转地址
+# 大部分 Token 使用平台默认中转站点，个别 Token 可自定义 URL
 class TokenPoolCreate(BaseModel):
-    """添加 Token 请求"""
-    name: str
-    api_key: str
-    priority: int = 0
-    base_url: Optional[str] = None
+    """
+    添加 Token 请求
+
+    用于在 Swagger UI (http://localhost:8000/docs) 或前端 Admin 后台添加新 Token
+    """
+    name: str = Field(..., description="Token 名称/备注，方便识别")
+    api_key: str = Field(..., description="API 密钥（sk-开头）")
+    priority: int = Field(default=0, description="优先级，数值越大越优先被使用")
+    base_url: Optional[str] = Field(
+        default="https://nanobanana2.peacedejiai.cc/",
+        description="API 中转地址，默认使用平台中转站点。特殊情况可修改为其他地址"
+    )
 
 
 class TokenPoolResponse(BaseModel):
@@ -36,11 +47,18 @@ class TokenPoolResponse(BaseModel):
 
 
 class TokenPoolUpdate(BaseModel):
-    """更新 Token"""
-    name: Optional[str] = None
-    is_active: Optional[bool] = None
-    priority: Optional[int] = None
-    base_url: Optional[str] = None
+    """
+    更新 Token
+
+    用于修改已存在 Token 的属性，所有字段都是可选的
+    """
+    name: Optional[str] = Field(None, description="Token 名称/备注")
+    is_active: Optional[bool] = Field(None, description="是否启用，禁用后不会被轮询使用")
+    priority: Optional[int] = Field(None, description="优先级，数值越大越优先被使用")
+    base_url: Optional[str] = Field(
+        default=None,
+        description="API 中转地址，留空则使用平台默认中转站点"
+    )
 
 
 # 模型计费
