@@ -1,4 +1,4 @@
-import { TokenInfo } from '../../../../services/adminService';
+import { TokenInfo } from '../../../../../services/adminService';
 
 const lowBalanceThreshold = 10;
 

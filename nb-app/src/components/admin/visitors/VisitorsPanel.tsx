@@ -16,7 +16,7 @@ import {
     type VisitorInfo,
     type VisitorFilters,
     type VisitorStats
-} from '../../services/adminService';
+} from '../../../services/adminService';
 import { ErrorAlert, LoadingState, Pagination, InlineLoading } from '../common';
 import { formatDate, formatShortDate } from '../../../utils/formatters';
 
