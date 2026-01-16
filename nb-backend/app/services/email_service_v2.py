@@ -11,7 +11,6 @@ from typing import Optional, Dict, Any
 import httpx
 
 from app.config import get_settings
-from app.database import get_db_session
 
 settings = get_settings()
 
@@ -406,36 +405,10 @@ def _footer(text: str) -> str:
 # ============================================================================
 
 def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
-    """从数据库获取 SMTP 配置"""
-    try:
-        from app.models.smtp_config import SmtpConfig
-
-        with get_db_session() as db:
-            # 获取启用的默认配置
-            config = db.execute(
-                f"SELECT * FROM smtp_config WHERE is_enabled = true ORDER BY is_default DESC, created_at ASC LIMIT 1"
-            ).fetchone()
-
-            if config:
-                return {
-                    "provider": config.provider,
-                    "name": config.name,
-                    "smtp_host": config.smtp_host,
-                    "smtp_port": config.smtp_port,
-                    "smtp_encryption": config.smtp_encryption,
-                    "smtp_user": config.smtp_user,
-                    "smtp_password": config.smtp_password,
-                    "from_email": config.from_email or config.smtp_user,
-                    "from_name": config.from_name,
-                    "reply_to": config.reply_to,
-                    "api_key": config.api_key,
-                    "api_url": config.api_url,
-                    "domain": config.name,  # 用于 Mailgun 等
-                }
-    except Exception as e:
-        print(f"⚠️ 从数据库读取邮件配置失败: {e}")
-
-    # 回退到环境变量配置
+    """从环境变量获取 SMTP 配置
+    注意：当前版本使用环境变量配置，未来可扩展为从数据库读取
+    """
+    # 使用环境变量配置
     if settings.aliyun_smtp_user and settings.aliyun_smtp_password:
         return {
             "provider": "aliyun",

@@ -61,7 +61,7 @@ def run_migrations() -> None:
 async def init_db():
     """初始化数据库表"""
     # 先导入所有模型，确保它们注册到 Base.metadata
-    from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history, admin_audit_log  # noqa: F401
+    from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history, admin_audit_log, smtp_config  # noqa: F401
     
     # 创建基础表结构（如果不存在）
     async with engine.begin() as conn:
