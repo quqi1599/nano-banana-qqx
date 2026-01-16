@@ -188,6 +188,12 @@ const App: React.FC = () => {
     }
   }, [mounted, hasHydrated, apiKey, showWelcome, setShowApiKeyModal, isAuthenticated, skipApiKeyPrompt]);
 
+  useEffect(() => {
+    if (isAuthenticated && showApiKeyModal) {
+      setShowApiKeyModal(false);
+    }
+  }, [isAuthenticated, showApiKeyModal, setShowApiKeyModal]);
+
   const handleSkipApiKeyPrompt = () => {
     localStorage.setItem('nbnb_skip_api_key', '1');
     setSkipApiKeyPrompt(true);
@@ -452,6 +458,7 @@ const App: React.FC = () => {
           {/* API Key button - Only show when not authenticated */}
           {!isAuthenticated && (
             <button
+              data-guide="api-key-button"
               onClick={() => setShowApiKeyModal(true)}
               className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title={apiKey ? "更换 API Key" : "设置 API Key"}

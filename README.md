@@ -103,6 +103,27 @@ nbnb-pro/
 - 📊 **统计看板**：用户活跃、模型使用、日志统计
 - 👨‍💼 **管理后台**：用户管理、Token 管理、数据看板
 
+## 🔌 访问模式隔离
+
+前端引擎默认走 `Gemini` 或其他 AI API（可配置 `customEndpoint`），目的是让画图请求跟平台的 Token 池、积分、管理后台彻底隔离。  
+当前逻辑设计：
+- 未登录或未绑定平台账号：访问会默认弹出 API Key 填写框，允许用户输入自己的 Key/endpoint；发起生成请求时直接与配置的 API 通信，前端通过 `syncCurrentMessage` 等机制实时异步同步对话内容到平台后端，确保管理员可以通过 `/api/conversations` 查到全部纪录。
+- 已登录平台账号：前端自动关闭 API Key 弹窗并隐藏钥匙按钮，所有生成请求都走我们统一的后台服务（`proxy`、`Gemini` 服务），积分与管理后台直接打通，不能跳回自定义 API。
+
+历史对接说明：
+- `useAppStore` 通过 `syncCurrentMessage` + `processSyncQueue` 将每条对话同步到后端，即便使用访客 `visitorId` 也会创建对应记录。
+- `get_current_user_optional` 支持 `X-API-Key`，并为 API Key 用户打上 `["api_key"]` 标签。
+- `conversations` 路由在判断访问者时会把同一 `visitor_id` 下的记录与 API Key 用户归到同一个账号，确保 Admin 端看到完整历史。
+
+## 🧭 前端 UI & 引导任务
+
+请前端团队实现：
+1. Header 上的钥匙按钮 (`data-guide="api-key-button"`)只在未登录时渲染，点击打开 API Key 弹窗；登录后立即隐藏该按钮，并将所有请求走平台自有服务。登录成功时若弹窗仍打开需自动关闭。
+2. `GuideTour` 中“设置面板”引导第一个步骤描述上面的隔离逻辑（如：登录后统一走平台服务，API Key 入口仅在未登录时可见）。
+3. 继续保证 `settings` 页面、对话历史、Admin 端的 `conversations` 接口不因为 API Key 流程而丢数据，且管理员可在后台查询所有 visitor/API Key 产生的记录。
+
+完成后请在 README 同步更新此段说明，并告知审阅人前端 UI 与引导已按上述方式实现。
+
 ## 💰 积分计费规则
 
 | 模型 | 每次消耗积分 |

@@ -146,7 +146,7 @@ export const guideFlows: Record<string, GuideFlow> = {
       {
         id: 'settings-1',
         title: '⚙️ API 设置',
-        content: '首先需要设置 API Key 才能使用。点击钥匙图标进行配置。',
+        content: '未登录时可以点击钥匙图标配置自己的 API Key；登录后会自动使用平台服务和积分，API Key 按钮会隐藏。',
         target: '[data-guide="api-key-button"]',
         position: 'left',
       },
