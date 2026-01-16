@@ -118,6 +118,13 @@ async def csrf_middleware(request: Request, call_next):
         "/api/auth/reset-password",
         "/api/captcha/slider/verify",
         "/api/captcha/slider/challenge",
+        # V1 API 路径
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/send-code",
+        "/api/v1/auth/reset-password",
+        "/api/v1/captcha/slider/verify",
+        "/api/v1/captcha/slider/challenge",
     }:
         return await call_next(request)
 
@@ -180,19 +187,43 @@ app.add_middleware(
     expose_headers=["X-Request-ID", "X-Total-Count"],
 )
 
-# 注册路由
-app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
-app.include_router(user.router, prefix="/api/user", tags=["用户"])
-app.include_router(credit.router, prefix="/api/credits", tags=["次数"])
-app.include_router(redeem.router, prefix="/api/redeem", tags=["兑换码"])
-app.include_router(proxy.router, prefix="/api/proxy", tags=["API代理"])
-app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])
-app.include_router(queue.router, prefix="/api/admin/queue", tags=["队列监控"])
-app.include_router(stats.router, prefix="/api/stats", tags=["统计"])
-app.include_router(ticket.router, prefix="/api/tickets", tags=["工单"])
-app.include_router(captcha.router, prefix="/api/captcha", tags=["验证码"])
-app.include_router(conversations.router, prefix="/api", tags=["对话历史"])
-app.include_router(email_config.router, prefix="/api", tags=["邮件配置"])
+# ============================================================================
+# API 版本控制
+# 所有 API 路由都在 /api/v1/ 前缀下
+# 未来升级时可以添加 /api/v2/ 同时保留旧版本
+# ============================================================================
+
+# V1 API 路由
+API_V1_PREFIX = "/api/v1"
+
+# 注册 V1 版本路由
+app.include_router(auth.router, prefix=f"{API_V1_PREFIX}/auth", tags=["V1-认证"])
+app.include_router(user.router, prefix=f"{API_V1_PREFIX}/user", tags=["V1-用户"])
+app.include_router(credit.router, prefix=f"{API_V1_PREFIX}/credits", tags=["V1-次数"])
+app.include_router(redeem.router, prefix=f"{API_V1_PREFIX}/redeem", tags=["V1-兑换码"])
+app.include_router(proxy.router, prefix=f"{API_V1_PREFIX}/proxy", tags=["V1-API代理"])
+app.include_router(admin.router, prefix=f"{API_V1_PREFIX}/admin", tags=["V1-管理后台"])
+app.include_router(queue.router, prefix=f"{API_V1_PREFIX}/admin/queue", tags=["V1-队列监控"])
+app.include_router(stats.router, prefix=f"{API_V1_PREFIX}/stats", tags=["V1-统计"])
+app.include_router(ticket.router, prefix=f"{API_V1_PREFIX}/tickets", tags=["V1-工单"])
+app.include_router(captcha.router, prefix=f"{API_V1_PREFIX}/captcha", tags=["V1-验证码"])
+app.include_router(conversations.router, prefix=API_V1_PREFIX, tags=["V1-对话历史"])
+app.include_router(email_config.router, prefix=API_V1_PREFIX, tags=["V1-邮件配置"])
+
+# 为了向后兼容，保留旧的 /api/ 路径（可以选择在未来版本中移除）
+# 建议前端逐步迁移到 /api/v1/ 路径
+app.include_router(auth.router, prefix="/api/auth", tags=["认证-Deprecated", "使用 /api/v1/auth"])
+app.include_router(user.router, prefix="/api/user", tags=["用户-Deprecated", "使用 /api/v1/user"])
+app.include_router(credit.router, prefix="/api/credits", tags=["次数-Deprecated", "使用 /api/v1/credits"])
+app.include_router(redeem.router, prefix="/api/redeem", tags=["兑换码-Deprecated", "使用 /api/v1/redeem"])
+app.include_router(proxy.router, prefix="/api/proxy", tags=["API代理-Deprecated", "使用 /api/v1/proxy"])
+app.include_router(admin.router, prefix="/api/admin", tags=["管理后台-Deprecated", "使用 /api/v1/admin"])
+app.include_router(queue.router, prefix="/api/admin/queue", tags=["队列监控-Deprecated", "使用 /api/v1/admin/queue"])
+app.include_router(stats.router, prefix="/api/stats", tags=["统计-Deprecated", "使用 /api/v1/stats"])
+app.include_router(ticket.router, prefix="/api/tickets", tags=["工单-Deprecated", "使用 /api/v1/tickets"])
+app.include_router(captcha.router, prefix="/api/captcha", tags=["验证码-Deprecated", "使用 /api/v1/captcha"])
+app.include_router(conversations.router, prefix="/api", tags=["对话历史-Deprecated", "使用 /api/v1"])
+app.include_router(email_config.router, prefix="/api", tags=["邮件配置-Deprecated", "使用 /api/v1"])
 
 
 
@@ -202,9 +233,20 @@ async def root():
     return {"message": "NanoBanana API is running", "status": "ok", "docs_url": "/docs"}
 
 @app.get("/api/health")
+@app.get("/api/v1/health")
 async def health_check():
-    """健康检查"""
-    return {"status": "ok", "service": "nbnb-backend"}
+    """
+    健康检查端点
+
+    Returns:
+        服务状态信息
+    """
+    return {
+        "status": "ok",
+        "service": "nbnb-backend",
+        "version": "1.0.0",
+        "api_version": "v1"
+    }
 
 @app.get("/metrics", dependencies=[Depends(verify_metrics_basic_auth)])
 async def metrics():
@@ -214,8 +256,16 @@ async def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/api/prompts")
+@app.get("/api/v1/prompts")
 async def get_prompts():
-    """获取提示词库 (代理)"""
+    """
+    获取提示词库 (代理)
+
+    从 GitHub 代理获取提示词库数据。
+
+    Returns:
+        提示词分类列表
+    """
     import httpx
     try:
         async with httpx.AsyncClient() as client:
