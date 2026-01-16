@@ -117,12 +117,22 @@ nbnb-pro/
 
 ## 🧭 前端 UI & 引导任务
 
-请前端团队实现：
-1. Header 上的钥匙按钮 (`data-guide="api-key-button"`)只在未登录时渲染，点击打开 API Key 弹窗；登录后立即隐藏该按钮，并将所有请求走平台自有服务。登录成功时若弹窗仍打开需自动关闭。
-2. `GuideTour` 中“设置面板”引导第一个步骤描述上面的隔离逻辑（如：登录后统一走平台服务，API Key 入口仅在未登录时可见）。
-3. 继续保证 `settings` 页面、对话历史、Admin 端的 `conversations` 接口不因为 API Key 流程而丢数据，且管理员可在后台查询所有 visitor/API Key 产生的记录。
+**✅ 已完成**：前端 UI 与引导已按访问模式隔离实现。
 
-完成后请在 README 同步更新此段说明，并告知审阅人前端 UI 与引导已按上述方式实现。
+1. **Header 钥匙按钮** (`App.tsx:453-462`)
+   - 只在未登录时渲染 (`!isAuthenticated`)
+   - 点击打开 API Key 弹窗
+   - 登录后立即隐藏该按钮
+   - 登录成功时若弹窗仍打开会自动关闭 (`App.tsx:191-195`)
+
+2. **GuideTour 引导** (`guideFlows.ts:146-152`)
+   - "设置面板"引导第一个步骤描述访问模式隔离逻辑
+   - 说明【未登录模式】和【登录模式】的区别
+
+3. **数据同步保证**
+   - `settings` 页面、对话历史持久化到本地缓存
+   - Admin 端 `/api/conversations` 支持查询所有 visitor/API Key 产生的记录
+   - `conversations` 路由支持 `X-Visitor-Id` 和 `X-API-Key` 认证
 
 ## 💰 积分计费规则
 

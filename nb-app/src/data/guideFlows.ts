@@ -145,8 +145,8 @@ export const guideFlows: Record<string, GuideFlow> = {
     steps: [
       {
         id: 'settings-1',
-        title: '⚙️ API 设置',
-        content: '未登录时可以点击钥匙图标配置自己的 API Key；登录后会自动使用平台服务和积分，API Key 按钮会隐藏。',
+        title: '⚙️ 访问模式说明',
+        content: '【未登录模式】点击钥匙图标配置自己的 API Key，请求直接与自定义 API 通信，对话异步同步到平台供管理员查看。\n\n【登录模式】自动使用平台统一服务与积分系统，API Key 入口隐藏，所有请求走平台 Token 池。',
         target: '[data-guide="api-key-button"]',
         position: 'left',
       },
