@@ -15,6 +15,11 @@ export const SettingsPanel: React.FC = () => {
   const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(false);
   const [showEndpointDisclaimer, setShowEndpointDisclaimer] = useState(false);
 
+  // 当 settings.customEndpoint 变化时，同步到输入框
+  useEffect(() => {
+    setCustomEndpointInput(settings.customEndpoint || DEFAULT_API_ENDPOINT);
+  }, [settings.customEndpoint]);
+
   const handleInstallClick = async () => {
     if (!installPrompt) return;
 
@@ -61,13 +66,17 @@ export const SettingsPanel: React.FC = () => {
   };
 
   const handleSaveCustomEndpoint = () => {
-    if (customEndpointInput === settings.customEndpoint) {
+    // 获取当前实际使用的 endpoint（考虑默认值情况）
+    const currentEndpoint = settings.customEndpoint || DEFAULT_API_ENDPOINT;
+    const newEndpoint = customEndpointInput.trim() || DEFAULT_API_ENDPOINT;
+
+    if (newEndpoint === currentEndpoint) {
       return; // No change
     }
 
     // Show disclaimer if endpoint is different from default
-    const isDefault = customEndpointInput === DEFAULT_API_ENDPOINT;
-    const isChangingToCustom = !isDefault && customEndpointInput.trim() !== '';
+    const isDefault = newEndpoint === DEFAULT_API_ENDPOINT;
+    const isChangingToCustom = !isDefault;
 
     if (isChangingToCustom && !hasAcceptedDisclaimer) {
       setShowEndpointDisclaimer(true);
@@ -80,7 +89,7 @@ export const SettingsPanel: React.FC = () => {
       updateSettings({ customEndpoint: undefined });
       addToast("已恢复默认中转地址", 'success');
     } else {
-      updateSettings({ customEndpoint: customEndpointInput.trim() });
+      updateSettings({ customEndpoint: newEndpoint });
       addToast("中转地址已更新", 'success');
     }
   };
@@ -89,7 +98,12 @@ export const SettingsPanel: React.FC = () => {
     setHasAcceptedDisclaimer(true);
     setShowEndpointDisclaimer(false);
     // Apply the change
-    updateSettings({ customEndpoint: customEndpointInput.trim() });
+    const newEndpoint = customEndpointInput.trim() || DEFAULT_API_ENDPOINT;
+    if (newEndpoint === DEFAULT_API_ENDPOINT) {
+      updateSettings({ customEndpoint: undefined });
+    } else {
+      updateSettings({ customEndpoint: newEndpoint });
+    }
     addToast("中转地址已更新", 'success');
   };
 
@@ -218,7 +232,11 @@ export const SettingsPanel: React.FC = () => {
             />
             <button
               onClick={handleSaveCustomEndpoint}
-              disabled={customEndpointInput === settings.customEndpoint || (!settings.customEndpoint && customEndpointInput === DEFAULT_API_ENDPOINT)}
+              disabled={(() => {
+                const currentEndpoint = settings.customEndpoint || DEFAULT_API_ENDPOINT;
+                const newEndpoint = customEndpointInput.trim() || DEFAULT_API_ENDPOINT;
+                return newEndpoint === currentEndpoint;
+              })()}
               className="px-3 py-2 rounded-lg bg-cream-500 hover:bg-cream-600 text-white text-xs sm:text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
             >
               保存

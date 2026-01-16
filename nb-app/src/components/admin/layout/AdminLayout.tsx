@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AdminHeader } from './AdminHeader';
 import { AdminSidebar } from './AdminSidebar';
 
-type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue' | 'email';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue' | 'email' | 'visitors';
 
 interface AdminLayoutProps {
     activeTab: TabType;
@@ -24,6 +24,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab
             case 'conversations': return '会话查看';
             case 'queue': return '队列监控';
             case 'email': return '邮件配置';
+            case 'visitors': return '游客管理';
             default: return '管理控制台';
         }
     };

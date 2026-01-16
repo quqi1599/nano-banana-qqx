@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Search, MessageSquare, Trash2, X, Loader2, User, Bot, Clock,
     Filter, Calendar, Hash, List, CalendarDays, ChevronDown,
-    BarChart3, MessageCircle
+    BarChart3, MessageCircle, Globe
 } from 'lucide-react';
 import {
     adminGetConversationsFiltered,
@@ -418,6 +418,12 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                                             {c.model_name}
                                                         </span>
                                                     )}
+                                                    {c.custom_endpoint && c.custom_endpoint !== 'https://nanobanana2.peacedejiai.cc' && (
+                                                        <span className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded" title={c.custom_endpoint}>
+                                                            <Globe className="w-3 h-3" />
+                                                            自定义接口
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-3 text-xs text-gray-400">
                                                     <span className="flex items-center gap-1">
@@ -528,6 +534,11 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                                                         {conv.model_name.split('-').slice(0, 2).join('-')}
                                                                     </span>
                                                                 )}
+                                                                {conv.custom_endpoint && conv.custom_endpoint !== 'https://nanobanana2.peacedejiai.cc' && (
+                                                                    <span className="flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded" title={conv.custom_endpoint}>
+                                                                        <Globe className="w-3 h-3" />
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
                                                                 <span>{conv.message_count} 条消息</span>
@@ -590,6 +601,14 @@ export const AdminConversations = ({ userId, userInfo, onClearUserFilter }: Admi
                                 <p className="text-xs text-gray-500">
                                     {selectedConversation.user_email} • {formatDate(selectedConversation.created_at)}
                                 </p>
+                                {selectedConversation.custom_endpoint && selectedConversation.custom_endpoint !== 'https://nanobanana2.peacedejiai.cc' && (
+                                    <div className="flex items-center gap-1 mt-1 text-xs text-blue-600 dark:text-blue-400">
+                                        <Globe className="w-3 h-3" />
+                                        <span className="truncate max-w-[200px]" title={selectedConversation.custom_endpoint}>
+                                            {selectedConversation.custom_endpoint}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                             <button
                                 onClick={() => setSelectedConversation(null)}
