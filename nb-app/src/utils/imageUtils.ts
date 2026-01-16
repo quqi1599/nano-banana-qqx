@@ -151,6 +151,20 @@ function hasTransparency(
 }
 
 /**
+ * 将 File 对象转换为 Base64 字符串
+ * @param file File 对象
+ * @returns Promise<string> Base64 字符串
+ */
+export const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+/**
  * 将 Base64 字符串转换为 Blob 对象
  * @param base64Data Base64 编码的数据
  * @param mimeType MIME 类型
@@ -218,14 +232,14 @@ export const downloadImage = (mimeType: string, base64Data: string, filename?: s
 
   const link = document.createElement('a');
   link.href = url;
-  
+
   if (filename) {
     link.download = filename;
   } else {
     const extension = mimeType.split('/')[1] || 'png';
     link.download = `gemini-image-${Date.now()}.${extension}`;
   }
-  
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

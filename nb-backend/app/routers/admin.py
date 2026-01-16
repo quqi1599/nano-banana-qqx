@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
+from sqlalchemy.dialects.postgresql import insert
 
 from app.database import get_db
 from app.models.user import User
@@ -43,6 +44,8 @@ from app.schemas.admin import (
     BatchCreditsUpdate,
     CreditHistoryResponse,
     UsageLogResponse,
+    LoginFailureResponse,
+    LoginFailureItem,
     AdminActionConfirmRequest,
     AdminActionConfirmResponse,
     UserTagsUpdate,
@@ -74,6 +77,9 @@ TOKEN_POOL_CACHE_TTL_SECONDS = 60
 ADMIN_CONFIRM_KEY_PREFIX = "admin:confirm:"
 ADMIN_CONFIRM_PURPOSES = {"batch_status", "batch_credits"}
 EMAIL_WHITELIST_CACHE_KEY = "email_whitelist:active:v1"
+LOGIN_FAIL_IP_KEY_PREFIX = "login_fail_ip:"
+LOGIN_FAIL_IP_TS_PREFIX = "login_fail_ip_ts:"
+LOGIN_FAIL_IP_EMAIL_PREFIX = "login_fail_ip_email:"
 
 
 def _normalize_reason(reason: str) -> str:
@@ -590,57 +596,51 @@ async def generate_redeem_codes(
         expires_at = datetime.utcnow() + timedelta(days=data.expires_days)
 
     codes: list[str] = []
-    candidate_codes: set[str] = set()
-    blocked_codes: set[str] = set()
+    seen_codes: set[str] = set()
     attempts = 0
     max_attempts = max(1000, data.count * 10)
 
-    while len(candidate_codes) < data.count and attempts < max_attempts:
-        candidate_codes.add(generate_redeem_code())
-        attempts += 1
+    while len(codes) < data.count and attempts < max_attempts:
+        remaining = data.count - len(codes)
+        candidate_codes: set[str] = set()
 
-    if len(candidate_codes) < data.count:
+        while len(candidate_codes) < remaining and attempts < max_attempts:
+            new_code = generate_redeem_code()
+            attempts += 1
+            if new_code in seen_codes:
+                continue
+            candidate_codes.add(new_code)
+            seen_codes.add(new_code)
+
+        if not candidate_codes:
+            break
+
+        values = [
+            {
+                "code": code_value,
+                "credit_amount": data.credit_amount,
+                "pro3_credits": data.pro3_credits,
+                "flash_credits": data.flash_credits,
+                "remark": data.remark,
+                "batch_id": batch_id,
+                "expires_at": expires_at,
+            }
+            for code_value in candidate_codes
+        ]
+        stmt = (
+            insert(RedeemCode)
+            .values(values)
+            .on_conflict_do_nothing(index_elements=[RedeemCode.code])
+            .returning(RedeemCode.code)
+        )
+        result = await db.execute(stmt)
+        codes.extend(result.scalars().all())
+
+    if len(codes) < data.count:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="生成兑换码失败，请稍后重试",
         )
-
-    while True:
-        existing_result = await db.execute(
-            select(RedeemCode.code).where(RedeemCode.code.in_(candidate_codes))
-        )
-        existing_codes = {row[0] for row in existing_result.all()}
-        if not existing_codes:
-            break
-
-        blocked_codes |= existing_codes
-        candidate_codes -= existing_codes
-
-        while len(candidate_codes) < data.count and attempts < max_attempts:
-            new_code = generate_redeem_code()
-            attempts += 1
-            if new_code in candidate_codes or new_code in blocked_codes:
-                continue
-            candidate_codes.add(new_code)
-
-        if len(candidate_codes) < data.count and attempts >= max_attempts:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="生成兑换码失败，请稍后重试",
-            )
-
-    for code_value in candidate_codes:
-        code = RedeemCode(
-            code=code_value,
-            credit_amount=data.credit_amount,
-            pro3_credits=data.pro3_credits,
-            flash_credits=data.flash_credits,
-            remark=data.remark,
-            batch_id=batch_id,
-            expires_at=expires_at,
-        )
-        db.add(code)
-        codes.append(code_value)
 
     await db.commit()
 
@@ -694,6 +694,7 @@ async def list_users(
     created_before: Optional[str] = None,
     login_after: Optional[str] = None,
     login_before: Optional[str] = None,
+    tags: Optional[list[str]] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     admin: User = Depends(get_admin_user),
@@ -709,6 +710,11 @@ async def list_users(
             (User.email.ilike(f"%{search}%")) |
             (User.nickname.ilike(f"%{search}%"))
         )
+
+    # 标签筛选（全部匹配）
+    cleaned_tags = [tag.strip() for tag in tags or [] if tag and tag.strip()]
+    for tag in cleaned_tags:
+        query = query.where(User.tags.contains([tag]))
 
     # 角色筛选
     if is_admin is not None:
@@ -763,6 +769,8 @@ async def list_users(
             (User.email.ilike(f"%{search}%")) |
             (User.nickname.ilike(f"%{search}%"))
         )
+    for tag in cleaned_tags:
+        count_query = count_query.where(User.tags.contains([tag]))
     if is_admin is not None:
         count_query = count_query.where(User.is_admin == is_admin)
     if is_active is not None:
@@ -989,6 +997,54 @@ async def get_users_stats(
         disabled_count=disabled_count,
         paid_users=paid_users,
     )
+
+
+@router.get("/security/login-failures", response_model=LoginFailureResponse)
+async def get_login_failures(
+    limit: int = Query(50, ge=1, le=200),
+    admin: User = Depends(get_admin_user),
+):
+    """获取登录失败的 IP 列表"""
+    if not redis_client:
+        return LoginFailureResponse(items=[], total=0)
+
+    cursor = "0"
+    keys: list[str] = []
+    pattern = f"{LOGIN_FAIL_IP_KEY_PREFIX}*"
+    while True:
+        cursor, batch = await redis_client.scan(cursor=cursor, match=pattern, count=200)
+        keys.extend(batch)
+        if cursor == 0 or cursor == "0":
+            break
+
+    items: list[LoginFailureItem] = []
+    for key in keys:
+        if not key.startswith(LOGIN_FAIL_IP_KEY_PREFIX):
+            continue
+        ip = key[len(LOGIN_FAIL_IP_KEY_PREFIX):]
+        count_raw = await redis_client.get(key)
+        if not count_raw:
+            continue
+        count = int(count_raw)
+        if count <= 0:
+            continue
+        last_ts_raw = await redis_client.get(f"{LOGIN_FAIL_IP_TS_PREFIX}{ip}")
+        last_seen = datetime.utcfromtimestamp(int(last_ts_raw)) if last_ts_raw else None
+        last_email = await redis_client.get(f"{LOGIN_FAIL_IP_EMAIL_PREFIX}{ip}")
+        ttl_raw = await redis_client.ttl(key)
+        ttl_seconds = ttl_raw if ttl_raw >= 0 else None
+        items.append(
+            LoginFailureItem(
+                ip=ip,
+                count=count,
+                last_seen=last_seen,
+                last_email=last_email,
+                ttl_seconds=ttl_seconds,
+            )
+        )
+
+    items.sort(key=lambda item: (item.count, item.last_seen or datetime.min), reverse=True)
+    return LoginFailureResponse(items=items[:limit], total=len(items))
 
 
 @router.get("/users/{user_id}/credit-history", response_model=CreditHistoryResponse)

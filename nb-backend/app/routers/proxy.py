@@ -66,17 +66,63 @@ async def get_available_tokens(db: AsyncSession, lock: bool = False) -> list[Tok
     return tokens
 
 
-async def get_locked_user(db: AsyncSession, user_id: str) -> User:
-    result = await db.execute(
-        select(User).where(User.id == user_id).with_for_update()
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户不存在",
+async def reserve_user_credits(
+    db: AsyncSession,
+    user_id: str,
+    credits_to_use: int,
+    model_name: str,
+) -> int:
+    async with db.begin():
+        result = await db.execute(
+            select(User).where(User.id == user_id).with_for_update()
         )
-    return user
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="用户不存在",
+            )
+        if user.credit_balance < credits_to_use:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"次数不足，需要 {credits_to_use} 次，当前余额 {user.credit_balance}",
+            )
+
+        user.credit_balance -= credits_to_use
+        balance_after = user.credit_balance
+        db.add(CreditTransaction(
+            user_id=user.id,
+            amount=-credits_to_use,
+            type=TransactionType.CONSUME.value,
+            description=f"使用模型: {model_name}",
+            balance_after=balance_after,
+        ))
+        return balance_after
+
+
+async def refund_user_credits(
+    db: AsyncSession,
+    user_id: str,
+    credits_to_refund: int,
+    model_name: str,
+    reason: str,
+) -> None:
+    async with db.begin():
+        result = await db.execute(
+            select(User).where(User.id == user_id).with_for_update()
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            return
+
+        user.credit_balance += credits_to_refund
+        db.add(CreditTransaction(
+            user_id=user.id,
+            amount=credits_to_refund,
+            type=TransactionType.BONUS.value,
+            description=f"{reason}: {model_name}",
+            balance_after=user.credit_balance,
+        ))
 
 
 def mark_token_failure(token: TokenPool, now: datetime) -> None:
@@ -115,17 +161,26 @@ async def proxy_generate(
     # 计算消耗次数
     credits_to_use = await get_credits_for_model(db, model_name)
 
-    locked_user = await get_locked_user(db, current_user.id)
-
-    # 检查余额
-    if locked_user.credit_balance < credits_to_use:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"次数不足，需要 {credits_to_use} 次，当前余额 {locked_user.credit_balance}",
-        )
+    reserved = False
+    try:
+        await reserve_user_credits(db, current_user.id, credits_to_use, model_name)
+        reserved = True
+    except HTTPException:
+        raise
 
     # 获取可用 Token 列表
-    tokens = await get_available_tokens(db, lock=True)
+    try:
+        tokens = await get_available_tokens(db, lock=True)
+    except HTTPException:
+        if reserved:
+            await refund_user_credits(
+                db,
+                current_user.id,
+                credits_to_use,
+                model_name,
+                "请求失败退款",
+            )
+        raise
 
     # 提取 prompt 预览
     prompt_preview = ""
@@ -171,7 +226,7 @@ async def proxy_generate(
                 token.total_requests += 1
                 mark_token_failure(token, now)
                 db.add(UsageLog(
-                    user_id=locked_user.id,
+                    user_id=current_user.id,
                     model_name=model_name,
                     credits_used=0,
                     token_id=token.id,
@@ -193,7 +248,7 @@ async def proxy_generate(
                 except ValueError:
                     mark_token_failure(token, now)
                     db.add(UsageLog(
-                        user_id=locked_user.id,
+                        user_id=current_user.id,
                         model_name=model_name,
                         credits_used=0,
                         token_id=token.id,
@@ -205,22 +260,11 @@ async def proxy_generate(
                     last_error_detail = "上游响应格式错误"
                     continue
 
-                # 扣除次数
-                locked_user.credit_balance -= credits_to_use
                 mark_token_success(token)
-
-                # 记录交易
-                db.add(CreditTransaction(
-                    user_id=locked_user.id,
-                    amount=-credits_to_use,
-                    type=TransactionType.CONSUME.value,
-                    description=f"使用模型: {model_name}",
-                    balance_after=locked_user.credit_balance,
-                ))
 
                 # 记录使用日志
                 db.add(UsageLog(
-                    user_id=locked_user.id,
+                    user_id=current_user.id,
                     model_name=model_name,
                     credits_used=credits_to_use,
                     token_id=token.id,
@@ -238,7 +282,7 @@ async def proxy_generate(
             if response.status_code >= 500 or response.status_code in {401, 403, 429}:
                 mark_token_failure(token, now)
             db.add(UsageLog(
-                user_id=locked_user.id,
+                user_id=current_user.id,
                 model_name=model_name,
                 credits_used=0,
                 token_id=token.id,
@@ -250,6 +294,14 @@ async def proxy_generate(
 
             if response.status_code == 400:
                 await db.commit()
+                if reserved:
+                    await refund_user_credits(
+                        db,
+                        current_user.id,
+                        credits_to_use,
+                        model_name,
+                        "请求失败退款",
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=last_error_detail or "请求参数错误",
@@ -257,6 +309,14 @@ async def proxy_generate(
 
         await db.commit()
 
+    if reserved:
+        await refund_user_credits(
+            db,
+            current_user.id,
+            credits_to_use,
+            model_name,
+            "请求失败退款",
+        )
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
@@ -277,15 +337,25 @@ async def proxy_generate_stream(
 
     credits_to_use = await get_credits_for_model(db, model_name)
 
-    locked_user = await get_locked_user(db, current_user.id)
+    reserved = False
+    try:
+        await reserve_user_credits(db, current_user.id, credits_to_use, model_name)
+        reserved = True
+    except HTTPException:
+        raise
 
-    if locked_user.credit_balance < credits_to_use:
-        raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"次数不足，需要 {credits_to_use} 次",
-        )
-
-    tokens = await get_available_tokens(db, lock=True)
+    try:
+        tokens = await get_available_tokens(db, lock=True)
+    except HTTPException:
+        if reserved:
+            await refund_user_credits(
+                db,
+                current_user.id,
+                credits_to_use,
+                model_name,
+                "请求失败退款",
+            )
+        raise
     prompt_preview = ""
     contents = body.get("contents", [])
     if contents and len(contents) > 0:
@@ -334,7 +404,7 @@ async def proxy_generate_stream(
                 token.total_requests += 1
                 mark_token_failure(token, now)
                 db.add(UsageLog(
-                    user_id=locked_user.id,
+                    user_id=current_user.id,
                     model_name=model_name,
                     credits_used=0,
                     token_id=token.id,
@@ -361,7 +431,7 @@ async def proxy_generate_stream(
             if status_code >= 500 or status_code in {401, 403, 429}:
                 mark_token_failure(token, now)
             db.add(UsageLog(
-                user_id=locked_user.id,
+                user_id=current_user.id,
                 model_name=model_name,
                 credits_used=0,
                 token_id=token.id,
@@ -375,6 +445,14 @@ async def proxy_generate_stream(
 
             if status_code == 400:
                 await db.commit()
+                if reserved:
+                    await refund_user_credits(
+                        db,
+                        current_user.id,
+                        credits_to_use,
+                        model_name,
+                        "请求失败退款",
+                    )
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=last_error_detail or "请求参数错误",
@@ -382,22 +460,21 @@ async def proxy_generate_stream(
 
         if not response or not selected_token:
             await db.commit()
+            if reserved:
+                await refund_user_credits(
+                    db,
+                    current_user.id,
+                    credits_to_use,
+                    model_name,
+                    "请求失败退款",
+                )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
             )
 
-        # 扣除次数
-        locked_user.credit_balance -= credits_to_use
-        db.add(CreditTransaction(
-            user_id=locked_user.id,
-            amount=-credits_to_use,
-            type=TransactionType.CONSUME.value,
-            description=f"使用模型: {model_name}",
-            balance_after=locked_user.credit_balance,
-        ))
         db.add(UsageLog(
-            user_id=locked_user.id,
+            user_id=current_user.id,
             model_name=model_name,
             credits_used=credits_to_use,
             token_id=selected_token.id,

@@ -9,10 +9,11 @@ import { AdminPricing } from './admin/settings/AdminPricing';
 import { AdminRedeemCodes } from './admin/settings/AdminRedeemCodes';
 import { AdminTickets } from './admin/tickets/AdminTickets';
 import { AdminConversations } from './admin/conversations/AdminConversations';
+import { QueueMonitor } from './admin/queue/QueueMonitor';
 import { UserManagementPanel } from './UserManagementPanel';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppStore } from '../store/useAppStore';
-import { getDashboardStats, DashboardStats } from '../services/adminService';
+import { getDashboardStats, getLoginFailureIps, DashboardStats, LoginFailureResult } from '../services/adminService';
 import { getApiBaseUrl } from '../utils/endpointUtils';
 
 interface AdminDashboardProps {
@@ -20,7 +21,7 @@ interface AdminDashboardProps {
     onExit?: () => void;
 }
 
-type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue';
 
 export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const { logout } = useAuthStore();
@@ -47,18 +48,36 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const [dailyStatsLoaded, setDailyStatsLoaded] = useState(false);
     const [modelStatsLoading, setModelStatsLoading] = useState(false);
     const [dailyStatsLoading, setDailyStatsLoading] = useState(false);
+    const [loginFailures, setLoginFailures] = useState<LoginFailureResult | null>(null);
+    const [loginFailuresLoading, setLoginFailuresLoading] = useState(false);
+
+    const loadLoginFailures = async () => {
+        setLoginFailuresLoading(true);
+        try {
+            const data = await getLoginFailureIps(50);
+            setLoginFailures(data);
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setLoginFailuresLoading(false);
+        }
+    };
 
     const loadDashboardData = async () => {
         setIsLoading(true);
         setError('');
         try {
-            const data = await getDashboardStats(undefined, undefined, {
-                includeDailyStats: false,
-                includeModelStats: false,
-            });
+            const [data, failures] = await Promise.all([
+                getDashboardStats(undefined, undefined, {
+                    includeDailyStats: false,
+                    includeModelStats: false,
+                }),
+                getLoginFailureIps(50),
+            ]);
             setStats(data);
             setDailyStatsLoaded(false);
             setModelStatsLoaded(false);
+            setLoginFailures(failures);
         } catch (err) {
             setError((err as Error).message);
         } finally {
@@ -145,6 +164,9 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
                     dailyStatsLoaded={dailyStatsLoaded}
                     onLoadModelStats={loadModelStats}
                     onLoadDailyStats={loadDailyStats}
+                    loginFailures={loginFailures}
+                    loginFailuresLoading={loginFailuresLoading}
+                    onReloadLoginFailures={loadLoginFailures}
                 />
             )}
 
@@ -165,6 +187,8 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
                     onClearUserFilter={handleClearUserFilter}
                 />
             )}
+
+            {activeTab === 'queue' && <QueueMonitor />}
 
         </AdminLayout>
     );

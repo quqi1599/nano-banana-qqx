@@ -4,16 +4,18 @@ FastAPI 主入口
 import logging
 import time
 import uuid
+import secrets
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Response, HTTPException
+from fastapi import FastAPI, Response, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations, payment, payment_admin
+from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations, queue
 from app.utils.request_context import request_id_ctx_var, RequestIdFilter, JsonFormatter
 from app.utils.metrics import REQUEST_COUNT, REQUEST_LATENCY, IN_PROGRESS, get_route_name
 
@@ -63,6 +65,37 @@ async def request_context_middleware(request, call_next):
         if response is not None:
             response.headers["X-Request-ID"] = request_id
 
+
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    safe_methods = {"GET", "HEAD", "OPTIONS"}
+    if request.method in safe_methods:
+        return await call_next(request)
+
+    if request.url.path in {
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/send-code",
+        "/api/auth/reset-password",
+        "/api/captcha/slider/verify",
+        "/api/captcha/slider/challenge",
+    }:
+        return await call_next(request)
+
+    if request.headers.get("authorization") or request.headers.get("x-api-key"):
+        return await call_next(request)
+
+    auth_cookie = request.cookies.get(settings.auth_cookie_name)
+    if not auth_cookie:
+        return await call_next(request)
+
+    csrf_cookie = request.cookies.get(settings.csrf_cookie_name)
+    csrf_header = request.headers.get(settings.csrf_header_name)
+    if not csrf_cookie or not csrf_header or not secrets.compare_digest(csrf_cookie, csrf_header):
+        return JSONResponse(status_code=403, content={"detail": "CSRF token missing or invalid"})
+
+    return await call_next(request)
+
 # CORS 配置
 # 注意：生产环境应该通过环境变量配置允许的域名
 _allowed_origins = settings.cors_origins if hasattr(settings, 'cors_origins') else [
@@ -84,6 +117,7 @@ app.add_middleware(
         "Authorization",
         "X-Request-ID",
         "X-API-Key",
+        settings.csrf_header_name,
     ],
     expose_headers=["X-Request-ID", "X-Total-Count"],
 )
@@ -95,12 +129,11 @@ app.include_router(credit.router, prefix="/api/credits", tags=["次数"])
 app.include_router(redeem.router, prefix="/api/redeem", tags=["兑换码"])
 app.include_router(proxy.router, prefix="/api/proxy", tags=["API代理"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理后台"])
-app.include_router(payment_admin.router, prefix="/api/admin/payment", tags=["支付管理"])
+app.include_router(queue.router, prefix="/api/admin/queue", tags=["队列监控"])
 app.include_router(stats.router, prefix="/api/stats", tags=["统计"])
 app.include_router(ticket.router, prefix="/api/tickets", tags=["工单"])
 app.include_router(captcha.router, prefix="/api/captcha", tags=["验证码"])
 app.include_router(conversations.router, prefix="/api", tags=["对话历史"])
-app.include_router(payment.router, prefix="/api/payment", tags=["支付"])
 
 
 

@@ -4,9 +4,9 @@
 
 import type { Content, Part as SDKPart } from "@google/genai";
 import { AppSettings, Part } from '../types';
-import { getToken } from './authService';
 import { getBackendUrl } from '../utils/backendUrl';
 import { compressHistoryImages } from '../utils/historyUtils';
+import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = `${getBackendUrl()}/api`;
 
@@ -118,11 +118,6 @@ export const generateContentViaProxy = async (
     settings: AppSettings,
     signal?: AbortSignal
 ) => {
-    const token = getToken();
-    if (!token) {
-        throw new Error('请先登录');
-    }
-
     // Filter out thought parts from history
     const cleanHistory = history.map(item => {
         if (item.role === 'model') {
@@ -163,15 +158,14 @@ export const generateContentViaProxy = async (
             throw new DOMException('Aborted', 'AbortError');
         }
 
-        const response = await fetch(`${API_BASE}/proxy/generate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify(requestBody),
-            signal,
-        });
+        const response = await fetch(
+            `${API_BASE}/proxy/generate`,
+            buildRequestOptions({
+                method: 'POST',
+                body: JSON.stringify(requestBody),
+                signal,
+            })
+        );
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({ detail: '请求失败' }));
@@ -215,11 +209,6 @@ export const streamContentViaProxy = async function* (
     settings: AppSettings,
     signal?: AbortSignal
 ) {
-    const token = getToken();
-    if (!token) {
-        throw new Error('请先登录');
-    }
-
     const cleanHistory = history.map(item => {
         if (item.role === 'model') {
             return {
@@ -254,15 +243,14 @@ export const streamContentViaProxy = async function* (
     };
 
     try {
-        const response = await fetch(`${API_BASE}/proxy/generate/stream`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify(requestBody),
-            signal,
-        });
+        const response = await fetch(
+            `${API_BASE}/proxy/generate/stream`,
+            buildRequestOptions({
+                method: 'POST',
+                body: JSON.stringify(requestBody),
+                signal,
+            })
+        );
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({ detail: '请求失败' }));

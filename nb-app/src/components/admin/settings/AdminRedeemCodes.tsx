@@ -62,7 +62,11 @@ export const AdminRedeemCodes = () => {
 
     const formatDate = (value?: string | null) => {
         if (!value) return '—';
-        return new Date(value).toLocaleString('zh-CN', {
+        const hasTimezone = /[zZ]|[+-]\d{2}:\d{2}$/.test(value);
+        const normalized = hasTimezone ? value : `${value}Z`;
+        const date = new Date(normalized);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString('zh-CN', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',

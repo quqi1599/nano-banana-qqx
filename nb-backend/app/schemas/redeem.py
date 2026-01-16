@@ -18,7 +18,11 @@ class RedeemResponse(BaseModel):
     credits_added: int  # 增加的通用积分
     pro3_credits_added: int  # 增加的 Pro3 次数
     flash_credits_added: int  # 增加的 Flash 次数
-    new_balance: int
+    new_balance: int  # 通用积分余额（兼容字段）
+    general_balance: int  # 通用积分余额
+    pro3_balance: int  # Pro3 次数余额
+    flash_balance: int  # Flash 次数余额
+    total_balance: int  # 总余额（通用 + Pro3 + Flash）
 
 
 class UserBalanceInfo(BaseModel):

@@ -2,23 +2,15 @@
  * 工单服务
  */
 
-import { getToken } from './authService';
 import { getBackendUrl } from '../utils/backendUrl';
+import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = `${getBackendUrl()}/api/tickets`;
 
 // 通用请求
 const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
-    const token = getToken();
-    if (!token) throw new Error('请先登录');
-
     const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            ...options.headers,
-        },
+        ...buildRequestOptions(options),
     });
 
     if (!response.ok) {

@@ -1,0 +1,63 @@
+# Docker Compose 配置 - Celery 服务
+# 用于在 Docker 环境中运行 Celery Worker, Beat 和 Flower
+
+version: '3.8'
+
+services:
+  # Redis (如果还没有)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
+    volumes:
+      - ../:/app
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://user:pass@db:5432/nbnb
+    restart: unless-stopped
+
+  # Celery Beat (定时任务)
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: celery -A app.celery_app beat --loglevel=info
+    volumes:
+      - ../:/app
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    restart: unless-stopped
+
+  # Flower 监控面板
+  flower:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: celery -A app.celery_app flower --port=5555 --broker=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+      - FLOWER_USER=admin
+      - FLOWER_PASSWORD=admin123
+    restart: unless-stopped
+
+volumes:
+  redis_data:

@@ -3,22 +3,37 @@ import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { get as getVal, set as setVal, del as delVal } from 'idb-keyval';
 import { fetchBalance, BalanceInfo } from '../services/balanceService';
 import {
-    createConversation,
-    getConversationsPage,
-    getConversationMessages,
-    addMessage as addMessageApi,
-    updateConversationTitle,
-    deleteConversation as deleteConversationApi,
-    Conversation,
-    ConversationMessage,
-    MessageImage,
+  createConversation,
+  getConversationsPage,
+  getConversationMessages,
+  addMessage as addMessageApi,
+  updateConversationTitle,
+  deleteConversation as deleteConversationApi,
+  Conversation,
+  ConversationMessage,
+  MessageImage,
 } from '../services/conversationService';
 import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
+import { useUiStore } from './useUiStore';
+import { getCsrfToken } from '../utils/csrf';
 
 // Custom IndexedDB storage
 const API_KEY_STORAGE = 'nbnb_api_key';
+const SYNC_BASE_DELAY_MS = 1000;
+const SYNC_MAX_ATTEMPTS = 5;
+let syncQueueTimer: ReturnType<typeof setTimeout> | null = null;
+
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
 const storage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     return await getVal(name) || null;
@@ -42,7 +57,7 @@ interface AppState {
   inputText: string; // Global input text state
   balance: BalanceInfo | null;
   usageCount: number; // 使用次数（当余额API不可用时使用）
-  installPrompt: any | null; // PWA Install Prompt Event
+  installPrompt: BeforeInstallPromptEvent | null; // PWA Install Prompt Event
 
   // 对话历史相关
   currentConversationId: string | null;
@@ -54,8 +69,10 @@ interface AppState {
   messagesPageSize: number;
   messagesTotal: number;
   isSyncing: boolean;
+  pendingSyncQueue: PendingSyncItem[];
+  isSyncQueueRunning: boolean;
 
-  setInstallPrompt: (prompt: any) => void;
+  setInstallPrompt: (prompt: BeforeInstallPromptEvent | null) => void;
   setApiKey: (key: string) => void;
   fetchBalance: () => Promise<BalanceInfo | undefined>;
   incrementUsageCount: () => void;
@@ -84,6 +101,13 @@ interface AppState {
   updateConversationTitle: (id: string, title: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   setCurrentConversationId: (id: string | null) => void;
+  processSyncQueue: () => Promise<void>;
+}
+
+interface PendingSyncItem {
+  message: ChatMessage;
+  attempts: number;
+  nextRetryAt: number;
 }
 
 export const useAppStore = create<AppState>()(
@@ -121,6 +145,8 @@ export const useAppStore = create<AppState>()(
       messagesPageSize: 50,
       messagesTotal: 0,
       isSyncing: false,
+      pendingSyncQueue: [],
+      isSyncQueueRunning: false,
 
       setInstallPrompt: (prompt) => set({ installPrompt: prompt }),
       setApiKey: (key) => {
@@ -473,88 +499,135 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      syncCurrentMessage: async (message) => {
-        // 仅登录用户同步
-        const token = localStorage.getItem('nbnb_auth_token');
-        const apiKey = get().apiKey?.trim();
-        if (!token && !apiKey) return;
+      processSyncQueue: async () => {
+        if (get().isSyncQueueRunning) return;
+        set({ isSyncQueueRunning: true, isSyncing: true });
 
-        let conversationId = get().currentConversationId;
-        let isNewConversation = false;
-
-        // 没有对话ID，创建新对话
-        if (!conversationId) {
-          try {
-            const conv = await createConversation(undefined, get().settings.modelName);
-            conversationId = conv.id;
-            set({ currentConversationId: conversationId });
-            isNewConversation = true;
-            console.log('[Conversation] 创建新对话:', conversationId);
-          } catch (error) {
-            console.error('Failed to create conversation:', error);
-            return;
-          }
-        }
-
-        // 同步消息到服务器
-        set({ isSyncing: true });
         try {
-          const role = message.role || 'user';
-          const contentParts = message.parts
-            .filter((p) => !p.inlineData && !p.thought)
-            .map((p) => p.text || '');
-          let content = contentParts.join('\n');
-
-          // 提取图片
-          const images: MessageImage[] = [];
-          message.parts.forEach((p) => {
-            if (p.inlineData?.data && p.inlineData.mimeType) {
-              images.push({
-                base64: p.inlineData.data,
-                mimeType: p.inlineData.mimeType,
-              });
+          while (true) {
+            const queue = get().pendingSyncQueue;
+            if (queue.length === 0) {
+              break;
             }
-          });
 
-          // 检查是否有思考过程
-          const hasThought = message.parts.some((p) => p.thought);
-          const hasNonThoughtContent = message.parts.some(
-            (p) => !p.thought && (p.text || p.inlineData)
-          );
-          const isThought = hasThought && !hasNonThoughtContent;
-          if (!content && isThought) {
-            content = message.parts
-              .filter((p) => p.thought && p.text)
-              .map((p) => p.text || '')
-              .join('\n');
+            const now = Date.now();
+            const [item, ...rest] = queue;
+            if (item.nextRetryAt > now) {
+              const delay = item.nextRetryAt - now;
+              if (syncQueueTimer) {
+                clearTimeout(syncQueueTimer);
+              }
+              syncQueueTimer = setTimeout(() => {
+                get().processSyncQueue().catch(console.error);
+              }, delay);
+              break;
+            }
+
+            try {
+              let conversationId = get().currentConversationId;
+              let isNewConversation = false;
+
+              if (!conversationId) {
+                const conv = await createConversation(undefined, get().settings.modelName);
+                conversationId = conv.id;
+                set({ currentConversationId: conversationId });
+                isNewConversation = true;
+                console.log('[Conversation] 创建新对话:', conversationId);
+              }
+
+              const role = item.message.role || 'user';
+              const contentParts = item.message.parts
+                .filter((p) => !p.inlineData && !p.thought)
+                .map((p) => p.text || '');
+              let content = contentParts.join('\n');
+
+              const images: MessageImage[] = [];
+              item.message.parts.forEach((p) => {
+                if (p.inlineData?.data && p.inlineData.mimeType) {
+                  images.push({
+                    base64: p.inlineData.data,
+                    mimeType: p.inlineData.mimeType,
+                  });
+                }
+              });
+
+              const hasThought = item.message.parts.some((p) => p.thought);
+              const hasNonThoughtContent = item.message.parts.some(
+                (p) => !p.thought && (p.text || p.inlineData)
+              );
+              const isThought = hasThought && !hasNonThoughtContent;
+              if (!content && isThought) {
+                content = item.message.parts
+                  .filter((p) => p.thought && p.text)
+                  .map((p) => p.text || '')
+                  .join('\n');
+              }
+
+              await addMessageApi(
+                conversationId,
+                role,
+                content,
+                images.length > 0 ? images : undefined,
+                isThought,
+                item.message.thinkingDuration
+              );
+
+              if (isNewConversation) {
+                await get().loadConversationList();
+              }
+
+              set((state) => {
+                if (state.currentConversationId !== conversationId) return {};
+                const nextTotal = Math.max(state.messagesTotal + 1, state.messages.length);
+                return { messagesTotal: nextTotal };
+              });
+
+              set({ pendingSyncQueue: rest });
+              console.log(`[Conversation] 同步消息: ${role}, 对话: ${conversationId}`);
+            } catch (error) {
+              const attempts = item.attempts + 1;
+              if (attempts >= SYNC_MAX_ATTEMPTS) {
+                set({ pendingSyncQueue: rest });
+                useUiStore
+                  .getState()
+                  .addToast('消息同步失败，请检查网络后重试', 'error');
+                console.error('Sync message failed after retries:', error);
+              } else {
+                const backoff = SYNC_BASE_DELAY_MS * Math.pow(2, attempts - 1);
+                const jitter = Math.floor(Math.random() * 300);
+                const nextRetryAt = Date.now() + backoff + jitter;
+                set({
+                  pendingSyncQueue: [
+                    ...rest,
+                    { ...item, attempts, nextRetryAt },
+                  ],
+                });
+              }
+            }
           }
-
-          await addMessageApi(
-            conversationId,
-            role,
-            content,
-            images.length > 0 ? images : undefined,
-            isThought,
-            message.thinkingDuration
-          );
-
-          // 只在创建新对话后刷新列表，避免频繁刷新
-          if (isNewConversation) {
-            await get().loadConversationList();
-          }
-
-          set((state) => {
-            if (state.currentConversationId !== conversationId) return {};
-            const nextTotal = Math.max(state.messagesTotal + 1, state.messages.length);
-            return { messagesTotal: nextTotal };
-          });
-
-          console.log(`[Conversation] 同步消息: ${role}, 对话: ${conversationId}`);
-        } catch (error) {
-          console.error('Failed to sync message:', error);
         } finally {
-          set({ isSyncing: false });
+          set({ isSyncQueueRunning: false, isSyncing: false });
         }
+      },
+
+      syncCurrentMessage: async (message) => {
+        const apiKey = get().apiKey?.trim();
+        const hasCookieAuth = !!getCsrfToken();
+        if (!hasCookieAuth && !apiKey) return;
+
+        set((state) => {
+          if (state.pendingSyncQueue.some((item) => item.message.id === message.id)) {
+            return {};
+          }
+          return {
+            pendingSyncQueue: [
+              ...state.pendingSyncQueue,
+              { message, attempts: 0, nextRetryAt: Date.now() },
+            ],
+          };
+        });
+
+        await get().processSyncQueue();
       },
 
       updateConversationTitle: async (id, title) => {

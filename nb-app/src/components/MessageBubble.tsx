@@ -37,7 +37,7 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
   }
 
   if (part.inlineData) {
-    const handleReEdit = (e: React.MouseEvent) => {
+    const handleReEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       setPendingReferenceImage({
         base64Data: part.inlineData!.data,
@@ -94,7 +94,7 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
 
   if (!part.inlineData) return null;
 
-  const handleReEdit = (e: React.MouseEvent) => {
+  const handleReEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     setPendingReferenceImage({
       base64Data: part.inlineData!.data,
@@ -175,7 +175,7 @@ const ThinkingBlock: React.FC<{ parts: Part[], duration?: number, isFinished: bo
   );
 };
 
-export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, onDelete, onRegenerate }) => {
+export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating, onDelete, onRegenerate }) => {
   const isUser = message.role === 'user';
   const [showActions, setShowActions] = useState(false);
   const [showWeChatQR, setShowWeChatQR] = useState(false);
@@ -396,4 +396,4 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
       )}
     </div>
   );
-};
+});

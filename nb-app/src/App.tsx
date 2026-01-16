@@ -2,6 +2,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { useUiStore } from './store/useUiStore';
 import { useAuthStore } from './store/useAuthStore';
+import { useOnboardingStore } from './store/useOnboardingStore';
 import { ChatInterface } from './components/ChatInterface';
 import { ConversationHistoryPanel } from './components/ConversationHistoryPanel';
 import { ToastContainer } from './components/ui/ToastContainer';
@@ -10,11 +11,12 @@ import { WeChatQRModal } from './components/WeChatQRModal';
 import { WelcomeModal } from './components/WelcomeModal';
 import { AuthModal } from './components/AuthModal';
 import { TicketModal } from './components/TicketModal';
-import { PaymentPage } from './components/PaymentPage';
+import { GuideTour, HelpCenter, HelpButton } from './components/onboarding';
 import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, CreditCard } from 'lucide-react';
+import { getAvailableGuideFlows } from './data/guideFlows';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -30,10 +32,10 @@ const App: React.FC = () => {
   const { apiKey, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory, loadConversation, createNewConversation } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
   const { isAuthenticated, user, initAuth, logout } = useAuthStore();
+  const { isGuideCompleted, isGuideAvailable, startGuide } = useOnboardingStore();
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
-  const [showPaymentPage, setShowPaymentPage] = useState(false);
   const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
   const [skipApiKeyPrompt, setSkipApiKeyPrompt] = useState(() => {
@@ -44,6 +46,10 @@ const App: React.FC = () => {
   // 对话历史侧边栏状态
   const [isConversationHistoryOpen, setIsConversationHistoryOpen] = useState(false);
   const [isConversationHistoryCollapsed, setIsConversationHistoryCollapsed] = useState(false);
+
+  // 引导系统状态
+  const [showHelpCenter, setShowHelpCenter] = useState(false);
+  const [showOnboardingBadge, setShowOnboardingBadge] = useState(true);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -150,6 +156,21 @@ const App: React.FC = () => {
       localStorage.setItem('deai_has_visited', 'true');
     }
   }, [hasHydrated]);
+
+  // 首次访问时自动触发欢迎引导
+  useEffect(() => {
+    // 等待欢迎弹窗关闭后再触发引导
+    if (hasHydrated && !showWelcome && isGuideAvailable('welcome')) {
+      // 延迟一点触发，让用户先熟悉界面
+      const timer = setTimeout(() => {
+        const welcomeGuide = getAvailableGuideFlows().find(g => g.id === 'welcome');
+        if (welcomeGuide) {
+          startGuide(welcomeGuide);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [hasHydrated, showWelcome, startGuide]);
 
   useEffect(() => {
     if (useAppStore.persist.hasHydrated()) {
@@ -283,14 +304,6 @@ const App: React.FC = () => {
                 <span className="hidden sm:inline">{user.credit_balance} 次</span>
                 <span className="sm:hidden font-numeric">{user.credit_balance}</span>
               </div>
-              <button
-                onClick={() => setShowPaymentPage(true)}
-                className="flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-1 xs:py-1.5 rounded-md xs:rounded-lg bg-green-100 dark:bg-green-900/30 text-[10px] xs:text-xs font-medium text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition touch-feedback"
-                title="购买积分"
-              >
-                <CreditCard className="h-3 w-3 xs:h-3.5 xs:w-3.5" />
-                <span className="hidden lg:inline">充值</span>
-              </button>
             </div>
           )}
 
@@ -483,6 +496,12 @@ const App: React.FC = () => {
             {settings.theme === 'dark' ? <Sun className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" /> : <Moon className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />}
           </button>
 
+          {/* 帮助按钮 */}
+          <HelpButton
+            onClick={() => setShowHelpCenter(true)}
+            badge={showOnboardingBadge && getAvailableGuideFlows().some(g => isGuideAvailable(g.id))}
+          />
+
           <button
             onClick={toggleSettings}
             className={`rounded-md xs:rounded-lg p-1.5 xs:p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isSettingsOpen
@@ -588,13 +607,6 @@ const App: React.FC = () => {
         <TicketModal isOpen={showTicketModal} onClose={() => setShowTicketModal(false)} />
       )}
 
-      {/* Payment Page */}
-      {isAuthenticated && showPaymentPage && (
-        <div className="fixed inset-0 z-50 bg-white dark:bg-gray-950">
-          <PaymentPage onClose={() => setShowPaymentPage(false)} />
-        </div>
-      )}
-
       <ToastContainer />
       <GlobalDialog />
 
@@ -613,6 +625,13 @@ const App: React.FC = () => {
 
       {/* 首次访问欢迎弹窗 */}
       <WelcomeModal isOpen={showWelcome} onClose={() => setShowWelcome(false)} />
+
+      {/* 新手引导系统 */}
+      <GuideTour
+        onComplete={() => setShowOnboardingBadge(false)}
+        onSkip={() => setShowOnboardingBadge(false)}
+      />
+      <HelpCenter isOpen={showHelpCenter} onClose={() => setShowHelpCenter(false)} />
     </div>
   );
 };

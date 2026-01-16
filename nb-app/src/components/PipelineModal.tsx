@@ -4,6 +4,7 @@ import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
 import { useUiStore } from '../store/useUiStore';
 import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
+import { fileToBase64 } from '../utils/imageUtils';
 
 interface Props {
   isOpen: boolean;
@@ -16,14 +17,7 @@ const AVAILABLE_MODELS = [
   { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (第1代)' }
 ] as const;
 
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
+
 
 const formatMegabytes = (bytes: number) => Math.round(bytes / (1024 * 1024));
 
@@ -307,9 +301,9 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                 </label>
                 <select
                   onChange={(e) => {
-                    const template = templates.find(t => t.name === e.target.value);
+                    const template = templates.find(t => t.name === e.currentTarget.value);
                     if (template) handleApplyTemplate(template);
-                    e.target.value = '';
+                    e.currentTarget.value = '';
                   }}
                   disabled={templatesLoading}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-cream-500 dark:hover:border-cream-500 focus:outline-none focus:ring-2 focus:ring-cream-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -331,9 +325,9 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                 </label>
                 <select
                   onChange={(e) => {
-                    const template = templates.find(t => t.name === e.target.value);
+                    const template = templates.find(t => t.name === e.currentTarget.value);
                     if (template) handleApplyTemplate(template);
-                    e.target.value = '';
+                    e.currentTarget.value = '';
                   }}
                   disabled={templatesLoading}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-cream-500 dark:hover:border-cream-500 focus:outline-none focus:ring-2 focus:ring-cream-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -355,9 +349,9 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                 </label>
                 <select
                   onChange={(e) => {
-                    const template = templates.find(t => t.name === e.target.value);
+                    const template = templates.find(t => t.name === e.currentTarget.value);
                     if (template) handleApplyTemplate(template);
-                    e.target.value = '';
+                    e.currentTarget.value = '';
                   }}
                   disabled={templatesLoading}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:border-cream-500 dark:hover:border-cream-500 focus:outline-none focus:ring-2 focus:ring-cream-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -482,7 +476,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                   <div className="flex-1 space-y-2">
                     <textarea
                       value={step.prompt}
-                      onChange={(e) => handleStepChange(index, 'prompt', e.target.value)}
+                      onChange={(e) => handleStepChange(index, 'prompt', e.currentTarget.value)}
                       placeholder={`步骤 ${index + 1} 的提示词...`}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm resize-y focus:outline-none focus:ring-2 focus:ring-cream-500 min-h-[80px]"
                       rows={3}
@@ -495,7 +489,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                       </label>
                       <select
                         value={step.modelName || ''}
-                        onChange={(e) => handleStepChange(index, 'modelName', e.target.value)}
+                        onChange={(e) => handleStepChange(index, 'modelName', e.currentTarget.value)}
                         className="flex-1 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-cream-500"
                       >
                         <option value="">默认 (继承全局设置)</option>

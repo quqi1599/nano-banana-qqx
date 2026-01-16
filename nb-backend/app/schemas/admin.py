@@ -276,6 +276,21 @@ class UsageLogResponse(BaseModel):
     page_size: int
 
 
+class LoginFailureItem(BaseModel):
+    """登录失败 IP 统计项"""
+    ip: str
+    count: int
+    last_seen: Optional[datetime]
+    last_email: Optional[str]
+    ttl_seconds: Optional[int]
+
+
+class LoginFailureResponse(BaseModel):
+    """登录失败 IP 统计响应"""
+    items: List[LoginFailureItem]
+    total: int
+
+
 # ============ 用户对话历史管理 Schemas ============
 
 from app.schemas.conversation import AdminConversationResponse

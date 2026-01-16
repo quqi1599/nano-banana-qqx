@@ -42,6 +42,15 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
     const { login: storeLogin, isAuthenticated, user, refreshCredits } = useAuthStore();
 
+    const validatePassword = (value: string): string | null => {
+        if (value.length < 8) return '密码长度至少8位';
+        if (!/[a-z]/.test(value)) return '密码需包含小写字母';
+        if (!/[A-Z]/.test(value)) return '密码需包含大写字母';
+        if (!/\d/.test(value)) return '密码需包含数字';
+        if (/\s/.test(value)) return '密码不能包含空格';
+        return null;
+    };
+
     if (!isOpen) return null;
 
     const openCaptcha = (purpose: CaptchaPurpose, action: (ticket: string) => Promise<void>) => {
@@ -78,8 +87,9 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             setError('请输入验证码');
             return;
         }
-        if (password.length < 6) {
-            setError('密码长度至少6位');
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            setError(passwordError);
             return;
         }
         if (password !== confirmPassword) {
@@ -115,7 +125,29 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
         try {
             const result = await redeemCode(redeemCodeInput);
-            setSuccess(`兑换成功！获得 ${result.credits_added} 积分，当前余额 ${result.new_balance} 积分`);
+            const addedParts: string[] = [];
+            if (result.credits_added) addedParts.push(`通用 +${result.credits_added}`);
+            if (result.pro3_credits_added) addedParts.push(`Pro3 +${result.pro3_credits_added}`);
+            if (result.flash_credits_added) addedParts.push(`Flash +${result.flash_credits_added}`);
+            const addedText = addedParts.length ? addedParts.join('，') : '无新增积分';
+
+            const generalBalance = result.general_balance ?? result.new_balance;
+            const pro3Balance = typeof result.pro3_balance === 'number' ? result.pro3_balance : undefined;
+            const flashBalance = typeof result.flash_balance === 'number' ? result.flash_balance : undefined;
+            const balanceParts = [`通用 ${generalBalance}`];
+            if (pro3Balance !== undefined) balanceParts.push(`Pro3 ${pro3Balance}`);
+            if (flashBalance !== undefined) balanceParts.push(`Flash ${flashBalance}`);
+
+            const totalBalance = typeof result.total_balance === 'number'
+                ? result.total_balance
+                : (pro3Balance !== undefined && flashBalance !== undefined)
+                    ? generalBalance + pro3Balance + flashBalance
+                    : undefined;
+            const balanceText = totalBalance !== undefined
+                ? `${balanceParts.join(' / ')}，总计 ${totalBalance}`
+                : balanceParts.join(' / ');
+
+            setSuccess(`兑换成功！${addedText}；当前余额 ${balanceText}`);
             setRedeemCodeInput('');
             refreshCredits();
         } catch (err) {
@@ -211,6 +243,11 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         setError('');
         setSuccess('');
 
+        const passwordError = validatePassword(resetNewPassword);
+        if (passwordError) {
+            setError(passwordError);
+            return;
+        }
         openCaptcha('reset', async (ticket) => {
             setIsLoading(true);
             try {
@@ -410,7 +447,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetNewPassword(e.currentTarget.value)}
                                             placeholder="新密码"
                                             required
-                                            minLength={6}
+                                            minLength={8}
                                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
                                     </div>
@@ -461,7 +498,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
                                             placeholder="密码"
                                             required
-                                            minLength={6}
+                                            minLength={8}
                                             className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
                                         <button
@@ -482,7 +519,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.currentTarget.value)}
                                                 placeholder="确认密码"
                                                 required
-                                                minLength={6}
+                                                minLength={8}
                                                 className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 outline-none transition-colors ${confirmPassword && password !== confirmPassword
                                                     ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
                                                     : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'

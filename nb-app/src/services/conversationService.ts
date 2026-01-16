@@ -3,27 +3,28 @@
  */
 
 import { getBackendUrl } from '../utils/backendUrl';
-import { getToken } from './authService';
+import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = getBackendUrl();
 const API_KEY_STORAGE = 'nbnb_api_key';
 
-// 获取认证头
-function getAuthHeaders(): HeadersInit {
-    const token = getToken();
-    const apiKey = !token ? localStorage.getItem(API_KEY_STORAGE) : null;
+const buildRequestWithAuth = (options: RequestInit = {}): RequestInit => {
+    const requestOptions = buildRequestOptions(options);
+    const headers = new Headers(requestOptions.headers || {});
+    const apiKey = localStorage.getItem(API_KEY_STORAGE);
+    if (apiKey && !headers.has('X-API-Key')) {
+        headers.set('X-API-Key', apiKey);
+    }
     return {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        ...(!token && apiKey && { 'X-API-Key': apiKey }),
+        ...requestOptions,
+        headers,
     };
-}
+};
 
 // 通用请求处理
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE}${url}`, {
-        ...options,
-        headers: getAuthHeaders(),
+        ...buildRequestWithAuth(options || {}),
     });
 
     if (!response.ok) {
@@ -36,8 +37,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function requestWithMeta<T>(url: string, options?: RequestInit): Promise<{ data: T; total: number | null }> {
     const response = await fetch(`${API_BASE}${url}`, {
-        ...options,
-        headers: getAuthHeaders(),
+        ...buildRequestWithAuth(options || {}),
     });
 
     if (!response.ok) {

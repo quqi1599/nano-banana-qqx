@@ -11,6 +11,12 @@ AI 图片生成平台，基于 Gemini 3 Pro 模型，支持积分计费、用户
 git clone https://github.com/quqi1599/nano-banana-qqx.git
 cd nano-banana-qqx
 
+# 创建 .env
+cp .env.production.example .env
+
+# 编辑 .env，填写必需配置
+nano .env
+
 # 启动所有服务
 docker-compose up -d
 
@@ -18,6 +24,15 @@ docker-compose up -d
 # 前端: http://localhost
 # 后端 API: http://localhost:8000
 # API 文档: http://localhost:8000/docs
+```
+
+**必填环境变量（.env）：**
+```bash
+POSTGRES_PASSWORD=你的数据库密码（至少16位）
+REDIS_URL=redis://:你的Redis密码@redis:6379/0
+JWT_SECRET_KEY=你的JWT密钥（至少32位）
+TOKEN_ENCRYPTION_KEY=你的加密密钥（至少32位）
+ADMIN_PASSWORD=管理员密码（至少12位）
 ```
 
 ### VPS 更新部署
@@ -51,6 +66,16 @@ docker-compose up -d
 
 > [!WARNING]
 > 使用 `-v` 会删除所有数据库数据（用户、积分、历史记录等），管理员账号会重置为默认。
+
+### Redis 连接失败
+
+如果后端日志包含 `NOAUTH Authentication required` 或 `Redis connection failed`：
+
+1) 检查 `.env` 中是否设置了 `REDIS_URL`
+2) 确保格式为：`redis://:你的密码@redis:6379/0`
+3) 重新启动服务：`docker-compose up -d`
+
+> 注意：不要在 `.env` 中写行内注释（会被当作值的一部分）。
 
 ## 🏗️ 项目架构
 

@@ -17,7 +17,7 @@ import {
 } from '../services/adminService';
 import { formatBalance } from '../services/balanceService';
 import { getApiBaseUrl } from '../utils/endpointUtils';
-import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, getAdminUnreadCount, Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory } from '../services/ticketService';
+import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, getAdminUnreadCount, Ticket, TicketMessage, TICKET_CATEGORIES, TICKET_STATUS_LABELS, TicketCategory, TicketStatus } from '../services/ticketService';
 
 interface AdminPanelProps {
     isOpen: boolean;
@@ -962,11 +962,11 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
         }
     };
 
-    const handleUpdateTicketStatus = async (status: string) => {
+    const handleUpdateTicketStatus = async (status: TicketStatus) => {
         if (!selectedTicket) return;
         try {
             // Optimistic update
-            setSelectedTicket({ ...selectedTicket, status: status as any });
+            setSelectedTicket({ ...selectedTicket, status });
 
             await updateTicketStatus(selectedTicket.id, status);
             loadData(); // Refresh list to reflect changes
@@ -2334,7 +2334,7 @@ export const AdminPanel = ({ isOpen, onClose }: AdminPanelProps) => {
                                                     </div>
                                                     <select
                                                         value={selectedTicket.status}
-                                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleUpdateTicketStatus(e.currentTarget.value)}
+                                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleUpdateTicketStatus(e.currentTarget.value as TicketStatus)}
                                                         className="text-xs border-none bg-gray-100 dark:bg-gray-700 rounded-lg px-2 py-1 outline-none font-medium cursor-pointer"
                                                     >
                                                         <option value="open">待处理</option>

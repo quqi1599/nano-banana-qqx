@@ -20,21 +20,37 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 1g
+    cpus: "1.0"
 
   # Redis 缓存
   redis:
     image: redis:7-alpine
     container_name: nbnb-redis
-    # command: redis-server --requirepass ${REDIS_PASSWORD:-}  # Disabled for now
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command: >
+      sh -c 'pass="$$REDIS_PASSWORD";
+      if [ -z "$$pass" ] && [ -n "$$REDIS_URL" ]; then
+        pass=$$(echo "$$REDIS_URL" | sed -n "s#redis://:\\([^@]*\\)@.*#\\1#p");
+      fi;
+      if [ -n "$$pass" ]; then
+        exec redis-server --requirepass "$$pass";
+      else
+        exec redis-server;
+      fi'
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD-SHELL", "redis-cli --no-auth-warning ${REDIS_PASSWORD:+-a $REDIS_PASSWORD} ping | grep PONG" ]
+      test: [ "CMD-SHELL", "if [ -n \"$$REDIS_URL\" ]; then redis-cli -u \"$$REDIS_URL\" ping | grep PONG; else redis-cli ping | grep PONG; fi" ]
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 256m
+    cpus: "0.5"
 
   # 后端服务
   backend:
@@ -46,7 +62,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@postgres:5432/nbnb
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       CORS_ORIGINS_LIST: ${CORS_ORIGINS_LIST}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
@@ -68,6 +84,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    mem_limit: 1g
+    cpus: "2.0"
 
   # 前端服务
   frontend:
@@ -79,6 +97,8 @@ services:
       - "80:80"
     depends_on:
       - backend
+    mem_limit: 256m
+    cpus: "0.5"
 
 volumes:
   postgres_data:

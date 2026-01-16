@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 import hashlib
 import secrets
+import logging
+import time
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Header, Request
@@ -19,8 +21,9 @@ from app.utils.redis_client import redis_client
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 optional_security = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -36,6 +39,8 @@ def get_password_hash(password: str) -> str:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """创建 JWT Token"""
     to_encode = data.copy()
+    if "jti" not in to_encode:
+        to_encode["jti"] = secrets.token_urlsafe(16)
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings.jwt_access_token_expire_minutes)
     )
@@ -60,13 +65,92 @@ def decode_token(token: str) -> dict:
         )
 
 
+def get_token_from_request(
+    credentials: Optional[HTTPAuthorizationCredentials],
+    request: Optional[Request],
+) -> Optional[str]:
+    if credentials and credentials.credentials:
+        return credentials.credentials
+    if request:
+        cookie_token = request.cookies.get(settings.auth_cookie_name)
+        if cookie_token:
+            return cookie_token
+    return None
+
+
+async def _ensure_token_not_revoked(payload: dict) -> None:
+    if not settings.jwt_blacklist_enabled:
+        return
+
+    jti = payload.get("jti")
+    if not jti:
+        return
+
+    if not redis_client:
+        if settings.jwt_blacklist_fail_closed:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="认证服务不可用",
+            )
+        return
+
+    try:
+        key = f"jwt:revoked:{jti}"
+        if await redis_client.get(key):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="认证令牌已失效",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("JWT blacklist check failed: %s", exc)
+        if settings.jwt_blacklist_fail_closed:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="认证校验失败",
+            )
+
+
+async def revoke_token(token: str) -> None:
+    if not settings.jwt_blacklist_enabled:
+        return
+    try:
+        payload = decode_token(token)
+    except HTTPException:
+        return
+    jti = payload.get("jti")
+    if not jti:
+        return
+    exp = payload.get("exp")
+    if not exp:
+        return
+    ttl = int(exp - time.time())
+    if ttl <= 0:
+        return
+    if not redis_client:
+        return
+    try:
+        key = f"jwt:revoked:{jti}"
+        await redis_client.set(key, "1", ex=ttl)
+    except Exception as exc:
+        logger.warning("JWT revoke failed: %s", exc)
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """获取当前登录用户"""
-    token = credentials.credentials
+    token = get_token_from_request(credentials, request)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证信息",
+        )
     payload = decode_token(token)
+    await _ensure_token_not_revoked(payload)
     user_id = payload.get("sub")
     
     if not user_id:
@@ -100,9 +184,10 @@ async def get_current_user_or_api_key(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """获取当前用户（支持 JWT 或 API Key）"""
-    if credentials and credentials.credentials:
-        token = credentials.credentials
+    token = get_token_from_request(credentials, request)
+    if token:
         payload = decode_token(token)
+        await _ensure_token_not_revoked(payload)
         user_id = payload.get("sub")
 
         if not user_id:

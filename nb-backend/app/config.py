@@ -4,7 +4,7 @@
 import logging
 from typing import List
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     """应用配置"""
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
     # 数据库
     database_url: str = "postgresql://postgres:postgres@localhost:5432/nbnb"
     
@@ -38,6 +43,9 @@ class Settings(BaseSettings):
     
     # Token encryption
     token_encryption_key: str = ""
+    token_failure_threshold: int = 3
+    token_disable_threshold: int = 5
+    token_cooldown_seconds: int = 300
     
     # API keys
     openai_api_key: str = ""
@@ -55,6 +63,24 @@ class Settings(BaseSettings):
     password_min_length: int = 8
     require_email_whitelist: bool = False
     email_whitelist_cache_ttl_seconds: int = 300
+    jwt_blacklist_enabled: bool = True
+    jwt_blacklist_fail_closed: bool = False
+    login_fail_ip_limit: int = 50
+    login_fail_ip_window_seconds: int = 3600
+
+    # Auth cookies / CSRF
+    auth_cookie_name: str = "nbnb_auth"
+    auth_cookie_secure: bool = True
+    auth_cookie_samesite: str = "lax"
+    auth_cookie_domain: str = ""
+    auth_cookie_path: str = "/"
+    csrf_cookie_name: str = "nbnb_csrf"
+    csrf_header_name: str = "X-CSRF-Token"
+    csrf_cookie_secure: bool = True
+    csrf_cookie_samesite: str = "lax"
+    csrf_cookie_domain: str = ""
+    csrf_cookie_path: str = "/"
+    trust_proxy_headers: bool = False
 
     # API key user creation control
     api_key_user_creation_enabled: bool = False
@@ -78,6 +104,17 @@ class Settings(BaseSettings):
     
     # Metrics
     metrics_enabled: bool = True
+
+    # Celery / Queue
+    celery_broker: str = ""  # 默认使用 redis_url
+    celery_backend: str = ""  # 默认使用 redis_url
+    celery_worker_concurrency: int = 4  # Worker 并发数
+
+    # Flower 监控面板
+    flower_enabled: bool = True
+    flower_port: int = 5555
+    flower_user: str = "admin"
+    flower_password: str = "admin123"
 
     # Credits pricing defaults
     credits_gemini_3_pro: int = 10
@@ -124,11 +161,6 @@ class Settings(BaseSettings):
         if problems:
             raise RuntimeError("生产环境配置不安全: " + "; ".join(problems))
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-
 @lru_cache()
 def get_settings() -> Settings:
     """获取配置单例"""

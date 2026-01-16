@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MessageSquare, Send, Loader2 } from 'lucide-react';
-import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket } from '../../../services/ticketService';
+import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketStatus } from '../../../services/ticketService';
 
 export const AdminTickets = () => {
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -58,10 +58,10 @@ export const AdminTickets = () => {
         }
     };
 
-    const handleUpdateTicketStatus = async (status: string) => {
+    const handleUpdateTicketStatus = async (status: TicketStatus) => {
         if (!selectedTicket) return;
         try {
-            setSelectedTicket({ ...selectedTicket, status: status as any });
+            setSelectedTicket({ ...selectedTicket, status });
             await updateTicketStatus(selectedTicket.id, status);
             loadData();
         } catch (err) {

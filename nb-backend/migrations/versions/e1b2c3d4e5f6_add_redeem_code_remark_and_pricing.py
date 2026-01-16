@@ -1,4 +1,4 @@
-"""add redeem code remark and order redeem code
+"""add redeem code remark and refresh model pricing
 
 Revision ID: e1b2c3d4e5f6
 Revises: d4f1c7b8a9e0
@@ -39,9 +39,6 @@ def upgrade() -> None:
     if _table_exists("redeem_codes") and not _column_exists("redeem_codes", "remark"):
         op.add_column("redeem_codes", sa.Column("remark", sa.String(length=255), nullable=True))
 
-    if _table_exists("payment_orders") and not _column_exists("payment_orders", "redeem_code"):
-        op.add_column("payment_orders", sa.Column("redeem_code", sa.String(length=32), nullable=True))
-
     if _table_exists("model_pricing"):
         conn = op.get_bind()
         conn.execute(
@@ -60,8 +57,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    if _column_exists("payment_orders", "redeem_code"):
-        op.drop_column("payment_orders", "redeem_code")
-
     if _column_exists("redeem_codes", "remark"):
         op.drop_column("redeem_codes", "remark")

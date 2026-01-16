@@ -15,8 +15,6 @@ from app.models.email_config import EmailConfig
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.conversation_cleanup import ConversationCleanup
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.payment_plan import PaymentPlan
-from app.models.payment_order import PaymentOrder, UsdtPaymentRecord
 
 __all__ = [
     "User",
@@ -35,8 +33,4 @@ __all__ = [
     "ConversationMessage",
     "ConversationCleanup",
     "AdminAuditLog",
-    "PaymentPlan",
-    "PaymentOrder",
-    "UsdtPaymentRecord",
 ]
-

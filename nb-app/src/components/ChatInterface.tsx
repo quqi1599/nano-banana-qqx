@@ -15,6 +15,7 @@ import { lazyWithRetry } from '../utils/lazyLoadUtils';
 import { NewConversationModal } from './NewConversationModal';
 import { checkConversationLimit } from '../utils/historyUtils';
 import { Pagination } from './Pagination';
+import { getCsrfToken } from '../utils/csrf';
 
 // Lazy load components
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
@@ -62,7 +63,8 @@ export const ChatInterface: React.FC = () => {
   const pipelineAbortControllerRef = useRef<AbortController | null>(null);
   const balanceRefreshStateRef = useRef({ lastRefreshAt: 0, inFlight: false });
   const isGenerating = isLoading || isPipelineRunning;
-  const canSyncHistory = isAuthenticated || !!apiKey?.trim();
+  const hasCookieAuth = !!getCsrfToken();
+  const canSyncHistory = isAuthenticated || hasCookieAuth || !!apiKey?.trim();
 
   const buildHistory = (sourceMessages: ChatMessage[]) => {
     if (!settings.sendHistory) {
@@ -123,15 +125,16 @@ export const ChatInterface: React.FC = () => {
     await loadConversation(currentConversationId, nextPage);
   };
 
+  // Scroll to bottom when messages change or loading state changes
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading, showArcade]);
+  }, [messages.length, isLoading, showArcade]); // Optimized dependencies (removed full messages content check)
 
   const handleSend = async (text: string, attachments: Attachment[]) => {
     // 检查 API Key
-    if (!isAuthenticated && !apiKey) {
+    if (!isAuthenticated && !hasCookieAuth && !apiKey) {
       setShowApiKeyModal(true);
       addToast('请先登录或输入 API Key', 'error');
       return;
@@ -193,7 +196,7 @@ export const ChatInterface: React.FC = () => {
   };
 
   const executeSingleGeneration = async (text: string, attachments: Attachment[]) => {
-    const useProxy = isAuthenticated;
+    const useProxy = isAuthenticated || hasCookieAuth;
     const apiKeyValue = apiKey || '';
     // Capture the current messages state *before* adding the new user message.
     // This allows us to generate history up to this point.
@@ -442,12 +445,15 @@ export const ChatInterface: React.FC = () => {
   };
 
   const handleRegenerate = async (id: string) => {
-    if (isGenerating) return;
+    // Fix: Get fresh state from store to avoid closure trap
+    const { isLoading, messages: currentMessages } = useAppStore.getState();
 
-    const index = messages.findIndex(m => m.id === id);
+    if (isLoading || isPipelineRunning) return;
+
+    const index = currentMessages.findIndex(m => m.id === id);
     if (index === -1) return;
 
-    const message = messages[index];
+    const message = currentMessages[index];
     let targetUserMessage: ChatMessage | undefined;
     let sliceIndex = -1;
 
@@ -456,8 +462,8 @@ export const ChatInterface: React.FC = () => {
       sliceIndex = index - 1;
     } else if (message.role === 'model') {
       // Find preceding user message
-      if (index > 0 && messages[index - 1].role === 'user') {
-        targetUserMessage = messages[index - 1];
+      if (index > 0 && currentMessages[index - 1].role === 'user') {
+        targetUserMessage = currentMessages[index - 1];
         sliceIndex = index - 2;
       }
     }
@@ -489,7 +495,7 @@ export const ChatInterface: React.FC = () => {
     steps: Array<{ id: string; prompt: string; modelName?: string; status: string }>,
     initialAttachments: Attachment[]
   ) => {
-    if (!isAuthenticated && !apiKey) {
+    if (!isAuthenticated && !hasCookieAuth && !apiKey) {
       setShowApiKeyModal(true);
       addToast('请先登录或输入 API Key', 'error');
       return;
@@ -636,7 +642,7 @@ export const ChatInterface: React.FC = () => {
     addToast(`开始并行编排，共 ${steps.length} 个任务`, 'info');
 
     const originalSettings = useAppStore.getState().settings;
-    const useProxy = isAuthenticated;
+    const useProxy = isAuthenticated || hasCookieAuth;
     const apiKeyValue = apiKey || '';
 
     // 1. 创建用户消息（显示并行编排信息）
@@ -821,7 +827,7 @@ export const ChatInterface: React.FC = () => {
     addToast(`开始批量组合生成，共 ${initialAttachments.length} 图 × ${steps.length} 词 = ${totalTasks} 张`, 'info');
 
     const originalSettings = useAppStore.getState().settings;
-    const useProxy = isAuthenticated;
+    const useProxy = isAuthenticated || hasCookieAuth;
     const apiKeyValue = apiKey || '';
 
     // 1. 创建用户消息

@@ -92,15 +92,9 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const searchParams = { ...filters };
+            const searchParams: UserFilters = { ...filters };
             if (debouncedSearch) searchParams.search = debouncedSearch;
-            if (filterTags.length > 0) {
-                // 标签筛选：暂时用搜索字段实现
-                const tagSearch = filterTags.map(t => `#${t}`).join(' ');
-                searchParams.search = searchParams.search
-                    ? `${searchParams.search} ${tagSearch}`
-                    : tagSearch;
-            }
+            if (filterTags.length > 0) searchParams.tags = filterTags;
 
             const result = await getUsersAdvanced(page, searchParams);
             setUsers(result.users);
@@ -123,12 +117,6 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
     useEffect(() => { loadUsers(); }, [loadUsers]);
     useEffect(() => { loadTags(); }, [loadTags]);
-    useEffect(() => {
-        if (activeUser) loadCreditHistory();
-    }, [activeUser, loadCreditHistory]);
-    useEffect(() => {
-        if (activeUser) loadUsageLogs();
-    }, [activeUser, loadUsageLogs]);
 
     // ===== 搜索和筛选 =====
     const handleSearchChange = (value: string) => {
@@ -287,6 +275,13 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
         }
     }, [activeUser, usagePage, usagePageSize]);
 
+    useEffect(() => {
+        if (activeUser) loadCreditHistory();
+    }, [activeUser, loadCreditHistory]);
+    useEffect(() => {
+        if (activeUser) loadUsageLogs();
+    }, [activeUser, loadUsageLogs]);
+
     const handleAdjustCredits = async () => {
         if (!activeUser) return;
         if (creditAdjustAmount === 0) {
@@ -300,11 +295,16 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
         setCreditAdjustLoading(true);
         try {
-            await adjustUserCredits(activeUser.id, creditAdjustAmount, creditAdjustReason.trim());
+            const targetUserId = activeUser.id;
+            const result = await adjustUserCredits(targetUserId, creditAdjustAmount, creditAdjustReason.trim());
+            const newBalance = result.new_balance;
             showToast('积分调整成功', 'success');
             setCreditAdjustAmount(0);
             setCreditAdjustReason('');
-            setActiveUser(prev => prev ? { ...prev, credit_balance: prev.credit_balance + creditAdjustAmount } : prev);
+            setActiveUser(prev => prev ? { ...prev, credit_balance: newBalance } : prev);
+            setUsers(prev => prev.map(user => (
+                user.id === targetUserId ? { ...user, credit_balance: newBalance } : user
+            )));
             loadUsers();
             loadCreditHistory();
         } catch (error) {

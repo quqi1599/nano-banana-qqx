@@ -4,13 +4,15 @@
 from datetime import datetime, timedelta
 import time
 import re
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks, Response
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 from pydantic import BaseModel, EmailStr
 import redis.asyncio as redis
 from sqlalchemy.exc import IntegrityError
+from fastapi.security import HTTPAuthorizationCredentials
 
 from app.database import get_db
 from app.models.user import User
@@ -22,6 +24,9 @@ from app.utils.security import (
     verify_password,
     create_access_token,
     get_current_user,
+    get_token_from_request,
+    optional_security,
+    revoke_token,
 )
 from app.config import get_settings
 from app.utils.captcha import verify_captcha_ticket, hash_captcha_ticket
@@ -50,6 +55,119 @@ LOGIN_FAIL_LIMIT = 20  # 登录失败锁定次数
 LIMIT_EXPIRE_SECONDS = 86400  # 24小时
 CAPTCHA_TICKET_USED_PREFIX = "captcha:ticket:used:"
 EMAIL_WHITELIST_CACHE_KEY = "email_whitelist:active:v1"
+LOGIN_FAIL_IP_KEY_PREFIX = "login_fail_ip:"
+LOGIN_FAIL_IP_TS_PREFIX = "login_fail_ip_ts:"
+LOGIN_FAIL_IP_EMAIL_PREFIX = "login_fail_ip_email:"
+
+
+def _get_client_ip(request: Request) -> str:
+    if settings.trust_proxy_headers:
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            return real_ip.strip()
+    return request.client.host
+
+
+async def _record_login_failure(
+    redis_client: redis.Redis,
+    email_key: str,
+    ip_key: str,
+    client_ip: str,
+    email: str,
+) -> int:
+    now_ts = int(time.time())
+    async with redis_client.pipeline() as pipe:
+        pipe.incr(email_key)
+        pipe.expire(email_key, LIMIT_EXPIRE_SECONDS)
+        pipe.incr(ip_key)
+        pipe.expire(ip_key, settings.login_fail_ip_window_seconds)
+        pipe.set(
+            f"{LOGIN_FAIL_IP_TS_PREFIX}{client_ip}",
+            str(now_ts),
+            ex=settings.login_fail_ip_window_seconds,
+        )
+        pipe.set(
+            f"{LOGIN_FAIL_IP_EMAIL_PREFIX}{client_ip}",
+            email,
+            ex=settings.login_fail_ip_window_seconds,
+        )
+        results = await pipe.execute()
+    return int(results[0]) if results else 1
+
+
+def _normalize_samesite(value: str) -> str:
+    return value.strip().lower()
+
+
+def _cookie_secure(base_secure: bool, samesite: str) -> bool:
+    if settings.is_development():
+        return False
+    if _normalize_samesite(samesite) == "none":
+        return True
+    return base_secure
+
+
+def _set_auth_cookies(response: Response, token: str) -> None:
+    max_age = settings.jwt_access_token_expire_minutes * 60
+    csrf_token = secrets.token_urlsafe(32)
+    auth_secure = _cookie_secure(settings.auth_cookie_secure, settings.auth_cookie_samesite)
+    csrf_secure = _cookie_secure(settings.csrf_cookie_secure, settings.csrf_cookie_samesite)
+    domain = settings.auth_cookie_domain or None
+
+    response.set_cookie(
+        settings.auth_cookie_name,
+        token,
+        httponly=True,
+        secure=auth_secure,
+        samesite=settings.auth_cookie_samesite,
+        max_age=max_age,
+        domain=domain,
+        path=settings.auth_cookie_path,
+    )
+    response.set_cookie(
+        settings.csrf_cookie_name,
+        csrf_token,
+        httponly=False,
+        secure=csrf_secure,
+        samesite=settings.csrf_cookie_samesite,
+        max_age=max_age,
+        domain=settings.csrf_cookie_domain or domain,
+        path=settings.csrf_cookie_path,
+    )
+
+
+def _set_csrf_cookie(response: Response) -> None:
+    max_age = settings.jwt_access_token_expire_minutes * 60
+    csrf_token = secrets.token_urlsafe(32)
+    csrf_secure = _cookie_secure(settings.csrf_cookie_secure, settings.csrf_cookie_samesite)
+    domain = settings.csrf_cookie_domain or settings.auth_cookie_domain or None
+    response.set_cookie(
+        settings.csrf_cookie_name,
+        csrf_token,
+        httponly=False,
+        secure=csrf_secure,
+        samesite=settings.csrf_cookie_samesite,
+        max_age=max_age,
+        domain=domain,
+        path=settings.csrf_cookie_path,
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    domain = settings.auth_cookie_domain or None
+    response.delete_cookie(
+        settings.auth_cookie_name,
+        domain=domain,
+        path=settings.auth_cookie_path,
+    )
+    response.delete_cookie(
+        settings.csrf_cookie_name,
+        domain=settings.csrf_cookie_domain or domain,
+        path=settings.csrf_cookie_path,
+    )
 
 
 class SendCodeRequest(BaseModel):
@@ -159,12 +277,8 @@ async def get_active_email_whitelist(db: AsyncSession) -> List[str]:
 
 
 def enforce_email_whitelist(email: str, whitelist: List[str]) -> None:
+    # 临时关闭邮箱白名单限制 - 白名单为空时允许所有邮箱注册
     if not whitelist:
-        if settings.require_email_whitelist or settings.is_production():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="系统未配置邮箱白名单，请联系管理员",
-            )
         return
 
     email_lower = email.lower()
@@ -196,7 +310,7 @@ async def send_code(
     # 验证滑块验证码
     await consume_captcha_ticket(data.captcha_ticket, data.purpose, redis_client)
 
-    client_ip = request.client.host
+    client_ip = _get_client_ip(request)
     
     # 检查 IP 注册次数限制（仅注册时）
     if data.purpose == "register":
@@ -247,18 +361,29 @@ async def send_code(
             )
 
     # 生成验证码
+    now = datetime.utcnow()
     code = generate_code()
-    expires_at = datetime.utcnow() + timedelta(minutes=settings.email_code_expire_minutes)
-    
-    # 保存验证码
+    expires_at = now + timedelta(minutes=settings.email_code_expire_minutes)
+
+    # 保存验证码（同时作废历史未使用验证码）
     email_code = EmailCode(
         email=data.email,
         code=code,
         purpose=data.purpose,
         expires_at=expires_at,
     )
-    db.add(email_code)
-    await db.commit()
+    async with db.begin():
+        await db.execute(
+            update(EmailCode)
+            .where(
+                EmailCode.email == data.email,
+                EmailCode.purpose == data.purpose,
+                EmailCode.is_used == False,
+                EmailCode.expires_at > now,
+            )
+            .values(is_used=True)
+        )
+        db.add(email_code)
     
     # 后台发送邮件
     background_tasks.add_task(send_verification_code, data.email, code, data.purpose)
@@ -276,11 +401,12 @@ async def send_code(
 async def register(
     data: UserRegisterWithCode,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """用户注册（需验证码）"""
-    client_ip = request.client.host
+    client_ip = _get_client_ip(request)
     ip_key = f"register_ip:{client_ip}"
     
     # 检查 IP 注册次数限制
@@ -317,30 +443,6 @@ async def register(
             detail="该邮箱已被注册",
         )
     
-    # 验证验证码
-    now = datetime.utcnow()
-    result = await db.execute(
-        select(EmailCode).where(
-            and_(
-                EmailCode.email == data.email,
-                EmailCode.code == data.code,
-                EmailCode.purpose == "register",
-                EmailCode.is_used == False,
-                EmailCode.expires_at > now,
-            )
-        ).order_by(EmailCode.created_at.desc()).limit(1)
-    )
-    email_code = result.scalar_one_or_none()
-    
-    if not email_code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="验证码无效或已过期",
-        )
-    
-    # 标记验证码已使用
-    email_code.is_used = True
-    
     # 创建用户
     user = User(
         email=data.email,
@@ -350,10 +452,26 @@ async def register(
     )
     try:
         async with db.begin():
-            email_code.is_used = True
+            # 验证并消费验证码
+            now = datetime.utcnow()
+            update_result = await db.execute(
+                update(EmailCode)
+                .where(
+                    EmailCode.email == data.email,
+                    EmailCode.code == data.code,
+                    EmailCode.purpose == "register",
+                    EmailCode.is_used == False,
+                    EmailCode.expires_at > now,
+                )
+                .values(is_used=True)
+            )
+            if update_result.rowcount != 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="验证码无效或已过期",
+                )
             db.add(user)
     except IntegrityError:
-        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="该邮箱已被注册",
@@ -370,6 +488,7 @@ async def register(
     
     # 生成 Token
     access_token = create_access_token(data={"sub": user.id})
+    _set_auth_cookies(response, access_token)
     
     return TokenResponse(
         access_token=access_token,
@@ -381,23 +500,31 @@ async def register(
 async def login(
     data: UserLogin,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """用户登录"""
-    client_ip = request.client.host
+    client_ip = _get_client_ip(request)
     email_key = f"login_fail:{data.email}"
+    ip_key = f"{LOGIN_FAIL_IP_KEY_PREFIX}{client_ip}"
 
     # 只有提供了 captcha_ticket 才验证
     if data.captcha_ticket:
         await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
     
-    # 检查登录失败次数
+    # 检查登录失败次数（邮箱 + IP）
     fail_count = await redis_client.get(email_key)
     if fail_count and int(fail_count) >= LOGIN_FAIL_LIMIT:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="登录失败次数过多，账户已被临时锁定，请 24 小时后重试",
+        )
+    ip_fail_count = await redis_client.get(ip_key)
+    if ip_fail_count and int(ip_fail_count) >= settings.login_fail_ip_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="该 IP 登录失败次数过多，请稍后再试",
         )
     
     result = await db.execute(select(User).where(User.email == data.email))
@@ -416,13 +543,11 @@ async def login(
         )
 
     if not user:
-        new_count = await redis_client.incr(email_key)
-        await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
+        new_count = await _record_login_failure(redis_client, email_key, ip_key, client_ip, data.email)
         _raise_login_fail(int(new_count))
 
     if not verify_password(data.password, user.password_hash):
-        new_count = await redis_client.incr(email_key)
-        await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
+        new_count = await _record_login_failure(redis_client, email_key, ip_key, client_ip, data.email)
         _raise_login_fail(int(new_count))
     
     if not user.is_active:
@@ -435,6 +560,7 @@ async def login(
     await redis_client.delete(email_key)
     
     access_token = create_access_token(data={"sub": user.id})
+    _set_auth_cookies(response, access_token)
     
     # 记录登录信息
     user.last_login_at = datetime.utcnow()
@@ -467,27 +593,6 @@ async def reset_password(
     # 验证密码强度
     validate_password_strength(data.new_password)
 
-    # 验证验证码
-    now = datetime.utcnow()
-    result = await db.execute(
-        select(EmailCode).where(
-            and_(
-                EmailCode.email == data.email,
-                EmailCode.code == data.code,
-                EmailCode.purpose == "reset",
-                EmailCode.is_used == False,
-                EmailCode.expires_at > now,
-            )
-        ).order_by(EmailCode.created_at.desc()).limit(1)
-    )
-    email_code = result.scalar_one_or_none()
-    
-    if not email_code:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="验证码无效或已过期",
-        )
-    
     # 获取用户
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
@@ -505,12 +610,30 @@ async def reset_password(
             detail="管理员账号请在后台重置密码",
         )
 
-    # 更新密码
-    user.password_hash = get_password_hash(data.new_password)
-    email_code.is_used = True
-    
-    await db.commit()
-    
+    # 更新密码并消费验证码
+    try:
+        async with db.begin():
+            now = datetime.utcnow()
+            update_result = await db.execute(
+                update(EmailCode)
+                .where(
+                    EmailCode.email == data.email,
+                    EmailCode.code == data.code,
+                    EmailCode.purpose == "reset",
+                    EmailCode.is_used == False,
+                    EmailCode.expires_at > now,
+                )
+                .values(is_used=True)
+            )
+            if update_result.rowcount != 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="验证码无效或已过期",
+                )
+            user.password_hash = get_password_hash(data.new_password)
+    except HTTPException:
+        raise
+
     return {"message": "密码重置成功，请使用新密码登录"}
 
 
@@ -537,7 +660,27 @@ async def change_password(
     return {"message": "密码修改成功"}
 
 
+@router.post("/logout")
+async def logout(
+    response: Response,
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(optional_security),
+):
+    """登出并撤销当前 Token"""
+    token = get_token_from_request(credentials, request)
+    if token:
+        await revoke_token(token)
+    _clear_auth_cookies(response)
+    return {"message": "已登出"}
+
+
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+):
     """获取当前用户信息"""
+    if not request.cookies.get(settings.csrf_cookie_name):
+        _set_csrf_cookie(response)
     return UserResponse.model_validate(current_user)

@@ -3,12 +3,11 @@
  */
 
 import { getBackendUrl } from '../utils/backendUrl';
+import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = `${getBackendUrl()}/api`;
 
-// 存储 key
-const TOKEN_KEY = 'nbnb_auth_token';
-const USER_KEY = 'nbnb_user';
+let cachedUser: User | null = null;
 
 export interface User {
   id: string;
@@ -51,49 +50,42 @@ export interface CreditBalance {
  * 获取存储的 Token
  */
 export const getToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
+  return null;
 };
 
 /**
  * 保存 Token
  */
 export const saveToken = (token: string): void => {
-  localStorage.setItem(TOKEN_KEY, token);
+  void token;
 };
 
 /**
  * 获取存储的用户信息
  */
 export const getStoredUser = (): User | null => {
-  const userStr = localStorage.getItem(USER_KEY);
-  if (!userStr) return null;
-  try {
-    return JSON.parse(userStr);
-  } catch {
-    return null;
-  }
+  return cachedUser;
 };
 
 /**
  * 保存用户信息
  */
 export const saveUser = (user: User): void => {
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  cachedUser = user;
 };
 
 /**
  * 清除认证信息
  */
 export const clearAuth = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  cachedUser = null;
 };
 
 /**
  * 检查是否已登录
  */
 export const isAuthenticated = (): boolean => {
-  return !!getToken();
+  return !!getStoredUser();
 };
 
 /**
@@ -103,19 +95,8 @@ const request = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
-  const token = getToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  if (token) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-  }
-
   const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
+    ...buildRequestOptions(options),
   });
 
   if (!response.ok) {
@@ -170,7 +151,6 @@ export const register = async (
     body: JSON.stringify({ email, password, nickname, code, captcha_ticket: captchaTicket }),
   });
 
-  saveToken(data.access_token);
   saveUser(data.user);
 
   return data;
@@ -189,7 +169,6 @@ export const login = async (
     body: JSON.stringify({ email, password, captcha_ticket: captchaTicket }),
   });
 
-  saveToken(data.access_token);
   saveUser(data.user);
 
   return data;
@@ -218,7 +197,13 @@ export const redeemCode = async (code: string): Promise<{
   success: boolean;
   message: string;
   credits_added: number;
+  pro3_credits_added?: number;
+  flash_credits_added?: number;
   new_balance: number;
+  general_balance?: number;
+  pro3_balance?: number;
+  flash_balance?: number;
+  total_balance?: number;
 }> => {
   return request('/redeem/use', {
     method: 'POST',
@@ -259,6 +244,10 @@ export const changePassword = async (
 /**
  * 登出
  */
-export const logout = (): void => {
-  clearAuth();
+export const logout = async (): Promise<void> => {
+  try {
+    await request<{ message: string }>('/auth/logout', { method: 'POST' });
+  } finally {
+    clearAuth();
+  }
 };

@@ -19,6 +19,7 @@ nano .env
 **必须配置的环境变量：**
 ```bash
 POSTGRES_PASSWORD=你的数据库密码（至少16位）
+REDIS_URL=redis://:你的Redis密码@redis:6379/0
 JWT_SECRET_KEY=你的JWT密钥（至少32位）
 TOKEN_ENCRYPTION_KEY=你的加密密钥（至少32位）
 ADMIN_PASSWORD=管理员密码（至少12位）

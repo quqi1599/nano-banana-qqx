@@ -25,10 +25,18 @@ if [ -f .env ]; then
     echo -e "  ${GREEN}✓ .env 文件存在${NC}"
 
     # 检查必需的环境变量
-    required_vars=("POSTGRES_PASSWORD" "JWT_SECRET_KEY" "TOKEN_ENCRYPTION_KEY" "ADMIN_PASSWORD")
+    required_vars=("POSTGRES_PASSWORD" "REDIS_URL" "JWT_SECRET_KEY" "TOKEN_ENCRYPTION_KEY" "ADMIN_PASSWORD")
     for var in "${required_vars[@]}"; do
         if grep -q "^${var}=" .env && ! grep -q "^${var}=$" .env; then
             echo -e "  ${GREEN}✓${NC} $var 已设置"
+            if [ "$var" = "REDIS_URL" ]; then
+                redis_url_value=$(grep -E "^REDIS_URL=" .env | head -1 | cut -d= -f2-)
+                if [[ "$redis_url_value" != redis://* ]]; then
+                    echo -e "  ${YELLOW}⚠${NC} REDIS_URL 格式可能不正确（应为 redis://...）"
+                elif [[ "$redis_url_value" != redis://:*@* ]]; then
+                    echo -e "  ${YELLOW}⚠${NC} REDIS_URL 可能缺少密码（建议使用 redis://:password@host:port/db）"
+                fi
+            fi
         else
             echo -e "  ${RED}✗${NC} $var 未设置或为空"
             check_pass=false

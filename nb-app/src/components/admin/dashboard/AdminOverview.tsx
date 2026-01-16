@@ -1,6 +1,6 @@
 import React from 'react';
 import { Activity, BarChart3, Coins, Image, Users, TrendingUp } from 'lucide-react';
-import { DashboardStats } from '../../../services/adminService';
+import { DashboardStats, LoginFailureResult } from '../../../services/adminService';
 import { StatCard } from './StatCard';
 
 interface AdminOverviewProps {
@@ -12,6 +12,9 @@ interface AdminOverviewProps {
     dailyStatsLoaded: boolean;
     onLoadModelStats: () => void;
     onLoadDailyStats: () => void;
+    loginFailures: LoginFailureResult | null;
+    loginFailuresLoading: boolean;
+    onReloadLoginFailures: () => void;
 }
 
 export const AdminOverview: React.FC<AdminOverviewProps> = ({
@@ -22,8 +25,27 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
     dailyStatsLoaded,
     onLoadModelStats,
     onLoadDailyStats,
+    loginFailures,
+    loginFailuresLoading,
+    onReloadLoginFailures,
 }) => {
     if (!stats) return null;
+
+    const formatShortDate = (value?: string | null) => {
+        if (!value) return '—';
+        return new Date(value).toLocaleString('zh-CN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const formatTtl = (value?: number | null) => {
+        if (!value || value <= 0) return '—';
+        const minutes = Math.ceil(value / 60);
+        return `${minutes} 分钟`;
+    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -196,6 +218,49 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         </div>
                     )}
                 </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-cream-100 dark:border-gray-800 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white">登录失败监控</h3>
+                        <p className="text-xs text-gray-400 mt-1">
+                            近 {loginFailures?.total ?? 0} 个异常 IP
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onReloadLoginFailures}
+                        className="text-xs font-semibold text-cream-600 hover:text-cream-700"
+                    >
+                        刷新
+                    </button>
+                </div>
+                {loginFailuresLoading ? (
+                    <div className="text-center py-8 text-gray-400">加载中...</div>
+                ) : loginFailures?.items?.length ? (
+                    <div className="space-y-3">
+                        {loginFailures.items.slice(0, 10).map((item) => (
+                            <div
+                                key={item.ip}
+                                className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-800 px-4 py-3"
+                            >
+                                <div>
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.ip}</div>
+                                    <div className="text-xs text-gray-400">
+                                        最近 {formatShortDate(item.last_seen)} · {item.last_email || '—'}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-semibold text-red-600">{item.count} 次</div>
+                                    <div className="text-[10px] text-gray-400">过期 {formatTtl(item.ttl_seconds)}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-8 text-gray-400">暂无异常登录记录</div>
+                )}
             </div>
         </div>
     );

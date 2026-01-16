@@ -2,23 +2,15 @@
  * 管理员后台服务
  */
 
-import { getToken } from './authService';
 import { getBackendUrl } from '../utils/backendUrl';
+import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = `${getBackendUrl()}/api/admin`;
 
 // 通用请求
 const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
-    const token = getToken();
-    if (!token) throw new Error('请先登录');
-
     const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            ...options.headers,
-        },
+        ...buildRequestOptions(options),
     });
 
     if (!response.ok) {
@@ -198,6 +190,7 @@ export interface UserFilters {
     created_before?: string;
     login_after?: string;
     login_before?: string;
+    tags?: string[];
 }
 
 export const getUsers = async (page: number = 1, search?: string): Promise<UserListResult> => {
@@ -218,6 +211,9 @@ export const getUsersAdvanced = async (page: number = 1, filters: UserFilters = 
     if (filters.created_before) params.set('created_before', filters.created_before);
     if (filters.login_after) params.set('login_after', filters.login_after);
     if (filters.login_before) params.set('login_before', filters.login_before);
+    if (filters.tags && filters.tags.length > 0) {
+        filters.tags.forEach(tag => params.append('tags', tag));
+    }
     return request(`/users?${params.toString()}`);
 };
 
@@ -344,9 +340,6 @@ export const getUserUsageLogs = async (
 
 // 导出用户数据
 export const exportUsers = async (filters: UserFilters = {}): Promise<void> => {
-    const token = getToken();
-    if (!token) throw new Error('请先登录');
-
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.is_admin !== undefined) params.set('is_admin', String(filters.is_admin));
@@ -357,11 +350,10 @@ export const exportUsers = async (filters: UserFilters = {}): Promise<void> => {
     if (filters.created_before) params.set('created_before', filters.created_before);
 
     const query = params.toString();
-    const response = await fetch(`${API_BASE}/users/export${query ? `?${query}` : ''}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-        },
-    });
+    const response = await fetch(
+        `${API_BASE}/users/export${query ? `?${query}` : ''}`,
+        buildRequestOptions()
+    );
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: '导出失败' }));
@@ -380,7 +372,11 @@ export const exportUsers = async (filters: UserFilters = {}): Promise<void> => {
     URL.revokeObjectURL(url);
 };
 
-export const adjustUserCredits = async (userId: string, amount: number, reason?: string): Promise<void> => {
+export const adjustUserCredits = async (
+    userId: string,
+    amount: number,
+    reason?: string
+): Promise<{ message: string; new_balance: number }> => {
     const params = new URLSearchParams({ amount: String(amount) });
     if (reason) params.set('reason', reason);
     return request(`/users/${userId}/credits?${params.toString()}`, { method: 'PUT' });
@@ -442,9 +438,6 @@ export const getDashboardStats = async (
     endDate?: string,
     options: DashboardStatsOptions = {}
 ): Promise<DashboardStats> => {
-    const token = getToken();
-    if (!token) throw new Error('请先登录');
-
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
@@ -456,11 +449,10 @@ export const getDashboardStats = async (
     }
     const query = params.toString();
 
-    const response = await fetch(`${getBackendUrl()}/api/stats/dashboard${query ? `?${query}` : ''}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-        },
-    });
+    const response = await fetch(
+        `${getBackendUrl()}/api/stats/dashboard${query ? `?${query}` : ''}`,
+        buildRequestOptions()
+    );
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: '请求失败' }));
@@ -475,20 +467,16 @@ export const exportStats = async (
     endDate: string,
     dataType: 'daily' | 'model' | 'user_growth' = 'daily'
 ): Promise<Blob> => {
-    const token = getToken();
-    if (!token) throw new Error('请先登录');
-
     const params = new URLSearchParams({
         start_date: startDate,
         end_date: endDate,
         data_type: dataType,
     });
 
-    const response = await fetch(`${getBackendUrl()}/api/stats/export?${params.toString()}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-        },
-    });
+    const response = await fetch(
+        `${getBackendUrl()}/api/stats/export?${params.toString()}`,
+        buildRequestOptions()
+    );
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: '导出失败' }));
@@ -496,6 +484,27 @@ export const exportStats = async (
     }
 
     return response.blob();
+};
+
+
+// ========== 安全监控 ==========
+
+export interface LoginFailureItem {
+    ip: string;
+    count: number;
+    last_seen: string | null;
+    last_email: string | null;
+    ttl_seconds: number | null;
+}
+
+export interface LoginFailureResult {
+    items: LoginFailureItem[];
+    total: number;
+}
+
+export const getLoginFailureIps = async (limit: number = 50): Promise<LoginFailureResult> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return request(`/security/login-failures?${params.toString()}`);
 };
 
 
@@ -529,4 +538,140 @@ export const deleteEmailWhitelist = async (id: string): Promise<void> => {
     return request(`/email-whitelist/${id}`, {
         method: 'DELETE',
     });
+};
+
+// ========== 队列监控管理 ==========
+
+export interface QueueStats {
+    queues: Record<string, number>;
+    workers: {
+        count: number;
+        [key: string]: unknown;
+    };
+    tasks: {
+        pending: number;
+        active: number;
+        failed: number;
+        succeeded: number;
+    };
+    timestamp: string;
+}
+
+export interface WorkerInfo {
+    name: string;
+    status: string;
+    active_tasks?: number;
+}
+
+export interface WorkersResponse {
+    workers: WorkerInfo[];
+    total: number;
+    online: number;
+    timestamp: string;
+}
+
+export interface TaskInfo {
+    id: string;
+    name: string;
+    args?: unknown[];
+    kwargs?: Record<string, unknown>;
+    worker?: string;
+    time_start?: number;
+    status: 'pending' | 'active' | 'failed' | 'succeeded';
+    result?: unknown;
+    error?: string;
+    traceback?: string;
+}
+
+export interface TasksResponse {
+    tasks: TaskInfo[];
+    total: number;
+    queue?: string;
+    status?: string;
+}
+
+export interface TaskDetail {
+    id: string;
+    status: string;
+    result?: unknown;
+    error?: string;
+    traceback?: string;
+    backend: string;
+}
+
+export interface DashboardData {
+    overview: {
+        queues: Record<string, number>;
+        workers: {
+            total: number;
+            online: number;
+        };
+        tasks: {
+            pending: number;
+            active: number;
+        };
+    };
+    recent_tasks: TaskInfo[];
+    workers: Array<{ name: string; active_tasks: number }>;
+    throughput: {
+        last_hour: number;
+        last_day: number;
+    };
+    timestamp: string;
+}
+
+// 获取队列统计
+export const getQueueStats = async (): Promise<QueueStats> => {
+    return request('/queue/stats');
+};
+
+// 获取 Worker 列表
+export const getQueueWorkers = async (): Promise<WorkersResponse> => {
+    return request('/queue/workers');
+};
+
+// 获取任务列表
+export const getQueueTasks = async (params: {
+    queue?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+} = {}): Promise<TasksResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params.queue) queryParams.set('queue', params.queue);
+    if (params.status) queryParams.set('status', params.status);
+    if (params.limit) queryParams.set('limit', String(params.limit));
+    if (params.offset) queryParams.set('offset', String(params.offset));
+    const query = queryParams.toString();
+    return request(`/queue/tasks${query ? `?${query}` : ''}`);
+};
+
+// 获取任务详情
+export const getTaskDetail = async (taskId: string): Promise<TaskDetail> => {
+    return request(`/queue/tasks/${taskId}`);
+};
+
+// 重试失败任务
+export const retryTask = async (taskId: string): Promise<{ id: string; status: string; message: string }> => {
+    return request(`/queue/tasks/${taskId}/retry`, { method: 'POST' });
+};
+
+// 取消/删除任务
+export const cancelTask = async (taskId: string): Promise<{ id: string; status: string; message: string }> => {
+    return request(`/queue/tasks/${taskId}`, { method: 'DELETE' });
+};
+
+// 清空队列
+export const purgeQueue = async (queue: string): Promise<{ queue: string; purged_count: number; message: string }> => {
+    return request(`/queue/purge?queue=${encodeURIComponent(queue)}`, { method: 'POST' });
+};
+
+// 重启 Worker 进程池
+export const restartWorkers = async (): Promise<{ status: string; message: string }> => {
+    return request('/queue/workers/pool_restart', { method: 'POST' });
+};
+
+// 获取仪表板数据
+export const getQueueDashboard = async (): Promise<DashboardData> => {
+    return request('/queue/dashboard');
 };

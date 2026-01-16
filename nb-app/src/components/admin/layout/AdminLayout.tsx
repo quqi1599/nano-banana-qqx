@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AdminHeader } from './AdminHeader';
 import { AdminSidebar } from './AdminSidebar';
 
-type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations';
+type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue';
 
 interface AdminLayoutProps {
     activeTab: TabType;
@@ -22,6 +22,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab
             case 'users': return 'User Management';
             case 'tickets': return 'Support Tickets';
             case 'conversations': return 'Conversations';
+            case 'queue': return 'Queue Monitoring';
             default: return 'Admin Console';
         }
     };

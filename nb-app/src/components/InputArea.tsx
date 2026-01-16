@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { Attachment } from '../types';
 import { PromptQuickPicker } from './PromptQuickPicker';
 import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
+import { fileToBase64, base64ToBlob } from '../utils/imageUtils';
 
 interface Props {
   onSend: (text: string, attachments: Attachment[]) => void;
@@ -69,7 +70,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
       // 创建一个虚拟 File 对象
       const fileName = `image-${timestamp}.${mimeType.split('/')[1]}`;
-      const blob = base64ToBlob(`data:${mimeType};base64,${base64Data}`);
+      const blob = base64ToBlob(base64Data, mimeType);
       const file = new File([blob], fileName, { type: mimeType });
 
       const newAttachment: Attachment = {
@@ -461,25 +462,4 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
       />
     </div>
   );
-};
-
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-  });
-};
-
-const base64ToBlob = (dataUrl: string): Blob => {
-  const arr = dataUrl.split(',');
-  const mime = arr[0].match(/:(.*?);/)?.[1] || '';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
 };
