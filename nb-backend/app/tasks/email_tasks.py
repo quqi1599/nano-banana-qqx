@@ -9,10 +9,35 @@
 import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
+from jinja2 import Template
 from app.celery_app import celery_app
 from app.tasks.base import get_task_db, record_task_result
 
 logger = logging.getLogger(__name__)
+
+
+# 预编译模板，避免每次发送都重新解析
+VERIFICATION_CODE_HTML_TEMPLATE = Template("""
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #333;">登录验证码</h2>
+    <p>您的验证码是：</p>
+    <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+        {{ code }}
+    </div>
+    <p>验证码有效期：{{ expire_minutes }} 分钟</p>
+    <p style="color: #999; font-size: 12px;">请勿将验证码告知他人</p>
+</div>
+""")
+
+NOTIFICATION_HTML_TEMPLATE = Template("""
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+    <h2 style="color: #333;">{{ title }}</h2>
+    <div style="padding: 20px; background: #f9f9f9; border-radius: 5px; margin: 20px 0;">
+        {{ content }}
+    </div>
+    <p style="color: #999; font-size: 12px;">这是一封系统通知邮件</p>
+</div>
+""")
 
 
 @celery_app.task(
@@ -112,23 +137,13 @@ def send_verification_code_task(
     logger.info("[%s] 发送验证码邮件: %s", task_id, to_email)
 
     try:
-        from jinja2 import Template
-
         subject = "登录验证码 - NanoBanana"
 
-        html_template = Template("""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">登录验证码</h2>
-            <p>您的验证码是：</p>
-            <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
-                {{ code }}
-            </div>
-            <p>验证码有效期：{{ expire_minutes }} 分钟</p>
-            <p style="color: #999; font-size: 12px;">请勿将验证码告知他人</p>
-        </div>
-        """)
-
-        html_content = html_template.render(code=code, expire_minutes=expire_minutes)
+        # 使用预编译模板渲染
+        html_content = VERIFICATION_CODE_HTML_TEMPLATE.render(
+            code=code,
+            expire_minutes=expire_minutes
+        )
         text_content = f"您的验证码是：{code}，有效期 {expire_minutes} 分钟。"
 
         # 直接调用邮件发送函数（不使用 delay，因为在任务中）
@@ -223,7 +238,7 @@ def send_batch_emails_task(
 )
 def send_notification_task(
     self,
-    user_id: int,
+    user_id: str,
     title: str,
     content: str,
     notification_type: str = "system",
@@ -234,48 +249,71 @@ def send_notification_task(
     Args:
         user_id: 用户ID
         title: 通知标题
-        content: 通知内容
+        content:  通知内容
         notification_type: 通知类型
 
     Returns:
         任务结果
     """
-    from jinja2 import Template
+    task_id = self.request.id
+    start_time = datetime.now()
 
-    subject = f"{title} - NanoBanana"
+    logger.info("[%s] 发送通知邮件: user_id=%s, title=%s", task_id, user_id, title)
 
-    html_template = Template("""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">{{ title }}</h2>
-        <div style="padding: 20px; background: #f9f9f9; border-radius: 5px; margin: 20px 0;">
-            {{ content }}
-        </div>
-        <p style="color: #999; font-size: 12px;">这是一封系统通知邮件</p>
-    </div>
-    """)
-
-    html_content = html_template.render(title=title, content=content)
-
-    # 获取用户邮箱
-    from app.tasks.base import get_task_db
-    from sqlalchemy import select
-    from app.models.user import User
-
-    db = get_task_db()
     try:
-        result = db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
-        if not user:
-            raise ValueError(f"用户 {user_id} 不存在")
+        from app.tasks.base import get_task_db
+        from sqlalchemy import select
+        from app.models.user import User
 
-        to_email = user.email
+        db = get_task_db()
+        try:
+            result = db.execute(select(User).where(User.id == user_id))
+            user = result.scalar_one_or_none()
+            if not user:
+                raise ValueError(f"用户 {user_id} 不存在")
 
-        return send_email_task.delay(
-            to_email=to_email,
-            subject=subject,
-            html_content=html_content,
-            text_content=content,
-            category="notification",
+            to_email = user.email
+            subject = f"{title} - NanoBanana"
+
+            # 使用预编译模板渲染
+            html_content = NOTIFICATION_HTML_TEMPLATE.render(
+                title=title,
+                content=content
+            )
+
+            # 直接调用邮件发送函数
+            from app.services.email_service import send_email
+
+            result = send_email(
+                to_email=to_email,
+                subject=subject,
+                html_content=html_content,
+                text_content=content,
+            )
+
+            duration = (datetime.now() - start_time).total_seconds()
+
+            return record_task_result(
+                task_id=task_id,
+                task_name="send_notification",
+                status="success" if result else "failed",
+                result={"user_id": user_id, "email": to_email, "sent": result},
+                duration=duration,
+            )
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error("[%s] 通知邮件发送失败: %s", task_id, e)
+
+        duration = (datetime.now() - start_time).total_seconds()
+
+        record_task_result(
+            task_id=task_id,
+            task_name="send_notification",
+            status="failed",
+            error=str(e),
+            duration=duration,
         )
-    finally:
-        db.close()
+
+        raise self.retry(exc=e)

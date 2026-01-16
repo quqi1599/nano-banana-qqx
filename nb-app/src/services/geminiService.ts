@@ -1,7 +1,8 @@
-import type { Content, Part as SDKPart } from "@google/genai";
+import type { Content } from "@google/genai";
 import { AppSettings, Part } from '../types';
 import { resolveApiBaseUrl } from '../utils/endpointUtils';
 import { compressHistoryImages } from '../utils/historyUtils';
+import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';
 
 // Helper to construct user content
 const constructUserContent = (prompt: string, images: { base64Data: string; mimeType: string }[]): Content => {
@@ -74,59 +75,6 @@ const formatGeminiError = (error: any): Error => {
   return newError;
 };
 
-// Helper to process SDK parts into app Parts
-const processSdkParts = (sdkParts: SDKPart[]): Part[] => {
-  const appParts: Part[] = [];
-
-  for (const part of sdkParts) {
-    const signature = (part as any).thoughtSignature;
-    const isThought = !!(part as any).thought;
-
-    // Handle Text (Thought or Regular)
-    if (part.text !== undefined) {
-      const lastPart = appParts[appParts.length - 1];
-
-      // Check if we should append to the last part or start a new one.
-      // Append if: Last part exists AND is text AND matches thought type.
-      if (
-        lastPart &&
-        lastPart.text !== undefined &&
-        !!lastPart.thought === isThought
-      ) {
-        lastPart.text += part.text;
-        if (signature) {
-          lastPart.thoughtSignature = signature;
-        }
-      } else {
-        // New text block
-        const newPart: Part = {
-          text: part.text,
-          thought: isThought
-        };
-        if (signature) {
-          newPart.thoughtSignature = signature;
-        }
-        appParts.push(newPart);
-      }
-    }
-    // Handle Images
-    else if (part.inlineData) {
-      const newPart: Part = {
-        inlineData: {
-          mimeType: part.inlineData.mimeType || 'image/png',
-          data: part.inlineData.data || ''
-        },
-        thought: isThought
-      };
-      if (signature) {
-        newPart.thoughtSignature = signature;
-      }
-      appParts.push(newPart);
-    }
-  }
-  return appParts;
-};
-
 export const streamGeminiResponse = async function* (
   apiKey: string,
   history: Content[],
@@ -190,50 +138,8 @@ export const streamGeminiResponse = async function* (
 
       const newParts = candidates[0].content?.parts || [];
 
-      // Use the helper logic but incrementally
-      // We can't reuse processSdkParts directly because we need to accumulate state (currentParts)
-      // So we keep the loop logic here
       for (const part of newParts) {
-        const signature = (part as any).thoughtSignature;
-        const isThought = !!(part as any).thought;
-
-        // Handle Text (Thought or Regular)
-        if (part.text !== undefined) {
-          const lastPart = currentParts[currentParts.length - 1];
-
-          if (
-            lastPart &&
-            lastPart.text !== undefined &&
-            !!lastPart.thought === isThought
-          ) {
-            lastPart.text += part.text;
-            if (signature) {
-              lastPart.thoughtSignature = signature;
-            }
-          } else {
-            const newPart: Part = {
-              text: part.text,
-              thought: isThought
-            };
-            if (signature) {
-              newPart.thoughtSignature = signature;
-            }
-            currentParts.push(newPart);
-          }
-        }
-        else if (part.inlineData) {
-          const newPart: Part = {
-            inlineData: {
-              mimeType: part.inlineData.mimeType || 'image/png',
-              data: part.inlineData.data || ''
-            },
-            thought: isThought
-          };
-          if (signature) {
-            newPart.thoughtSignature = signature;
-          }
-          currentParts.push(newPart);
-        }
+        appendSdkPart(currentParts, part);
       }
 
       yield {

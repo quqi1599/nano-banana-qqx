@@ -39,7 +39,8 @@ export default defineConfig(({ mode }) => {
                   // @ts-ignore - 动态修改目标
                   options.target = url.origin;
                 } catch (e) {
-                  console.error('Invalid target endpoint:', targetEndpoint);
+                  // URL 解析失败时使用默认端点，不中断请求
+                  console.warn('[Proxy] Invalid target endpoint, using default:', targetEndpoint, e);
                 }
               }
             });
@@ -51,7 +52,7 @@ export default defineConfig(({ mode }) => {
       preact(),
       tailwindcss(),
       VitePWA({
-        selfDestroying: true, // ⚠️ 彻底注销 Service Worker，清除离线缓存
+        selfDestroying: false, // 保留旧 SW 直到新版本激活，避免更新失败时丢失离线功能
         registerType: 'autoUpdate',
         manifest: {
           name: 'nbnb',

@@ -7,6 +7,7 @@ import { AppSettings, Part } from '../types';
 import { getBackendUrl } from '../utils/backendUrl';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { buildRequestOptions } from '../utils/request';
+import { processSdkParts, appendSdkPart } from '../utils/partUtils';
 
 const API_BASE = `${getBackendUrl()}/api`;
 
@@ -60,52 +61,6 @@ const formatProxyError = (error: any): Error => {
     const newError = new Error(message);
     (newError as any).originalError = error;
     return newError;
-};
-
-// Helper to process SDK parts into app Parts
-const processSdkParts = (sdkParts: SDKPart[]): Part[] => {
-    const appParts: Part[] = [];
-
-    for (const part of sdkParts) {
-        const signature = (part as any).thoughtSignature;
-        const isThought = !!(part as any).thought;
-
-        if (part.text !== undefined) {
-            const lastPart = appParts[appParts.length - 1];
-            if (
-                lastPart &&
-                lastPart.text !== undefined &&
-                !!lastPart.thought === isThought
-            ) {
-                lastPart.text += part.text;
-                if (signature) {
-                    lastPart.thoughtSignature = signature;
-                }
-            } else {
-                const newPart: Part = {
-                    text: part.text,
-                    thought: isThought
-                };
-                if (signature) {
-                    newPart.thoughtSignature = signature;
-                }
-                appParts.push(newPart);
-            }
-        } else if (part.inlineData) {
-            const newPart: Part = {
-                inlineData: {
-                    mimeType: part.inlineData.mimeType || 'image/png',
-                    data: part.inlineData.data || ''
-                },
-                thought: isThought
-            };
-            if (signature) {
-                newPart.thoughtSignature = signature;
-            }
-            appParts.push(newPart);
-        }
-    }
-    return appParts;
 };
 
 /**
@@ -287,43 +242,7 @@ export const streamContentViaProxy = async function* (
                 const newParts = candidates[0].content?.parts || [];
 
                 for (const part of newParts) {
-                    const signature = (part as any).thoughtSignature;
-                    const isThought = !!(part as any).thought;
-
-                    if (part.text !== undefined) {
-                        const lastPart = currentParts[currentParts.length - 1];
-                        if (
-                            lastPart &&
-                            lastPart.text !== undefined &&
-                            !!lastPart.thought === isThought
-                        ) {
-                            lastPart.text += part.text;
-                            if (signature) {
-                                lastPart.thoughtSignature = signature;
-                            }
-                        } else {
-                            const newPart: Part = {
-                                text: part.text,
-                                thought: isThought
-                            };
-                            if (signature) {
-                                newPart.thoughtSignature = signature;
-                            }
-                            currentParts.push(newPart);
-                        }
-                    } else if (part.inlineData) {
-                        const newPart: Part = {
-                            inlineData: {
-                                mimeType: part.inlineData.mimeType || 'image/png',
-                                data: part.inlineData.data || ''
-                            },
-                            thought: isThought
-                        };
-                        if (signature) {
-                            newPart.thoughtSignature = signature;
-                        }
-                        currentParts.push(newPart);
-                    }
+                    appendSdkPart(currentParts, part);
                 }
 
                 yield {

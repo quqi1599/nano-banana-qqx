@@ -57,58 +57,50 @@ def collect_hourly_stats_task(self) -> Dict[str, Any]:
         }
 
         # 新用户数
-        new_users = db.execute(
+        stats["users"]["new"] = db.execute(
             func.count(User.id).where(User.created_at >= hour_ago)
-        ).scalar()
-        stats["users"]["new"] = new_users or 0
+        ).scalar() or 0
 
         # 总用户数
-        total_users = db.execute(func.count(User.id)).scalar()
-        stats["users"]["total"] = total_users or 0
+        stats["users"]["total"] = db.execute(func.count(User.id)).scalar() or 0
 
         # 活跃用户数（有 API 调用）
-        active_users = db.execute(
+        stats["users"]["active"] = db.execute(
             func.count(func.distinct(UsageLog.user_id)).where(
                 UsageLog.created_at >= hour_ago
             )
-        ).scalar()
-        stats["users"]["active"] = active_users or 0
+        ).scalar() or 0
 
         # 积分消耗
-        credit_used = db.execute(
+        stats["credits"]["used"] = int(db.execute(
             func.sum(func.abs(CreditTransaction.amount)).where(
                 and_(
                     CreditTransaction.amount < 0,
                     CreditTransaction.created_at >= hour_ago,
                 )
             )
-        ).scalar()
-        stats["credits"]["used"] = int(credit_used or 0)
+        ).scalar() or 0)
 
         # 积分充值
-        credit_added = db.execute(
+        stats["credits"]["added"] = int(db.execute(
             func.sum(CreditTransaction.amount).where(
                 and_(
                     CreditTransaction.amount > 0,
                     CreditTransaction.created_at >= hour_ago,
                 )
-            )
-        ).scalar()
-        stats["credits"]["added"] = int(credit_added or 0)
+            ).scalar() or 0)
 
         # 新对话数
-        new_conversations = db.execute(
+        stats["conversations"]["new"] = db.execute(
             func.count(Conversation.id).where(
                 Conversation.created_at >= hour_ago
             )
-        ).scalar()
-        stats["conversations"]["new"] = new_conversations or 0
+        ).scalar() or 0
 
         # API 调用次数
-        api_calls = db.execute(
+        stats["api_calls"] = db.execute(
             func.count(UsageLog.id).where(UsageLog.created_at >= hour_ago)
-        ).scalar()
-        stats["api_calls"] = api_calls or 0
+        ).scalar() or 0
 
         # 可以在这里写入统计表
         # db.add(StatsMetric(**stats))
@@ -124,7 +116,7 @@ def collect_hourly_stats_task(self) -> Dict[str, Any]:
         )
 
     except Exception as e:
-        logger.error(f"[{task_id}] 统计收集失败: {e}")
+        logger.error("[%s] 统计收集失败: %s", task_id, e)
         db.rollback()
         duration = (datetime.now() - start_time).total_seconds()
 
@@ -155,7 +147,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
     task_id = self.request.id
     start_time = datetime.now()
 
-    logger.info(f"[{task_id}] 开始生成每日报告")
+    logger.info("[%s] 开始生成每日报告", task_id)
 
     db = get_task_db()
 
@@ -209,7 +201,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
         ).scalar() or 0
 
         # 积分消耗
-        report["credits"]["used"] = db.execute(
+        report["credits"]["used"] = int(db.execute(
             func.sum(func.abs(CreditTransaction.amount)).where(
                 and_(
                     CreditTransaction.amount < 0,
@@ -217,10 +209,10 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
                     CreditTransaction.created_at < today,
                 )
             )
-        ).scalar() or 0
+        ).scalar() or 0)
 
         # 积分充值
-        report["credits"]["added"] = db.execute(
+        report["credits"]["added"] = int(db.execute(
             func.sum(CreditTransaction.amount).where(
                 and_(
                     CreditTransaction.amount > 0,
@@ -228,7 +220,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
                     CreditTransaction.created_at < today,
                 )
             )
-        ).scalar() or 0
+        ).scalar() or 0)
 
         # API 调用
         report["api_calls"] = db.execute(
@@ -251,7 +243,7 @@ def generate_daily_report_task(self) -> Dict[str, Any]:
         )
 
     except Exception as e:
-        logger.error(f"[{task_id}] 报告生成失败: {e}")
+        logger.error("[%s] 报告生成失败: %s", task_id, e)
         db.rollback()
         duration = (datetime.now() - start_time).total_seconds()
 
@@ -290,12 +282,12 @@ def calculate_user_rankings_task(
     task_id = self.request.id
     start_time = datetime.now()
 
-    logger.info(f"[{task_id}] 开始计算用户排行榜: {ranking_type}")
+    logger.info("[%s] 开始计算用户排行榜: %s", task_id, ranking_type)
 
     db = get_task_db()
 
     try:
-        from sqlalchemy import desc, func
+        from sqlalchemy import select, desc, func
         from app.models.user import User
         from app.models.usage_log import UsageLog
         from app.models.credit import CreditTransaction
@@ -303,9 +295,9 @@ def calculate_user_rankings_task(
         rankings = []
 
         if ranking_type == "credits_used":
-            # 按积分消耗排行
-            query = (
-                db.query(
+            # 按积分消耗排行（使用 async SQLAlchemy）
+            result = db.execute(
+                select(
                     User.id,
                     User.email,
                     User.nickname,
@@ -317,18 +309,18 @@ def calculate_user_rankings_task(
                 .order_by(desc("total_used"))
                 .limit(limit)
             )
-            for row in query:
+            for row in result:
                 rankings.append({
                     "user_id": row.id,
                     "email": row.email,
-                    "nickname": row.nickname,
+                    "nickname": row.nickname or "",
                     "value": int(row.total_used),
                 })
 
         elif ranking_type == "api_calls":
-            # 按 API 调用次数排行
-            query = (
-                db.query(
+            # 按 API 调用次数排行（使用 async SQLAlchemy）
+            result = db.execute(
+                select(
                     User.id,
                     User.email,
                     User.nickname,
@@ -339,11 +331,11 @@ def calculate_user_rankings_task(
                 .order_by(desc("total_calls"))
                 .limit(limit)
             )
-            for row in query:
+            for row in result:
                 rankings.append({
                     "user_id": row.id,
                     "email": row.email,
-                    "nickname": row.nickname,
+                    "nickname": row.nickname or "",
                     "value": row.total_calls,
                 })
 
@@ -362,7 +354,7 @@ def calculate_user_rankings_task(
         )
 
     except Exception as e:
-        logger.error(f"[{task_id}] 排行榜计算失败: {e}")
+        logger.error("[%s] 排行榜计算失败: %s", task_id, e)
         duration = (datetime.now() - start_time).total_seconds()
 
         record_task_result(

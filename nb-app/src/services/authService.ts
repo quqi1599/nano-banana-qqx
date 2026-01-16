@@ -47,20 +47,6 @@ export interface CreditBalance {
 }
 
 /**
- * 获取存储的 Token
- */
-export const getToken = (): string | null => {
-  return null;
-};
-
-/**
- * 保存 Token
- */
-export const saveToken = (token: string): void => {
-  void token;
-};
-
-/**
  * 获取存储的用户信息
  */
 export const getStoredUser = (): User | null => {

@@ -9,9 +9,17 @@
 # 进入项目目录
 cd "$(dirname "$0")/.."
 
+# 获取项目根目录
+PROJECT_ROOT="$(pwd)"
+
+# 日志和 PID 文件目录
+LOG_DIR="${PROJECT_ROOT}/logs"
+mkdir -p "${LOG_DIR}"
+
 # 校验必须的环境变量
 if [ -z "$FLOWER_PASSWORD" ]; then
-    echo "FLOWER_PASSWORD 未设置，请先通过环境变量提供"
+    echo "错误: FLOWER_PASSWORD 环境变量未设置"
+    echo "用法: FLOWER_PASSWORD=your_password bash $0"
     exit 1
 fi
 
@@ -26,5 +34,5 @@ celery -A app.celery_app flower \
     --port="${FLOWER_PORT:-5555}" \
     --basic_auth="${FLOWER_USER:-admin}:${FLOWER_PASSWORD}" \
     --inspect_timeout=10 \
-    --pidfile=/tmp/flower.pid \
-    --logfile=/tmp/flower.log
+    --pidfile="${LOG_DIR}/flower.pid" \
+    --logfile="${LOG_DIR}/flower.log"

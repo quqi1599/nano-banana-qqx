@@ -8,9 +8,16 @@
 # 进入项目目录
 cd "$(dirname "$0")/.."
 
+# 获取项目根目录
+PROJECT_ROOT="$(pwd)"
+
+# 日志和 PID 文件目录
+LOG_DIR="${PROJECT_ROOT}/logs"
+mkdir -p "${LOG_DIR}"
+
 # 启动 Celery Beat（定时任务调度器）
 celery -A app.celery_app beat \
     --loglevel=info \
-    --pidfile=/tmp/celery-beat.pid \
-    --logfile=/tmp/celery-beat.log \
+    --pidfile="${LOG_DIR}/celery-beat.pid" \
+    --logfile="${LOG_DIR}/celery-beat.log" \
     --scheduler=redisbeat.RedisScheduler  # 使用 Redis 作为调度器后端（需安装 celery-redbeat）
