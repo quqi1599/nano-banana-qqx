@@ -424,7 +424,7 @@ export const useAppStore = create<AppState>()(
               role: normalizedRole as 'user' | 'model',
               parts,
               timestamp: new Date(msg.created_at).getTime(),
-              ...(msg.thinking_duration !== undefined && { thinkingDuration: msg.thinking_duration }),
+              ...(msg.thinking_duration != null && { thinkingDuration: msg.thinking_duration }),
             });
           }
 

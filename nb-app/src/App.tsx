@@ -40,6 +40,7 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
   });
+  const canUseHistory = isAuthenticated || !!apiKey;
   // 对话历史侧边栏状态
   const [isConversationHistoryOpen, setIsConversationHistoryOpen] = useState(false);
   const [isConversationHistoryCollapsed, setIsConversationHistoryCollapsed] = useState(false);
@@ -340,8 +341,8 @@ const App: React.FC = () => {
             </span>
           </button>
 
-          {/* Conversation History Button (登录用户可见) */}
-          {isAuthenticated && (
+          {/* Conversation History Button */}
+          {canUseHistory && (
             <button
               onClick={() => setIsConversationHistoryOpen(true)}
               className="hidden sm:flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
@@ -352,7 +353,7 @@ const App: React.FC = () => {
           )}
 
           {/* Mobile Conversation History Button */}
-          {isAuthenticated && (
+          {canUseHistory && (
             <button
               onClick={() => setIsConversationHistoryOpen(true)}
               className="sm:hidden flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
@@ -508,8 +509,8 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 relative overflow-hidden flex flex-row">
-        {/* Conversation History Sidebar (登录用户可见) */}
-        {isAuthenticated && (
+        {/* Conversation History Sidebar */}
+        {canUseHistory && (
           <ConversationHistoryPanel
             isOpen={isConversationHistoryOpen}
             isCollapsed={isConversationHistoryCollapsed}

@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     metrics_enabled: bool = True
 
     # Credits pricing defaults
-    credits_gemini_30_pro: int = 10
+    credits_gemini_3_pro: int = 10
     credits_gemini_25_flash: int = 1
     
     @property

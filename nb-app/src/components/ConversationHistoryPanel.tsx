@@ -80,6 +80,7 @@ export const ConversationHistoryPanel = ({
 }: ConversationHistoryPanelProps) => {
     const { isAuthenticated } = useAuthStore();
     const {
+        apiKey,
         conversationList,
         conversationListTotal,
         conversationListPage,
@@ -94,11 +95,13 @@ export const ConversationHistoryPanel = ({
     const [editingTitle, setEditingTitle] = useState('');
     const totalCount = conversationListTotal || conversationList.length;
 
+    const canUseHistory = isAuthenticated || !!apiKey;
+
     useEffect(() => {
-        if (isOpen && isAuthenticated) {
+        if (isOpen && canUseHistory) {
             loadConversationList(conversationListPage, conversationListPageSize);
         }
-    }, [isOpen, isAuthenticated, loadConversationList]);
+    }, [isOpen, canUseHistory, loadConversationList]);
 
     const groupedConversations = useMemo(
         () => groupConversationsByDate(conversationList),
@@ -252,10 +255,10 @@ export const ConversationHistoryPanel = ({
 
                 {/* 对话列表 */}
                 <div className="flex-1 overflow-y-auto px-3 pb-4">
-                    {!isAuthenticated ? (
+                    {!canUseHistory ? (
                         <div className="text-center py-12 text-gray-400">
                             <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm">请登录后查看对话历史</p>
+                            <p className="text-sm">请登录或配置 API Key 后查看对话历史</p>
                         </div>
                     ) : conversationList.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">

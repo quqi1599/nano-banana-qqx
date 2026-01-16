@@ -258,7 +258,7 @@ async def add_message(
 
     await db.commit()
     await db.refresh(message)
-    return message
+    return _serialize_message(message)
 
 
 @router.put("/{conversation_id}", response_model=ConversationResponse)

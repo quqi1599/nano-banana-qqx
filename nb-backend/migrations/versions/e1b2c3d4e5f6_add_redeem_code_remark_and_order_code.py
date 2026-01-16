@@ -56,6 +56,7 @@ def upgrade() -> None:
             ),
             {"credits": 1, "name": "gemini-2.5-flash-image"},
         )
+        conn.commit()
 
 
 def downgrade() -> None:

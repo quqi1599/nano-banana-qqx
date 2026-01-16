@@ -83,9 +83,9 @@ nbnb-pro/
 | 模型 | 每次消耗积分 |
 |------|-------------|
 | gemini-3-pro-image-preview | 10 积分 |
-| gemini-2.5-flash-image | 5 积分 |
+| gemini-2.5-flash-image | 1 积分 |
 
-- 新用户注册赠送 50 积分
+- 下单支付后生成兑换码，兑换后积分到账
 - 兑换码由管理员后台生成
 
 ## � 技术栈

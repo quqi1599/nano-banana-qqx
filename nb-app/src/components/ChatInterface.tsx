@@ -62,6 +62,7 @@ export const ChatInterface: React.FC = () => {
   const pipelineAbortControllerRef = useRef<AbortController | null>(null);
   const balanceRefreshStateRef = useRef({ lastRefreshAt: 0, inFlight: false });
   const isGenerating = isLoading || isPipelineRunning;
+  const canSyncHistory = isAuthenticated || !!apiKey?.trim();
 
   const buildHistory = (sourceMessages: ChatMessage[]) => {
     if (!settings.sendHistory) {
@@ -227,8 +228,8 @@ export const ChatInterface: React.FC = () => {
     // Add User Message
     addMessage(userMessage);
 
-    // 同步用户消息到服务器（仅登录用户）
-    if (isAuthenticated) {
+    // 同步用户消息到服务器
+    if (canSyncHistory) {
       syncCurrentMessage(userMessage).catch(console.error);
     }
 
@@ -415,8 +416,8 @@ export const ChatInterface: React.FC = () => {
         }
       }
 
-      // 自动同步 AI 回复到服务器（仅登录用户）
-      if (isAuthenticated && generationSucceeded) {
+      // 自动同步 AI 回复到服务器
+      if (canSyncHistory && generationSucceeded) {
         // 获取最新的消息状态（AI 回复）
         const latestMessages = useAppStore.getState().messages;
         const lastMessage = latestMessages[latestMessages.length - 1];
@@ -666,8 +667,8 @@ export const ChatInterface: React.FC = () => {
     };
     addMessage(userMessage);
 
-    // 同步用户消息到服务器（仅登录用户）
-    if (isAuthenticated) {
+    // 同步用户消息到服务器
+    if (canSyncHistory) {
       syncCurrentMessage(userMessage).catch(console.error);
     }
 
@@ -798,8 +799,8 @@ export const ChatInterface: React.FC = () => {
     } else {
       addToast(`并行编排完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
 
-      // 自动同步 AI 回复到服务器（仅登录用户）
-      if (isAuthenticated) {
+      // 自动同步 AI 回复到服务器
+      if (canSyncHistory) {
         const latestMessages = useAppStore.getState().messages;
         const lastMessage = latestMessages[latestMessages.length - 1];
         if (lastMessage && lastMessage.role === 'model') {
@@ -851,8 +852,8 @@ export const ChatInterface: React.FC = () => {
     };
     addMessage(userMessage);
 
-    // 同步用户消息到服务器（仅登录用户）
-    if (isAuthenticated) {
+    // 同步用户消息到服务器
+    if (canSyncHistory) {
       syncCurrentMessage(userMessage).catch(console.error);
     }
 
@@ -1000,8 +1001,8 @@ export const ChatInterface: React.FC = () => {
     } else {
       addToast(`批量组合完成！共生成 ${allGeneratedParts.filter(p => p.inlineData).length} 张图片`, 'success');
 
-      // 自动同步 AI 回复到服务器（仅登录用户）
-      if (isAuthenticated) {
+      // 自动同步 AI 回复到服务器
+      if (canSyncHistory) {
         const latestMessages = useAppStore.getState().messages;
         const lastMessage = latestMessages[latestMessages.length - 1];
         if (lastMessage && lastMessage.role === 'model') {

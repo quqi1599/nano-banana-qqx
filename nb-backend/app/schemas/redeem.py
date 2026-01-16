@@ -52,7 +52,7 @@ class GenerateCodesRequest(BaseModel):
     pro3_credits: int = 0  # Pro3 次数
     flash_credits: int = 0  # Flash 次数
     remark: Optional[str] = None  # 备注
-    expires_days: Optional[int] = 365  # 有效期天数
+    expires_days: Optional[int] = None  # 有效期天数（留空为永久）
 
 
 class GenerateCodesResponse(BaseModel):

@@ -108,7 +108,7 @@ async def seed_model_pricing():
     from app.models.model_pricing import ModelPricing
 
     default_pricing = {
-        "gemini-3-pro-image-preview": settings.credits_gemini_30_pro,
+        "gemini-3-pro-image-preview": settings.credits_gemini_3_pro,
         "gemini-2.5-flash-image": settings.credits_gemini_25_flash,
     }
 

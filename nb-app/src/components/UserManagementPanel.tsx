@@ -304,6 +304,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             showToast('积分调整成功', 'success');
             setCreditAdjustAmount(0);
             setCreditAdjustReason('');
+            setActiveUser(prev => prev ? { ...prev, credit_balance: prev.credit_balance + creditAdjustAmount } : prev);
             loadUsers();
             loadCreditHistory();
         } catch (error) {
@@ -875,6 +876,189 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                 >
                                     {batchLoading ? '处理中...' : '确认执行'}
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-800">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center font-bold text-white text-lg">
+                                    {activeUser.nickname?.[0] || activeUser.email[0].toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                        {activeUser.nickname || '未设置昵称'}
+                                    </div>
+                                    <div className="text-xs text-gray-400">{activeUser.email}</div>
+                                    <div className="text-xs text-amber-600 mt-1">当前余额 {activeUser.credit_balance} 积分</div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={closeCreditsPanel}
+                                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-88px)]">
+                            <div className="bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800 p-5">
+                                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-bold mb-3">
+                                    <CreditCard className="w-4 h-4" />
+                                    管理员分配积分
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 mb-2 block">调整金额</label>
+                                        <input
+                                            type="number"
+                                            value={creditAdjustAmount}
+                                            onInput={(e) => setCreditAdjustAmount(Number((e.target as HTMLInputElement).value))}
+                                            placeholder="正数增加，负数减少"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800 dark:bg-gray-900 outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="text-xs font-semibold text-gray-500 mb-2 block">调整原因</label>
+                                        <input
+                                            type="text"
+                                            value={creditAdjustReason}
+                                            onInput={(e) => setCreditAdjustReason((e.target as HTMLInputElement).value)}
+                                            placeholder="如：补偿、活动赠送"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800 dark:bg-gray-900 outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end mt-4">
+                                    <button
+                                        onClick={handleAdjustCredits}
+                                        disabled={creditAdjustLoading}
+                                        className="px-6 py-2.5 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 disabled:opacity-50 transition"
+                                    >
+                                        {creditAdjustLoading ? '处理中...' : '确认调整'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4 bg-white/80 dark:bg-gray-900/60">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-200">
+                                            <List className="w-4 h-4" />
+                                            积分变动记录
+                                        </div>
+                                        <div className="text-xs text-gray-400">共 {creditHistory?.total ?? 0} 条</div>
+                                    </div>
+                                    <div className="space-y-3 min-h-[180px]">
+                                        {creditHistoryLoading ? (
+                                            <div className="text-center text-gray-400 py-6">加载中...</div>
+                                        ) : creditHistory?.items?.length ? (
+                                            creditHistory.items.map((item) => (
+                                                <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2">
+                                                    <div className="min-w-0">
+                                                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                            {item.description || creditTypeLabel(item.type)}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400">
+                                                            {creditTypeLabel(item.type)} · {formatShortDate(item.created_at)} · 余额 {item.balance_after}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`font-mono text-sm font-semibold ${item.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                        {item.amount > 0 ? `+${item.amount}` : item.amount}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center text-gray-400 py-6">暂无记录</div>
+                                        )}
+                                    </div>
+                                    {creditHistory && creditHistory.total > creditHistoryPageSize && (
+                                        <div className="flex items-center justify-between text-xs text-gray-400 mt-3">
+                                            <span>
+                                                第 {creditHistoryPage} / {Math.ceil(creditHistory.total / creditHistoryPageSize)}
+                                            </span>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setCreditHistoryPage((p) => Math.max(1, p - 1))}
+                                                    disabled={creditHistoryPage === 1}
+                                                    className="px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                                                >
+                                                    上一页
+                                                </button>
+                                                <button
+                                                    onClick={() => setCreditHistoryPage((p) => p + 1)}
+                                                    disabled={creditHistoryPage >= Math.ceil(creditHistory.total / creditHistoryPageSize)}
+                                                    className="px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                                                >
+                                                    下一页
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4 bg-white/80 dark:bg-gray-900/60">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-200">
+                                            <Clock className="w-4 h-4" />
+                                            积分消耗明细
+                                        </div>
+                                        <div className="text-xs text-gray-400">共 {usageLogs?.total ?? 0} 条</div>
+                                    </div>
+                                    <div className="space-y-3 min-h-[180px]">
+                                        {usageLoading ? (
+                                            <div className="text-center text-gray-400 py-6">加载中...</div>
+                                        ) : usageLogs?.items?.length ? (
+                                            usageLogs.items.map((log) => (
+                                                <div key={log.id} className="rounded-xl border border-gray-100 dark:border-gray-800 px-3 py-2">
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <span className="font-medium text-gray-900 dark:text-white">{log.model_name}</span>
+                                                        <span className="font-mono text-amber-600">-{log.credits_used}</span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-400">
+                                                        {log.request_type} · {formatShortDate(log.created_at)}
+                                                    </div>
+                                                    {log.prompt_preview && (
+                                                        <div className="text-xs text-gray-500 mt-1 line-clamp-2">{log.prompt_preview}</div>
+                                                    )}
+                                                    {!log.is_success && (
+                                                        <div className="text-xs text-red-500 mt-1">失败：{log.error_message || '未知错误'}</div>
+                                                    )}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center text-gray-400 py-6">暂无记录</div>
+                                        )}
+                                    </div>
+                                    {usageLogs && usageLogs.total > usagePageSize && (
+                                        <div className="flex items-center justify-between text-xs text-gray-400 mt-3">
+                                            <span>
+                                                第 {usagePage} / {Math.ceil(usageLogs.total / usagePageSize)}
+                                            </span>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setUsagePage((p) => Math.max(1, p - 1))}
+                                                    disabled={usagePage === 1}
+                                                    className="px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                                                >
+                                                    上一页
+                                                </button>
+                                                <button
+                                                    onClick={() => setUsagePage((p) => p + 1)}
+                                                    disabled={usagePage >= Math.ceil(usageLogs.total / usagePageSize)}
+                                                    className="px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-50"
+                                                >
+                                                    下一页
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
