@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
-import { getTokens, addToken, refreshAllTokensQuota, type TokenInfo } from '../../../../services/adminService';
-import { getBackendUrl } from '../../../../utils/backendUrl';
+import { getTokens, addToken, refreshAllTokensQuota, type TokenInfo } from '../../../services/adminService';
+import { getBackendUrl } from '../../../utils/backendUrl';
 import { TokenSummaryCard } from './TokenSummaryCard';
 import { useTokenSorting } from './hooks/useTokenSorting';
 import { useTokenActions } from './hooks/useTokenActions';
 import { TokenTable } from './TokenTable';
 import { TokenMobileCard } from './TokenMobileCard';
 import { TokenDrawer } from './TokenDrawer';
-import { ADMIN_CONFIG } from '../../../../constants/admin';
+import { ADMIN_CONFIG } from '../../../constants/admin';
 
 export const AdminTokens = () => {
     const apiBaseUrl = getBackendUrl();
