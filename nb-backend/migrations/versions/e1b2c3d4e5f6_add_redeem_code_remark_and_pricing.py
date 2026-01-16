@@ -53,7 +53,7 @@ def upgrade() -> None:
             ),
             {"credits": 1, "name": "gemini-2.5-flash-image"},
         )
-        conn.commit()
+        # Alembic 会自动管理事务，不需要手动 commit
 
 
 def downgrade() -> None:
