@@ -314,7 +314,7 @@ def send_verification_code(to_email: str, code: str, purpose: str = "register") 
 ])}
 {_divider()}
 {_footer("此邮件由系统自动发送，请勿直接回复<br/>如有疑问，请联系客服或在应用内提交工单")}
-"""))
+""")
 
     html = _email_wrapper(_container(content))
     return send_email(to_email, subject, html)

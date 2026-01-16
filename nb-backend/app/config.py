@@ -45,8 +45,11 @@ class Settings(BaseSettings):
     
     # Admin
     admin_email: str = ""
+    admin_emails: str = ""
     admin_password: str = ""
     admin_notification_emails: str = ""
+    admin_init_token: str = ""
+    admin_action_confirm_ttl_seconds: int = 300
     
     # Email
     aliyun_smtp_host: str = "smtpdm.aliyun.com"

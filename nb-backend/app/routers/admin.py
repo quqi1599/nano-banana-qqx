@@ -17,7 +17,7 @@ from sqlalchemy import select, func, update
 from app.database import get_db
 from app.models.user import User
 from app.models.token_pool import TokenPool
-from app.models.redeem_code import RedeemCode
+from app.models.redeem_code import RedeemCode, generate_redeem_code
 from app.models.usage_log import UsageLog
 from app.models.model_pricing import ModelPricing
 from app.schemas.admin import (
@@ -50,6 +50,7 @@ from app.schemas.admin import (
 )
 from app.schemas.redeem import GenerateCodesRequest, GenerateCodesResponse, RedeemCodeInfo
 from app.utils.security import get_admin_user, get_current_user, verify_password
+from app.utils.rate_limiter import RateLimiter
 from app.utils.balance_utils import check_api_key_quota
 from app.utils.token_security import (
     build_key_parts,
@@ -205,7 +206,10 @@ async def init_first_admin(
             )
 
     # 获取配置的管理员邮箱列表
-    allowed_emails = [e.strip().lower() for e in settings.admin_emails.split(',') if e.strip()]
+    raw_admin_emails = ",".join(
+        [value for value in [settings.admin_emails, settings.admin_email] if value]
+    )
+    allowed_emails = [e.strip().lower() for e in raw_admin_emails.split(',') if e.strip()]
 
     if not allowed_emails:
         raise HTTPException(
@@ -568,7 +572,11 @@ async def update_model_pricing(
 
 # ============ 兑换码管理 ============
 
-@router.post("/redeem-codes/generate", response_model=GenerateCodesResponse)
+@router.post(
+    "/redeem-codes/generate",
+    response_model=GenerateCodesResponse,
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def generate_redeem_codes(
     data: GenerateCodesRequest,
     admin: User = Depends(get_admin_user),
@@ -580,9 +588,49 @@ async def generate_redeem_codes(
     if data.expires_days:
         expires_at = datetime.utcnow() + timedelta(days=data.expires_days)
 
-    codes = []
-    for _ in range(data.count):
+    codes: list[str] = []
+    candidate_codes: set[str] = set()
+    blocked_codes: set[str] = set()
+    attempts = 0
+    max_attempts = max(1000, data.count * 10)
+
+    while len(candidate_codes) < data.count and attempts < max_attempts:
+        candidate_codes.add(generate_redeem_code())
+        attempts += 1
+
+    if len(candidate_codes) < data.count:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="生成兑换码失败，请稍后重试",
+        )
+
+    while True:
+        existing_result = await db.execute(
+            select(RedeemCode.code).where(RedeemCode.code.in_(candidate_codes))
+        )
+        existing_codes = {row[0] for row in existing_result.all()}
+        if not existing_codes:
+            break
+
+        blocked_codes |= existing_codes
+        candidate_codes -= existing_codes
+
+        while len(candidate_codes) < data.count and attempts < max_attempts:
+            new_code = generate_redeem_code()
+            attempts += 1
+            if new_code in candidate_codes or new_code in blocked_codes:
+                continue
+            candidate_codes.add(new_code)
+
+        if len(candidate_codes) < data.count and attempts >= max_attempts:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="生成兑换码失败，请稍后重试",
+            )
+
+    for code_value in candidate_codes:
         code = RedeemCode(
+            code=code_value,
             credit_amount=data.credit_amount,
             pro3_credits=data.pro3_credits,
             flash_credits=data.flash_credits,
@@ -591,7 +639,7 @@ async def generate_redeem_codes(
             expires_at=expires_at,
         )
         db.add(code)
-        codes.append(code.code)
+        codes.append(code_value)
 
     await db.commit()
 
@@ -785,7 +833,10 @@ async def list_users(
     )
 
 
-@router.put("/users/{user_id}/credits")
+@router.put(
+    "/users/{user_id}/credits",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def adjust_user_credits(
     user_id: str,
     amount: int,
@@ -803,6 +854,12 @@ async def adjust_user_credits(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
+        )
+
+    if user.id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="不能调整自己的积分",
         )
     
     user.credit_balance += amount
@@ -1072,7 +1129,10 @@ async def set_user_active_status(
     }
 
 
-@router.post("/users/batch/status")
+@router.post(
+    "/users/batch/status",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def batch_set_user_status(
     request: Request,
     data: BatchStatusUpdate,
@@ -1103,40 +1163,40 @@ async def batch_set_user_status(
     updated_count = 0
     updated_ids: list[str] = []
     skipped_ids: list[str] = []
-    for user in users:
-        # 防止管理员禁用自己
-        if user.id == admin.id and not data.is_active:
-            skipped_ids.append(user.id)
-            continue
+    async with db.begin():
+        for user in users:
+            # 防止管理员禁用自己
+            if user.id == admin.id and not data.is_active:
+                skipped_ids.append(user.id)
+                continue
 
-        # 防止禁用其他管理员
-        if user.is_admin and user.id != admin.id:
-            logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
-            skipped_ids.append(user.id)
-            continue
+            # 防止禁用其他管理员
+            if user.is_admin and user.id != admin.id:
+                logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
+                skipped_ids.append(user.id)
+                continue
 
-        user.is_active = data.is_active
-        updated_count += 1
-        updated_ids.append(user.id)
+            user.is_active = data.is_active
+            updated_count += 1
+            updated_ids.append(user.id)
 
-    _record_admin_audit(
-        db=db,
-        admin=admin,
-        action="batch_set_user_status",
-        target_type="user",
-        target_ids=updated_ids,
-        reason=reason,
-        status_text="partial" if skipped_ids else "success",
-        request=request,
-        details={
-            "requested_count": len(data.user_ids),
-            "updated_count": updated_count,
-            "skipped_count": len(skipped_ids),
-            "skipped_ids": skipped_ids,
-            "is_active": data.is_active,
-        },
-    )
-    await db.commit()
+        _record_admin_audit(
+            db=db,
+            admin=admin,
+            action="batch_set_user_status",
+            target_type="user",
+            target_ids=updated_ids,
+            reason=reason,
+            status_text="partial" if skipped_ids else "success",
+            request=request,
+            details={
+                "requested_count": len(data.user_ids),
+                "updated_count": updated_count,
+                "skipped_count": len(skipped_ids),
+                "skipped_ids": skipped_ids,
+                "is_active": data.is_active,
+            },
+        )
 
     logger.info(
         f"Admin {admin.email} batch updated {updated_count} users to is_active={data.is_active}, reason: {reason}"
@@ -1148,7 +1208,10 @@ async def batch_set_user_status(
     }
 
 
-@router.post("/users/batch/credits")
+@router.post(
+    "/users/batch/credits",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60))],
+)
 async def batch_adjust_credits(
     request: Request,
     data: BatchCreditsUpdate,
