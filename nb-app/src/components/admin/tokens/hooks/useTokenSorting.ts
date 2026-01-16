@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TokenInfo } from '../../../../../services/adminService';
+import { TokenInfo } from '../../../../services/adminService';
 
 type SortKey = 'priority' | 'remaining_quota' | 'last_used_at';
 type SortDirection = 'asc' | 'desc';

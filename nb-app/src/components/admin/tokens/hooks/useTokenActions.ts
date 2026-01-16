@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateToken, deleteToken, checkTokenQuota, type TokenInfo } from '../../../../../services/adminService';
+import { updateToken, deleteToken, checkTokenQuota, type TokenInfo } from '../../../../services/adminService';
 
 interface TokenActionsResult {
     handleToggleToken: (id: string, currentStatus: boolean, onUpdated: () => Promise<void>) => Promise<void>;

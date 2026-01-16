@@ -1,8 +1,8 @@
 import React from 'react';
 import { MessageSquare, Hash, User, Clock, Trash2, Globe } from 'lucide-react';
-import { AdminConversation } from '../../../../../services/conversationService';
+import { AdminConversation } from '../../../../services/conversationService';
 import { UserTypeBadge, getInputValue } from '../../utils/constants';
-import { formatDate } from '../../../../../utils/formatters';
+import { formatDate } from '../../../../utils/formatters';
 
 interface ConversationItemProps {
     conversation: AdminConversation;

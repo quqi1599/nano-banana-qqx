@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ConversationFilters } from '../../../../../services/conversationService';
+import { ConversationFilters } from '../../../../services/conversationService';
 
 interface ConversationFiltersResult {
     filters: ConversationFilters;

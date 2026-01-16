@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Loader2, User, Bot, Globe, Key } from 'lucide-react';
 import { AdminConversationDetail, AdminMessage } from '../../../services/conversationService';
 import { DEFAULT_API_ENDPOINT } from '../../../config/api';
-import { UserTypeBadge } from '../utils/constants';
+import { UserTypeBadge } from './utils/constants';
 import { formatDate, formatFullDate } from '../../../utils/formatters';
 
 interface ConversationDetailModalProps {

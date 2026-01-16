@@ -10,7 +10,7 @@ import {
     ConversationFilters,
     UserConversationStats,
     ConversationTimelineItem,
-} from '../../../../../services/conversationService';
+} from '../../../../services/conversationService';
 
 interface ConversationDataResult {
     conversations: AdminConversation[];
