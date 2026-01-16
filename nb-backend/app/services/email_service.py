@@ -1,5 +1,6 @@
 """
 邮件发送服务 - 阿里云 DirectMail SMTP
+优化兼容性：QQ邮箱、126邮箱、Gmail、Outlook、iCloud、手机端
 """
 import smtplib
 import random
@@ -25,16 +26,16 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
     if not settings.aliyun_smtp_user or not settings.aliyun_smtp_password:
         print("⚠️ 邮件服务未配置，跳过发送")
         return False
-    
+
     try:
         msg = MIMEMultipart('alternative')
         msg['Subject'] = subject
         msg['From'] = f"{settings.aliyun_email_from_name} <{settings.aliyun_smtp_user}>"
         msg['To'] = to_email
-        
+
         if settings.aliyun_email_reply_to:
             msg['Reply-To'] = settings.aliyun_email_reply_to
-        
+
         html_part = MIMEText(html_content, 'html', 'utf-8')
         msg.attach(html_part)
 
@@ -53,7 +54,7 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
         with server:
             server.login(settings.aliyun_smtp_user, settings.aliyun_smtp_password)
             server.sendmail(settings.aliyun_smtp_user, [to_email], msg.as_string())
-        
+
         print(f"✅ 邮件发送成功: {to_email}")
         return True
     except Exception as e:
@@ -61,240 +62,307 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
         return False
 
 
+# ============================================================================
+# 通用邮件组件（内联样式，兼容各种邮件客户端）
+# ============================================================================
+
+def _email_wrapper(content: str) -> str:
+    """邮件外层包装，提供兼容性更好的结构"""
+    return f"""
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="x-apple-disable-message-reformatting" />
+    <!--[if !mso]><!-->
+    <style type="text/css">
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        table {{ border-collapse: collapse; table-layout: fixed; }}
+        .gmail-hide {{ display: none; }}
+    </style>
+    <!--<![endif]-->
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        body {{ margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }}
+        .external {{ display: block; width: 100%; }}
+        .button {{ -webkit-text-size-adjust: none; mso-hide: all; }}
+    </style>
+</head>
+<body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f5f5f5;">
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td {{font-family: Arial, sans-serif !important;}}
+    </style>
+    <![endif]-->
+    {content}
+</body>
+</html>
+"""
+
+
+def _container(content: str, width: int = 500) -> str:
+    """邮件容器"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f5f5f5; padding: 20px;">
+    <tr>
+        <td align="center" style="padding: 20px 10px;">
+            <table width="{width}" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                <!--[if mso]>
+                <table width="{width}" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto; background-color: #ffffff;">
+                <tr><td style="padding: 0;">
+                <![endif]-->
+                {content}
+                <!--[if mso]>
+                </td></tr>
+                </table>
+                <![endif]-->
+            </table>
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _header(icon: str, title: str, subtitle: str, bg_color: str = "#f59e0b") -> str:
+    """邮件头部"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: {bg_color};">
+    <tr>
+        <td align="center" style="padding: 36px 24px 32px;">
+            <div style="font-size: 44px; line-height: 44px; margin-bottom: 12px;">{icon}</div>
+            <h1 style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; line-height: 32px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">{title}</h1>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: rgba(255,255,255,0.9);">{subtitle}</p>
+        </td>
+    </tr>
+</table>
+<!--[if mso]>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: {bg_color};">
+    <tr><td><div style="height: 0; font-size: 0; line-height: 0;">&nbsp;</div></td></tr>
+</table>
+<![endif]-->
+"""
+
+
+def _content(content: str) -> str:
+    """内容区域"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ffffff;">
+    <tr>
+        <td style="padding: 32px 24px;">
+            {content}
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _code_box(code: str, label: str = "您的验证码", expire_minutes: int = 10) -> str:
+    """验证码展示框"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td align="center" style="background-color: #fffbeb; border: 2px dashed #f59e0b; border-radius: 12px; padding: 24px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #d97706; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px;">{label}</p>
+            <p style="margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; font-size: 36px; line-height: 44px; font-weight: 700; color: #1f2937; letter-spacing: 8px;">{code}</p>
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _tip_item(icon: str, text: str) -> str:
+    """提示项"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 12px;">
+    <tr>
+        <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #6b7280;">
+            <span style="font-size: 16px; margin-right: 8px;">{icon}</span>
+            <span style="vertical-align: middle;">{text}</span>
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _tips_box(items: list) -> str:
+    """提示框"""
+    tips_html = "".join([_tip_item(item["icon"], item["text"]) for item in items])
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
+            {tips_html}
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _divider() -> str:
+    """分隔线"""
+    return """
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td style="border-bottom: 1px solid #e5e7eb; font-size: 0; line-height: 0;">&nbsp;</td>
+    </tr>
+</table>
+"""
+
+
+def _footer(text: str) -> str:
+    """页脚"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 8px;">
+    <tr>
+        <td align="center" style="padding-bottom: 24px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #9ca3af;">{text}</p>
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _alert_box(title: str, text: str) -> str:
+    """警告框"""
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 16px 20px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; font-weight: 600; color: #92400e; margin-bottom: 6px;">{title}</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; line-height: 18px; color: #78350f;">{text}</p>
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _step_box(title: str, steps: list) -> str:
+    """步骤框"""
+    steps_html = ""
+    for i, step in enumerate(steps, 1):
+        steps_html += f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 14px;">
+    <tr>
+        <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #4b5563;">
+            <span style="display: inline-block; width: 24px; height: 24px; background-color: #f59e0b; color: #ffffff; border-radius: 50%; text-align: center; line-height: 24px; font-size: 12px; font-weight: 600; margin-right: 12px; -webkit-text-size-adjust: none;">{i}</span>
+            <span>{step}</span>
+        </td>
+    </tr>
+</table>"""
+
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 20px; font-weight: 600; color: #1f2937; margin-bottom: 16px;">{title}</p>
+            {steps_html}
+        </td>
+    </tr>
+</table>
+"""
+
+
+def _info_box(title: str, items: list, bg_color: str = "#fee2e2", text_color: str = "#991b1b", icon: str = "⏰") -> str:
+    """信息框"""
+    items_html = "".join([f"<p style=\"margin: 0 0 8px 0; padding: 0;\">{item}</p>" for item in items])
+    return f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 16px 0;">
+    <tr>
+        <td align="center" style="background-color: {bg_color}; border-radius: 12px; padding: 16px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">{icon}</div>
+            {items_html}
+        </td>
+    </tr>
+</table>
+"""
+
+
+# ============================================================================
+# 邮件模板函数
+# ============================================================================
+
 def send_verification_code(to_email: str, code: str, purpose: str = "register") -> bool:
     """发送验证码邮件"""
     if purpose == "register":
         subject = "【DEAI】邮箱验证码"
         title = "验证您的邮箱地址"
         desc = "感谢您注册 DEAI！请使用以下验证码完成注册："
-        theme_color = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-        bg_gradient = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-        logo_icon = "🎨"
-    elif purpose == "reset":
-        # 使用专门的密码重置邮件模板
-        return send_password_reset_code(to_email, code)
+        icon = "🎨"
+        bg_color = "#f59e0b"
     else:
-        subject = "【DEAI】邮箱验证码"
-        title = "邮箱验证"
-        desc = "请使用以下验证码完成验证："
-        theme_color = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-        bg_gradient = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-        logo_icon = "🎨"
+        return send_password_reset_code(to_email, code)
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: {bg_gradient}; padding: 40px 20px; line-height: 1.6; }}
-            .container {{ max-width: 500px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }}
-            .header {{ background: {theme_color}; padding: 40px 30px; text-align: center; }}
-            .logo {{ font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.9); letter-spacing: 2px; margin-bottom: 8px; }}
-            .logo-icon {{ font-size: 48px; margin-bottom: 16px; }}
-            .header-title {{ font-size: 24px; font-weight: 700; color: white; margin-bottom: 8px; }}
-            .header-subtitle {{ font-size: 14px; color: rgba(255,255,255,0.85); }}
-            .content {{ padding: 40px 30px; }}
-            .greeting {{ font-size: 16px; color: #1f2937; margin-bottom: 8px; font-weight: 500; }}
-            .desc {{ color: #6b7280; font-size: 15px; margin-bottom: 24px; }}
-            .code-box {{ background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px dashed #f59e0b; border-radius: 16px; padding: 24px; text-align: center; margin: 24px 0; }}
-            .code-label {{ font-size: 12px; color: #d97706; font-weight: 600; letter-spacing: 1px; margin-bottom: 12px; text-transform: uppercase; }}
-            .code {{ font-size: 42px; font-weight: 700; color: #1f2937; letter-spacing: 12px; font-family: 'Courier New', monospace; }}
-            .bonus {{ background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; padding: 16px; margin: 20px 0; text-align: center; }}
-            .bonus-icon {{ font-size: 20px; }}
-            .bonus-text {{ font-size: 14px; color: #92400e; font-weight: 600; }}
-            .tips {{ background: #f9fafb; border-radius: 12px; padding: 20px; margin: 24px 0; }}
-            .tip-item {{ display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 14px; color: #6b7280; }}
-            .tip-item:last-child {{ margin-bottom: 0; }}
-            .tip-icon {{ margin-right: 10px; font-size: 16px; }}
-            .divider {{ height: 1px; background: #e5e7eb; margin: 24px 0; }}
-            .footer {{ text-align: center; padding: 0 30px 30px; }}
-            .footer-text {{ font-size: 12px; color: #9ca3af; line-height: 1.8; }}
-            .footer-link {{ color: #d97706; text-decoration: none; }}
-            .social-links {{ margin-top: 16px; }}
-            .social-link {{ display: inline-block; width: 36px; height: 36px; line-height: 36px; background: #f3f4f6; border-radius: 50%; color: #6b7280; text-decoration: none; margin: 0 4px; font-size: 14px; }}
-            .social-link:hover {{ background: #f59e0b; color: white; }}
-            @media screen and (max-width: 600px) {{
-                .container {{ border-radius: 16px; }}
-                .header {{ padding: 30px 20px; }}
-                .content {{ padding: 30px 20px; }}
-                .code {{ font-size: 32px; letter-spacing: 6px; }}
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo-icon">{logo_icon}</div>
-                <div class="logo">DEAI</div>
-                <div class="header-title">{title}</div>
-                <div class="header-subtitle">从一句话开始的图像创作</div>
-            </div>
-            <div class="content">
-                <div class="greeting">您好，</div>
-                <div class="desc">{desc}</div>
+    # 构建邮件内容
+    content = _header(icon, title, "从一句话开始的图像创作", bg_color)
+    content += _content(f"""
+<p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px; color: #1f2937; margin-bottom: 8px; font-weight: 500;">您好，</p>
+<p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #6b7280; margin-bottom: 16px;">{desc}</p>
+{_code_box(code, "您的验证码", settings.email_code_expire_minutes)}
+{_tips_box([
+    {"icon": "⏰", "text": f"验证码有效期为 <strong>{settings.email_code_expire_minutes} 分钟</strong>，请尽快使用"},
+    {"icon": "🔐", "text": "为了您的账户安全，请勿将验证码告知他人"},
+    {"icon": "🚫", "text": "如果这不是您的操作，请忽略此邮件"}
+])}
+{_divider()}
+{_footer("此邮件由系统自动发送，请勿直接回复<br/>如有疑问，请联系客服或在应用内提交工单")}
+"""))
 
-                <div class="code-box">
-                    <div class="code-label">您的验证码</div>
-                    <div class="code">{code}</div>
-                </div>
-
-                <div class="tips">
-                    <div class="tip-item">
-                        <span class="tip-icon">⏰</span>
-                        <span>验证码有效期为 <strong>{settings.email_code_expire_minutes} 分钟</strong>，请尽快使用</span>
-                    </div>
-                    <div class="tip-item">
-                        <span class="tip-icon">🔐</span>
-                        <span>为了您的账户安全，请勿将验证码告知他人</span>
-                    </div>
-                    <div class="tip-item">
-                        <span class="tip-icon">🚫</span>
-                        <span>如果这不是您的操作，请忽略此邮件</span>
-                    </div>
-                </div>
-
-                <div class="divider"></div>
-
-                <div class="footer">
-                    <div class="footer-text">
-                        此邮件由系统自动发送，请勿直接回复<br>
-                        如有疑问，请联系客服或在应用内提交工单
-                    </div>
-                    <div class="social-links">
-                        <a href="#" class="social-link">🌐</a>
-                        <a href="#" class="social-link">💬</a>
-                        <a href="#" class="social-link">📧</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
+    html = _email_wrapper(_container(content))
     return send_email(to_email, subject, html)
 
 
 def send_password_reset_code(to_email: str, code: str) -> bool:
-    """发送密码重置验证码邮件（专用模板）"""
+    """发送密码重置验证码邮件"""
     subject = "【DEAI】密码重置验证码"
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); padding: 40px 20px; line-height: 1.6; }}
-            .container {{ max-width: 500px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }}
-            .header {{ background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 30px; text-align: center; position: relative; overflow: hidden; }}
-            .header::before {{ content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: pulse 3s ease-in-out infinite; }}
-            @keyframes pulse {{ 0%, 100% {{ transform: scale(1); }} 50% {{ transform: scale(1.05); }} }}
-            .icon-wrapper {{ position: relative; z-index: 1; }}
-            .icon {{ font-size: 56px; margin-bottom: 16px; }}
-            .title {{ font-size: 24px; font-weight: 700; color: white; position: relative; z-index: 1; }}
-            .subtitle {{ font-size: 14px; color: rgba(255,255,255,0.9); margin-top: 8px; position: relative; z-index: 1; }}
-            .content {{ padding: 40px 30px; }}
-            .alert-box {{ background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px 20px; margin: 24px 0; }}
-            .alert-title {{ font-size: 14px; font-weight: 600; color: #92400e; margin-bottom: 6px; }}
-            .alert-text {{ font-size: 13px; color: #78350f; line-height: 1.5; }}
-            .code-section {{ text-align: center; margin: 32px 0; }}
-            .code-label {{ font-size: 13px; color: #6b7280; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; }}
-            .code-box {{ background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: 16px; padding: 24px 32px; display: inline-block; min-width: 200px; }}
-            .code {{ font-size: 40px; font-weight: 700; color: #92400e; letter-spacing: 10px; font-family: 'Courier New', monospace; }}
-            .steps {{ margin: 24px 0; }}
-            .step-title {{ font-size: 15px; font-weight: 600; color: #1f2937; margin-bottom: 12px; }}
-            .step-item {{ display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 14px; color: #4b5563; }}
-            .step-num {{ flex-shrink: 0; width: 24px; height: 24px; background: #f59e0b; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; margin-right: 12px; }}
-            .security-tip {{ background: #fee2e2; border-radius: 10px; padding: 16px; margin: 20px 0; text-align: center; }}
-            .security-icon {{ font-size: 20px; margin-bottom: 8px; }}
-            .security-text {{ font-size: 13px; color: #991b1b; }}
-            .footer {{ text-align: center; padding: 24px 30px; background: #f9fafb; border-top: 1px solid #e5e7eb; }}
-            .footer-text {{ font-size: 12px; color: #9ca3af; }}
-            .help-link {{ color: #f59e0b; text-decoration: none; font-weight: 500; }}
-            @media screen and (max-width: 600px) {{
-                .container {{ border-radius: 16px; }}
-                .header {{ padding: 32px 20px; }}
-                .content {{ padding: 30px 20px; }}
-                .code {{ font-size: 32px; letter-spacing: 6px; }}
-                .code-box {{ padding: 20px 24px; min-width: auto; }}
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="icon-wrapper">
-                    <div class="icon">🔐</div>
-                </div>
-                <div class="title">密码重置请求</div>
-                <div class="subtitle">我们收到了您的密码重置请求</div>
-            </div>
-            <div class="content">
-                <div class="alert-box">
-                    <div class="alert-title">⚠️ 安全提醒</div>
-                    <div class="alert-text">
-                        如果这不是您本人的操作，请立即忽略此邮件并检查您的账户安全。
-                    </div>
-                </div>
+    content = _header("🔐", "密码重置请求", "我们收到了您的密码重置请求", "#f59e0b")
+    content += _content(f"""
+{_alert_box("⚠️ 安全提醒", "如果这不是您本人的操作，请立即忽略此邮件并检查您的账户安全。")}
+<p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #4b5563; text-align: center; margin: 20px 0;">请使用以下验证码重置您的密码：</p>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td align="center">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px; text-align: center;">密码重置验证码</p>
+            <table cellpadding="0" cellspacing="0" role="presentation" align="center" style="display: inline-block;">
+                <tr>
+                    <td style="background-color: #fffbeb; border: 2px solid #f59e0b; border-radius: 12px; padding: 20px 28px;">
+                        <p style="margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; font-size: 36px; line-height: 44px; font-weight: 700; color: #92400e; letter-spacing: 8px;">{code}</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+{_step_box("重置步骤：", [
+    "返回 DEAI 应用，在密码重置页面输入验证码",
+    "设置您的新密码（至少6位字符）",
+    "完成密码重置，使用新密码登录"
+])}
+{_info_box("", [f"验证码有效期为 <strong>{settings.email_code_expire_minutes} 分钟</strong>，过期后需要重新获取"], "#fee2e2", "#991b1b", "⏰")}
+{_info_box("", ["请勿将验证码透露给任何人，包括客服人员"], "#f0f9ff", "#1e40af", "🔒")}
+""")
 
-                <div style="text-align: center; color: #4b5563; font-size: 14px; margin: 20px 0;">
-                    请使用以下验证码重置您的密码：
-                </div>
+    # 添加页脚
+    content += """
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f9fafb; border-top: 1px solid #e5e7eb;">
+    <tr>
+        <td align="center" style="padding: 24px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #9ca3af;">此邮件由系统自动发送，请勿直接回复<br/>如有疑问，请联系客服支持</p>
+        </td>
+    </tr>
+</table>
+"""
 
-                <div class="code-section">
-                    <div class="code-label">密码重置验证码</div>
-                    <div class="code-box">
-                        <div class="code">{code}</div>
-                    </div>
-                </div>
-
-                <div class="steps">
-                    <div class="step-title">重置步骤：</div>
-                    <div class="step-item">
-                        <div class="step-num">1</div>
-                        <div>返回 DEAI 应用，在密码重置页面输入验证码</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">2</div>
-                        <div>设置您的新密码（至少6位字符）</div>
-                    </div>
-                    <div class="step-item">
-                        <div class="step-num">3</div>
-                        <div>完成密码重置，使用新密码登录</div>
-                    </div>
-                </div>
-
-                <div class="security-tip">
-                    <div class="security-icon">⏰</div>
-                    <div class="security-text">
-                        验证码有效期为 <strong>{settings.email_code_expire_minutes} 分钟</strong>，过期后需要重新获取
-                    </div>
-                </div>
-
-                <div class="security-tip" style="background: #f0f9ff;">
-                    <div class="security-icon">🔒</div>
-                    <div class="security-text" style="color: #1e40af;">
-                        请勿将验证码透露给任何人，包括客服人员
-                    </div>
-                </div>
-            </div>
-            <div class="footer">
-                <div class="footer-text">
-                    此邮件由系统自动发送，请勿直接回复<br>
-                    如有疑问，请联系 <a href="#" class="help-link">客服支持</a>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
+    html = _email_wrapper(_container(content))
     return send_email(to_email, subject, html)
 
 
@@ -302,62 +370,43 @@ def send_ticket_reply_notification(to_email: str, ticket_title: str, reply_conte
     """发送工单回复通知（给用户）"""
     subject = f"【DEAI】您的工单有新回复"
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 20px; }}
-            .container {{ max-width: 520px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }}
-            .header {{ background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 30px; text-align: center; }}
-            .icon {{ font-size: 48px; margin-bottom: 12px; }}
-            .title {{ font-size: 22px; font-weight: 700; color: white; }}
-            .content {{ padding: 32px 30px; }}
-            .ticket-info {{ background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px 20px; border-radius: 0 12px 12px 0; margin-bottom: 24px; }}
-            .ticket-label {{ font-size: 12px; color: #059669; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }}
-            .ticket-title {{ font-size: 16px; font-weight: 600; color: #1f2937; }}
-            .reply-box {{ background: #f9fafb; border-radius: 12px; padding: 20px; margin: 20px 0; }}
-            .reply-header {{ display: flex; align-items: center; margin-bottom: 12px; }}
-            .reply-badge {{ background: linear-gradient(135deg, #f59e0b, #d97706); color: white; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }}
-            .reply-content {{ color: #374151; line-height: 1.7; white-space: pre-wrap; font-size: 15px; }}
-            .button-box {{ text-align: center; margin: 24px 0; }}
-            .button {{ display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 600; font-size: 15px; }}
-            .footer {{ text-align: center; padding: 0 30px 24px; }}
-            .footer-text {{ font-size: 12px; color: #9ca3af; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="icon">💬</div>
-                <div class="title">工单有新回复</div>
-            </div>
-            <div class="content">
-                <div class="ticket-info">
-                    <div class="ticket-label">工单标题</div>
-                    <div class="ticket-title">{ticket_title}</div>
-                </div>
-                <div class="reply-box">
-                    <div class="reply-header">
-                        <span class="reply-badge">客服回复</span>
-                    </div>
-                    <div class="reply-content">{reply_content}</div>
-                </div>
-                <div class="button-box">
-                    <a href="#" class="button">查看工单详情</a>
-                </div>
-                <div class="footer">
-                    <div class="footer-text">如有其他问题，请直接在工单中继续回复</div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    content = _header("💬", "工单有新回复", "", "#10b981")
+    content += _content(f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 24px;">
+    <tr>
+        <td style="background-color: #f0fdf4; border-left: 4px solid #10b981; border-radius: 0 12px 12px 0; padding: 16px 20px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #059669; font-weight: 600; text-transform: uppercase; margin-bottom: 6px;">工单标题</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 22px; font-weight: 600; color: #1f2937;">{ticket_title}</p>
+        </td>
+    </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 20px 0;">
+    <tr>
+        <td style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                    <td style="padding-bottom: 12px;">
+                        <span style="display: inline-block; background-color: #f59e0b; color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; line-height: 16px; font-weight: 600; padding: 4px 12px; border-radius: 20px;">客服回复</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #374151; white-space: pre-wrap;">{reply_content}</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td align="center">
+            <a href="#" style="display: inline-block; background-color: #f59e0b; color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 12px; -webkit-text-size-adjust: none;">查看工单详情</a>
+        </td>
+    </tr>
+</table>
+{_footer("如有其他问题，请直接在工单中继续回复")}
+""")
 
+    html = _email_wrapper(_container(content, width=520))
     return send_email(to_email, subject, html)
 
 
@@ -372,99 +421,87 @@ def send_new_ticket_notification(
 ) -> bool:
     """发送新工单通知（给管理员）"""
     priority_colors = {
-        "low": "#10b981",
-        "normal": "#f59e0b",
-        "high": "#ef4444"
+        "low": ("#10b981", "低"),
+        "normal": ("#f59e0b", "中"),
+        "high": ("#ef4444", "高")
     }
-    priority_labels = {
-        "low": "低",
-        "normal": "中",
-        "high": "高"
-    }
-    priority_color = priority_colors.get(ticket_priority, "#6b7280")
-    priority_label = priority_labels.get(ticket_priority, "中")
+    priority_class = {"low": "low", "normal": "normal", "high": "high"}
+    bg_color, label = priority_colors.get(ticket_priority, ("#6b7280", "中"))
 
     subject = f"【DEAI工单】新工单待处理 - {ticket_title}"
 
+    content = _header("📋", "新工单待处理", "用户提交了新的支持请求")
+    content += _content(f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 24px;">
+    <tr>
+        <td>
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                    <td width="48%" style="background-color: #f9fafb; padding: 16px; border-radius: 10px; vertical-align: top;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 4px;">工单编号</p>
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 22px; font-weight: 600; color: #1f2937;">#{ticket_id[:8]}</p>
+                    </td>
+                    <td width="4%"></td>
+                    <td width="48%" style="background-color: #f9fafb; padding: 16px; border-radius: 10px; vertical-align: top;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 4px;">优先级</p>
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 22px; font-weight: 600; color: #1f2937;">
+                            <span style="display: inline-block; background-color: {bg_color}; color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px;">{label}</span>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td height="16"></td>
+                </tr>
+                <tr>
+                    <td width="48%" style="background-color: #f9fafb; padding: 16px; border-radius: 10px; vertical-align: top;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 4px;">分类</p>
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 22px; font-weight: 600; color: #1f2937;">{ticket_category}</p>
+                    </td>
+                    <td width="4%"></td>
+                    <td width="48%" style="background-color: #f9fafb; padding: 16px; border-radius: 10px; vertical-align: top;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 4px;">提交用户</p>
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 22px; font-weight: 600; color: #1f2937;">{user_email}</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 20px 0;">
+    <tr>
+        <td style="background-color: #f9fafb; border-radius: 10px; padding: 20px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">工单标题</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 22px; font-weight: 600; color: #1f2937; margin-bottom: 16px;">{ticket_title}</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">问题描述</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #374151; white-space: pre-wrap;">{content[:500] if len(content) > 500 else content}{'...' if len(content) > 500 else ''}</p>
+        </td>
+    </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td align="center">
+            <a href="#" style="display: inline-block; background-color: #f59e0b; color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 10px; -webkit-text-size-adjust: none;">立即处理</a>
+        </td>
+    </tr>
+</table>
+""")
+
+    # 页脚
+    content += """
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f9fafb;">
+    <tr>
+        <td align="center" style="padding: 20px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #9ca3af;">请及时处理用户工单，提升用户体验</p>
+        </td>
+    </tr>
+</table>
+"""
+
+    html = _email_wrapper(_container(content, width=600))
+
     for email in to_emails:
-        if not email.strip():
-            continue
-
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; padding: 40px 20px; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
-                .header {{ background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 28px 30px; }}
-                .header-title {{ font-size: 20px; font-weight: 700; color: white; }}
-                .header-subtitle {{ font-size: 13px; color: rgba(255,255,255,0.85); margin-top: 4px; }}
-                .content {{ padding: 28px 30px; }}
-                .info-grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }}
-                .info-item {{ background: #f9fafb; padding: 16px; border-radius: 10px; }}
-                .info-label {{ font-size: 12px; color: #6b7280; margin-bottom: 4px; }}
-                .info-value {{ font-size: 15px; font-weight: 600; color: #1f2937; }}
-                .priority-badge {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; color: white; }}
-                .priority-low {{ background: #10b981; }}
-                .priority-normal {{ background: #f59e0b; }}
-                .priority-high {{ background: #ef4444; }}
-                .message-box {{ background: #f9fafb; border-radius: 10px; padding: 20px; margin: 20px 0; }}
-                .message-label {{ font-size: 12px; color: #6b7280; margin-bottom: 10px; font-weight: 600; }}
-                .message-content {{ color: #374151; line-height: 1.6; white-space: pre-wrap; font-size: 14px; }}
-                .button-box {{ text-align: center; margin: 24px 0; }}
-                .button {{ display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px; }}
-                .footer {{ text-align: center; padding: 20px 30px; background: #f9fafb; font-size: 12px; color: #9ca3af; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="header-title">📋 新工单待处理</div>
-                    <div class="header-subtitle">用户提交了新的支持请求</div>
-                </div>
-                <div class="content">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <div class="info-label">工单编号</div>
-                            <div class="info-value">#{ticket_id[:8]}</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">优先级</div>
-                            <div class="info-value"><span class="priority-badge priority-{ticket_priority}">{priority_label}</span></div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">分类</div>
-                            <div class="info-value">{ticket_category}</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">提交用户</div>
-                            <div class="info-value">{user_email}</div>
-                        </div>
-                    </div>
-                    <div class="message-box">
-                        <div class="message-label">工单标题</div>
-                        <div class="info-value" style="margin-bottom: 16px;">{ticket_title}</div>
-                        <div class="message-label">问题描述</div>
-                        <div class="message-content">{content[:500]}{'...' if len(content) > 500 else ''}</div>
-                    </div>
-                    <div class="button-box">
-                        <a href="#" class="button">立即处理</a>
-                    </div>
-                </div>
-                <div class="footer">
-                    请及时处理用户工单，提升用户体验
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-
-        send_email(email.strip(), subject, html)
-
+        if email.strip():
+            send_email(email.strip(), subject, html)
     return True
 
 
@@ -478,65 +515,40 @@ def send_ticket_user_reply_notification(
     """发送用户回复工单通知（给管理员）"""
     subject = f"【DEAI工单】用户回复了工单 - {ticket_title}"
 
+    content = _header("💬", "用户有新回复", "用户回复了之前的工单", "#3b82f6")
+    content += _content(f"""
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e5e7eb;">
+    <tr>
+        <td width="50%" style="vertical-align: top;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 4px;">工单编号</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 22px; font-weight: 600; color: #1f2937;">#{ticket_id[:8]}</p>
+        </td>
+        <td width="50%" style="vertical-align: top; text-align: right;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 4px;">回复用户</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 22px; font-weight: 600; color: #1f2937;">{user_email}</p>
+        </td>
+    </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 20px 0;">
+    <tr>
+        <td style="background-color: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 0 10px 10px 0; padding: 20px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #3b82f6; margin-bottom: 10px; font-weight: 600;">工单标题：{ticket_title}</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #1f2937; white-space: pre-wrap;">{reply_content[:500] if len(reply_content) > 500 else reply_content}{'...' if len(reply_content) > 500 else ''}</p>
+        </td>
+    </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td align="center">
+            <a href="#" style="display: inline-block; background-color: #3b82f6; color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; font-weight: 600; text-decoration: none; padding: 12px 28px; border-radius: 10px; -webkit-text-size-adjust: none;">立即回复</a>
+        </td>
+    </tr>
+</table>
+""")
+
+    html = _email_wrapper(_container(content, width=600))
+
     for email in to_emails:
-        if not email.strip():
-            continue
-
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; padding: 40px 20px; }}
-                .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
-                .header {{ background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 28px 30px; }}
-                .header-title {{ font-size: 20px; font-weight: 700; color: white; }}
-                .header-subtitle {{ font-size: 13px; color: rgba(255,255,255,0.85); margin-top: 4px; }}
-                .content {{ padding: 28px 30px; }}
-                .info-row {{ display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e5e7eb; }}
-                .info-item {{ flex: 1; }}
-                .info-label {{ font-size: 12px; color: #6b7280; margin-bottom: 4px; }}
-                .info-value {{ font-size: 15px; font-weight: 600; color: #1f2937; }}
-                .message-box {{ background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 0 10px 10px 0; padding: 20px; margin: 20px 0; }}
-                .message-label {{ font-size: 12px; color: #3b82f6; margin-bottom: 10px; font-weight: 600; }}
-                .message-content {{ color: #1f2937; line-height: 1.6; white-space: pre-wrap; font-size: 14px; }}
-                .button-box {{ text-align: center; margin: 24px 0; }}
-                .button {{ display: inline-block; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="header-title">💬 用户有新回复</div>
-                    <div class="header-subtitle">用户回复了之前的工单</div>
-                </div>
-                <div class="content">
-                    <div class="info-row">
-                        <div class="info-item">
-                            <div class="info-label">工单编号</div>
-                            <div class="info-value">#{ticket_id[:8]}</div>
-                        </div>
-                        <div class="info-item" style="text-align: right;">
-                            <div class="info-label">回复用户</div>
-                            <div class="info-value">{user_email}</div>
-                        </div>
-                    </div>
-                    <div class="message-box">
-                        <div class="message-label">工单标题：{ticket_title}</div>
-                        <div class="message-content">{reply_content[:500]}{'...' if len(reply_content) > 500 else ''}</div>
-                    </div>
-                    <div class="button-box">
-                        <a href="#" class="button">立即回复</a>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-
-        send_email(email.strip(), subject, html)
-
+        if email.strip():
+            send_email(email.strip(), subject, html)
     return True

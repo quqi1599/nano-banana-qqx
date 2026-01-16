@@ -69,7 +69,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         });
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
+    const handleRegister = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -87,21 +87,24 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             return;
         }
 
-        setIsLoading(true);
-        try {
-            const { access_token, user } = await register(
-                email,
-                password,
-                undefined,
-                registerCode.trim()
-            );
-            storeLogin(access_token, user);
-            onClose();
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setIsLoading(false);
-        }
+        openCaptcha('register', async (ticket) => {
+            setIsLoading(true);
+            try {
+                const { access_token, user } = await register(
+                    email,
+                    password,
+                    undefined,
+                    registerCode.trim(),
+                    ticket
+                );
+                storeLogin(access_token, user);
+                onClose();
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setIsLoading(false);
+            }
+        });
     };
 
     const handleRedeem = async (e: React.FormEvent) => {
@@ -203,24 +206,26 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         pendingCaptchaActionRef.current = null;
     };
 
-    const handleResetPassword = async (e: React.FormEvent) => {
+    const handleResetPassword = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
-        setIsLoading(true);
-        try {
-            await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword);
-            setSuccess('密码重置成功，请使用新密码登录');
-            setResetCode('');
-            setResetNewPassword('');
-            setEmail(resetEmail.trim());
-            setActiveTab('login');
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setIsLoading(false);
-        }
+        openCaptcha('reset', async (ticket) => {
+            setIsLoading(true);
+            try {
+                await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword, ticket);
+                setSuccess('密码重置成功，请使用新密码登录');
+                setResetCode('');
+                setResetNewPassword('');
+                setEmail(resetEmail.trim());
+                setActiveTab('login');
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setIsLoading(false);
+            }
+        });
     };
 
     const switchTab = (tab: TabType) => {

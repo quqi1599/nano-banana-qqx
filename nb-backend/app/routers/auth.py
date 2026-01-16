@@ -43,7 +43,8 @@ async def get_redis():
 
 
 # 安全限制常量
-IP_REGISTER_LIMIT = 20  # 每 IP 24小时最多注册次数
+IP_REGISTER_LIMIT = 8  # 每 IP 24小时最多注册次数
+RESET_PASSWORD_EMAIL_LIMIT = 10  # 每邮箱 24小时最多重置密码次数
 LOGIN_FAIL_LIMIT = 20  # 登录失败锁定次数
 LIMIT_EXPIRE_SECONDS = 86400  # 24小时
 CAPTCHA_TICKET_USED_PREFIX = "captcha:ticket:used:"
@@ -62,7 +63,7 @@ class UserRegisterWithCode(BaseModel):
     password: str
     nickname: Optional[str] = None
     code: str
-    captcha_ticket: Optional[str] = None
+    captcha_ticket: str
 
 
 class ResetPasswordRequest(BaseModel):
@@ -70,7 +71,7 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     code: str
     new_password: str
-    captcha_ticket: Optional[str] = None
+    captcha_ticket: str
 
 
 async def consume_captcha_ticket(
@@ -169,7 +170,16 @@ async def send_code(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="该邮箱未注册",
             )
-    
+
+        # 检查该邮箱 24 小时内重置密码次数
+        reset_count_key = f"reset_password_email:{data.email}"
+        reset_count = await redis_client.get(reset_count_key)
+        if reset_count and int(reset_count) >= RESET_PASSWORD_EMAIL_LIMIT:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"该邮箱今日重置密码次数已达上限 ({RESET_PASSWORD_EMAIL_LIMIT} 次)，请 24 小时后重试",
+            )
+
     # 生成验证码
     code = generate_code()
     expires_at = datetime.utcnow() + timedelta(minutes=settings.email_code_expire_minutes)
@@ -186,7 +196,13 @@ async def send_code(
     
     # 后台发送邮件
     background_tasks.add_task(send_verification_code, data.email, code, data.purpose)
-    
+
+    # 重置密码时增加计数
+    if data.purpose == "reset":
+        reset_count_key = f"reset_password_email:{data.email}"
+        await redis_client.incr(reset_count_key)
+        await redis_client.expire(reset_count_key, LIMIT_EXPIRE_SECONDS)
+
     return {"message": "验证码已发送，请查收邮箱"}
 
 
@@ -209,8 +225,16 @@ async def register(
             detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
         )
 
-    # await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
-    
+    # 验证滑块验证码
+    await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
+
+    # 验证密码长度
+    if len(data.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码长度至少6位",
+        )
+
     # 检查邮箱是否已存在
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
@@ -278,7 +302,9 @@ async def login(
     client_ip = request.client.host
     email_key = f"login_fail:{data.email}"
 
-    await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
+    # 只有提供了 captcha_ticket 才验证
+    if data.captcha_ticket:
+        await consume_captcha_ticket(data.captcha_ticket, "login", redis_client)
     
     # 检查登录失败次数
     fail_count = await redis_client.get(email_key)
@@ -346,7 +372,16 @@ async def reset_password(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """通过验证码重置密码"""
-    # await consume_captcha_ticket(data.captcha_ticket, "reset", redis_client)
+    # 验证滑块验证码
+    await consume_captcha_ticket(data.captcha_ticket, "reset", redis_client)
+
+    # 验证密码长度
+    if len(data.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="新密码长度至少6位",
+        )
+
     # 验证验证码
     now = datetime.utcnow()
     result = await db.execute(

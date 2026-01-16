@@ -1013,25 +1013,25 @@ export const ChatInterface: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-950 transition-colors duration-200">
+    <div className="flex flex-col h-full bg-white dark:bg-dark-bg transition-colors duration-200">
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6 sm:space-y-8 scroll-smooth overscroll-y-contain scroll-smooth-touch"
+        className="flex-1 overflow-y-auto px-2 xs:px-3 sm:px-4 lg:px-6 py-3 xs:py-4 sm:py-6 space-y-4 xs:space-y-6 sm:space-y-8 overscroll-y-contain scroll-smooth-touch"
       >
         {/* Batch Progress Indicator */}
         {batchProgress.total > 0 && (
-          <div className="sticky top-0 z-10 mb-4 p-4 rounded-xl bg-cream-50 dark:bg-cream-900/20 border border-cream-200 dark:border-cream-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-cream-900 dark:text-cream-100">
+          <div className="sticky top-0 z-10 mb-3 xs:mb-4 p-2.5 xs:p-4 rounded-lg xs:rounded-xl bg-cream-50 dark:bg-cream-900/20 border border-cream-200 dark:border-cream-800">
+            <div className="flex items-center justify-between mb-1.5 xs:mb-2">
+              <span className="text-xs xs:text-sm font-medium text-cream-900 dark:text-cream-100">
                 批量生成进度
               </span>
-              <span className="text-sm text-cream-700 dark:text-cream-300">
+              <span className="text-xs xs:text-sm text-cream-700 dark:text-cream-300 font-numeric">
                 {batchProgress.current} / {batchProgress.total}
               </span>
             </div>
-            <div className="w-full bg-cream-200 dark:bg-cream-800 rounded-full h-2">
+            <div className="w-full bg-cream-200 dark:bg-cream-800 rounded-full h-1.5 xs:h-2">
               <div
-                className="bg-cream-500 h-2 rounded-full transition-all duration-300"
+                className="bg-cream-500 h-1.5 xs:h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
               />
             </div>
@@ -1044,16 +1044,16 @@ export const ChatInterface: React.FC = () => {
             pageSize={messagesPageSize}
             total={messagesTotal}
             onPageChange={handleMessagesPageChange}
-            className="mb-2"
+            className="mb-1.5 xs:mb-2"
           />
         )}
 
         {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center text-center opacity-40 select-none">
-            <div className="mb-6 rounded-3xl bg-gray-50 dark:bg-gray-900 p-8 shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800 transition-colors duration-200">
-              <img src="/logo.png" alt="DEAI" className="h-16 w-16 mb-4 mx-auto" />
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">DEAI</h3>
-              <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex h-full flex-col items-center justify-center text-center opacity-40 select-none px-4">
+            <div className="mb-4 xs:mb-6 rounded-2xl xs:rounded-3xl bg-gray-50 dark:bg-gray-900 p-4 xs:p-6 sm:p-8 shadow-2xl ring-1 ring-gray-200 dark:ring-gray-800 transition-colors duration-200">
+              <img src="/logo.png" alt="DEAI" className="h-12 w-12 xs:h-14 xs:w-14 sm:h-16 sm:w-16 mb-3 xs:mb-4 mx-auto" />
+              <h3 className="text-xl xs:text-2xl font-bold text-gray-900 dark:text-white mb-1.5 xs:mb-2">DEAI</h3>
+              <p className="max-w-xs text-xs xs:text-sm text-gray-500 dark:text-gray-400">
                 开始输入以创建图像，通过对话编辑它们，或询问复杂的问题。
               </p>
             </div>

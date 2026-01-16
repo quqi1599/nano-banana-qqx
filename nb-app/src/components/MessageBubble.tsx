@@ -307,7 +307,7 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
     >
 
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cream-500 to-cream-400 shadow-cream-500/20 mt-1">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cream-500 to-cream-400 shadow-amber-500/20 mt-1">
           <Sparkles className="h-4 w-4 text-white" />
         </div>
       )}
@@ -331,10 +331,11 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
               </div>
               <button
                 onClick={() => setShowWeChatQR(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all"
+                className="w-full flex items-center justify-center gap-1.5 xs:gap-2 px-3 xs:px-4 py-2 xs:py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium text-xs xs:text-sm shadow-md hover:shadow-lg transition-all touch-feedback"
               >
-                <MessageCircle className="h-4 w-4" />
-                点击加入交流群，有技术支持在线解答 💬
+                <MessageCircle className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
+                <span className="hidden xs:inline">点击加入交流群，有技术支持在线解答 💬</span>
+                <span className="xs:hidden">加入交流群 💬</span>
               </button>
             </div>
           )}
@@ -344,43 +345,44 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
 
           {/* 数据集下载按钮 */}
           {isDatasetMessage && !actionsDisabled && (
-            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-3 xs:mt-4 pt-2 xs:pt-3 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={handleDownloadDataset}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-cream-400 to-cream-500 hover:from-cream-500 hover:to-cream-600 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all"
+                className="w-full flex items-center justify-center gap-1.5 xs:gap-2 px-3 xs:px-4 py-2 xs:py-2.5 rounded-lg bg-gradient-to-r from-cream-400 to-amber-500 hover:from-cream-500 hover:to-cream-600 text-white font-medium text-xs xs:text-sm shadow-md hover:shadow-lg transition-all touch-feedback"
               >
-                <PackageOpen className="h-4 w-4" />
-                下载 AI-Toolkit 数据集 (ZIP)
-                <span className="text-xs opacity-90">({imageParts.length} 张)</span>
+                <PackageOpen className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
+                <span className="hidden xs:inline">下载 AI-Toolkit 数据集 (ZIP)</span>
+                <span className="xs:hidden">下载数据集 (ZIP)</span>
+                <span className="text-[10px] xs:text-xs opacity-90">({imageParts.length} 张)</span>
               </button>
-              <p className="mt-2 text-[10px] text-center text-gray-500 dark:text-gray-400">
+              <p className="mt-1.5 xs:mt-2 text-[9px] xs:text-[10px] text-center text-gray-500 dark:text-gray-400">
                 包含图片及对应的文本标注，可直接用于 AI-toolkit 训练
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2 px-1">
-          <span className="text-[10px] text-gray-500 font-medium">
+        <div className="flex items-center gap-1.5 xs:gap-2 px-1">
+          <span className="text-[9px] xs:text-[10px] text-gray-500 font-medium">
             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
 
           {/* Actions */}
           {!actionsDisabled && (
-            <div className={`flex items-center gap-1 transition-opacity duration-200 ${showActions ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`flex items-center gap-0.5 xs:gap-1 transition-opacity duration-200 ${showActions ? 'opacity-100' : 'opacity-0'}`}>
               <button
                 onClick={() => onRegenerate(message.id)}
                 className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-cream-600 dark:hover:text-cream-400"
                 title="从此重新生成"
               >
-                <RotateCcw className="h-3 w-3" />
+                <RotateCcw className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
               </button>
               <button
                 onClick={handleDelete}
                 className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                 title="删除消息"
               >
-                <Trash2 className="h-3 w-3" />
+                <Trash2 className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
               </button>
             </div>
           )}
@@ -388,8 +390,8 @@ export const MessageBubble: React.FC<Props> = ({ message, isLast, isGenerating, 
       </div>
 
       {isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 mt-1">
-          <User className="h-4 w-4 text-gray-500 dark:text-gray-300" />
+        <div className="flex h-7 w-7 xs:h-8 xs:w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 mt-1">
+          <User className="h-3.5 w-3.5 xs:h-4 xs:w-4 text-gray-500 dark:text-gray-300" />
         </div>
       )}
     </div>

@@ -30,11 +30,11 @@ function groupConversationsByDate(conversations: Conversation[]) {
     thisMonth.setDate(thisMonth.getDate() - 30);
 
     const groups: Record<string, Conversation[]> = {
-       今天: [],
+        今天: [],
         昨天: [],
-       本周: [],
-       本月: [],
-       更早: [],
+        本周: [],
+        本月: [],
+        更早: [],
     };
 
     conversations.forEach(conv => {

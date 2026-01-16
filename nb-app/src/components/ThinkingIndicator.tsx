@@ -86,7 +86,7 @@ export const ThinkingIndicator: React.FC<Props> = ({ onClose, isThinking = true,
         <div className={`flex w-full justify-center py-6 ${isExiting ? 'fade-out-down' : 'fade-in-up'}`}>
             <div className="relative w-full max-w-xl group">
                 {/* Glow Background - Adapts to Theme */}
-                <div className={`absolute -inset-1 rounded-xl blur-lg opacity-75 transition-colors duration-500 ${isDark ? 'bg-linear-to-r from-cream-600/20 to-gray-600/20' : 'bg-linear-to-r from-cream-400/30 to-gray-400/30'
+                <div className={`absolute -inset-1 rounded-xl blur-lg opacity-75 transition-colors duration-500 ${isDark ? 'bg-gradient-to-r from-cream-600/20 to-gray-600/20' : 'bg-gradient-to-r from-cream-400/30 to-gray-400/30'
                     }`}></div>
 
                 {/* Arcade Card - Theme Adaptive */}

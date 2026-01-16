@@ -163,7 +163,7 @@ export const register = async (
   password: string,
   nickname: string | undefined,
   code: string,
-  captchaTicket?: string
+  captchaTicket: string
 ): Promise<AuthResponse> => {
   const data = await request<AuthResponse>('/auth/register', {
     method: 'POST',
@@ -234,7 +234,7 @@ export const resetPassword = async (
   email: string,
   code: string,
   newPassword: string,
-  captchaTicket?: string
+  captchaTicket: string
 ): Promise<{ message: string }> => {
   return request('/auth/reset-password', {
     method: 'POST',

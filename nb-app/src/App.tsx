@@ -256,39 +256,40 @@ const App: React.FC = () => {
   if (!mounted) return null;
 
   return (
-    <div className="flex h-dvh w-full flex-col bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 overflow-hidden relative transition-colors duration-200">
+    <div className="flex h-dvh w-full flex-col bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text overflow-hidden relative transition-colors duration-200">
       <SessionManager />
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/50 dark:bg-gray-950/50 px-3 sm:px-6 py-3 sm:py-4 backdrop-blur-md z-10 transition-colors duration-200 pt-safe">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <img src="/logo.png" alt="Logo" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
-          <div>
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-amber-600 dark:text-amber-400">DEAI</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
+      <header className="flex items-center justify-between border-b border-gray-200 dark:border-dark-border bg-white/80 dark:bg-dark-surface/80 px-2 xs:px-3 sm:px-4 lg:px-6 py-2 xs:py-3 sm:py-4 backdrop-blur-md z-10 transition-colors duration-200 pt-safe shrink-0">
+        <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
+          <img src="/logo.png" alt="Logo" className="h-6 w-6 xs:h-7 xs:w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 object-contain" />
+          <div className="hidden xs:block">
+            <h1 className="text-sm xs:text-base sm:text-lg lg:text-xl font-bold tracking-tight text-amber-600 dark:text-amber-400">DEAI</h1>
+            <p className="text-[10px] xs:text-xs text-gray-500 dark:text-gray-400 hidden md:block">
               从一句话开始的图像创作
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-0.5 xs:gap-1 sm:gap-2">
           {/* Credits Display - Show when authenticated */}
           {isAuthenticated && user && (
-            <div className="hidden sm:flex items-center gap-2 mr-2">
+            <div className="hidden md:flex items-center gap-1.5 sm:gap-2 mr-1">
               <div
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:from-amber-200 hover:to-orange-200 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 transition"
+                className="flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-md xs:rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 text-xs xs:text-sm font-medium text-amber-700 dark:text-amber-400 cursor-pointer hover:from-amber-200 hover:to-orange-200 dark:hover:from-amber-900/50 dark:hover:to-orange-900/50 transition touch-feedback"
                 title="点击查看次数详情"
               >
-                <Coins className="h-4 w-4" />
-                <span>{user.credit_balance} 次</span>
+                <Coins className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
+                <span className="hidden sm:inline">{user.credit_balance} 次</span>
+                <span className="sm:hidden font-numeric">{user.credit_balance}</span>
               </div>
               <button
                 onClick={() => setShowPaymentPage(true)}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-xs font-medium text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition"
+                className="flex items-center gap-0.5 xs:gap-1 px-1.5 xs:px-2 py-1 xs:py-1.5 rounded-md xs:rounded-lg bg-green-100 dark:bg-green-900/30 text-[10px] xs:text-xs font-medium text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition touch-feedback"
                 title="购买积分"
               >
-                <CreditCard className="h-3.5 w-3.5" />
-                <span>充值</span>
+                <CreditCard className="h-3 w-3 xs:h-3.5 xs:w-3.5" />
+                <span className="hidden lg:inline">充值</span>
               </button>
             </div>
           )}
@@ -302,17 +303,16 @@ const App: React.FC = () => {
                   addToast(`余额查询失败: ${message}`, 'error');
                 })
               }
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition mr-2"
+              className="hidden sm:flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-md xs:rounded-lg bg-gray-100 dark:bg-gray-800 text-xs xs:text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition mr-1 xs:mr-2 touch-feedback"
               title="点击刷新余额"
             >
-              <DollarSign className="h-4 w-4 text-green-600 dark:text-green-500" />
-              <span className={balance.remaining < 1 ? "text-red-500" : ""}>
+              <DollarSign className="h-3.5 w-3.5 xs:h-4 xs:w-4 text-green-600 dark:text-green-500" />
+              <span className={`hidden sm:inline ${balance.remaining < 1 ? "text-red-500" : ""}`}>
                 {formatBalance(balance.remaining, balance.isUnlimited)}
               </span>
             </div>
           )}
 
-          {/* New Chat Button */}
           {/* New Chat Button */}
           <button
             onClick={() => {
@@ -332,11 +332,11 @@ const App: React.FC = () => {
                 onConfirm: handleClear
               });
             }}
-            className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition touch-feedback"
+            className="flex items-center justify-center p-1.5 xs:p-2 sm:px-3 sm:py-1.5 rounded-md xs:rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition touch-feedback"
             title={isAuthenticated ? "开始新对话" : "清空会话"}
           >
-            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline text-sm font-medium ml-1">
+            <Plus className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline text-xs xs:text-sm font-medium ml-0.5 xs:ml-1">
               {isAuthenticated ? "新对话" : "清空"}
             </span>
           </button>
@@ -345,31 +345,20 @@ const App: React.FC = () => {
           {canUseHistory && (
             <button
               onClick={() => setIsConversationHistoryOpen(true)}
-              className="hidden sm:flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title="对话历史"
             >
-              <MessageSquare className="h-5 w-5" />
-            </button>
-          )}
-
-          {/* Mobile Conversation History Button */}
-          {canUseHistory && (
-            <button
-              onClick={() => setIsConversationHistoryOpen(true)}
-              className="sm:hidden flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
-              title="对话历史"
-            >
-              <MessageSquare className="h-5 w-5" />
+              <MessageSquare className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-5 sm:w-5" />
             </button>
           )}
 
           {installPrompt && (
             <button
               onClick={handleInstallClick}
-              className="flex rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title="安装应用"
             >
-              <Download className="h-5 w-5 sm:h-6 sm:w-6 animate-attract" />
+              <Download className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6 animate-attract" />
             </button>
           )}
 
@@ -377,14 +366,14 @@ const App: React.FC = () => {
           {isAuthenticated && user?.is_admin && (
             <a
               href="/admin/"
-              className="relative rounded-lg p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
+              className="relative rounded-md xs:rounded-lg p-1.5 xs:p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
               title="管理后台"
             >
-              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+              <ShieldCheck className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               {adminUnreadCount > 0 && (
-                <span className="absolute top-1 right-1 flex h-2 w-2">
+                <span className="absolute top-0.5 xs:top-1 right-0.5 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 xs:h-2 w-1.5 xs:w-2 bg-red-500"></span>
                 </span>
               )}
             </a>
@@ -393,14 +382,14 @@ const App: React.FC = () => {
           {isAuthenticated && ( // 3. Add Header button
             <button
               onClick={() => setShowTicketModal(true)}
-              className="relative rounded-lg p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
+              className="relative rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
               title="提交工单/反馈"
             >
-              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+              <MessageCircle className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               {ticketUnreadCount > 0 && (
-                <span className="absolute top-1 right-1 flex h-2 w-2">
+                <span className="absolute top-0.5 xs:top-1 right-0.5 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 xs:h-2 w-1.5 xs:w-2 bg-red-500"></span>
                 </span>
               )}
             </button>
@@ -408,13 +397,13 @@ const App: React.FC = () => {
 
           {/* Login/User button */}
           {isAuthenticated ? (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 xs:gap-1">
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="rounded-lg p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title={user?.nickname || user?.email || '账户'}
               >
-                <User className="h-5 w-5 sm:h-6 sm:w-6" />
+                <User className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               </button>
               <button
                 onClick={() => {
@@ -429,19 +418,19 @@ const App: React.FC = () => {
                     }
                   });
                 }}
-                className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title="退出登录"
               >
-                <LogOut className="h-5 w-5 sm:h-6 sm:w-6" />
+                <LogOut className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-medium hover:from-blue-600 hover:to-purple-600 transition touch-feedback"
+              className="flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-md xs:rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs xs:text-sm font-medium hover:from-blue-600 hover:to-purple-600 transition touch-feedback"
               title="登录/注册"
             >
-              <User className="h-4 w-4" />
+              <User className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
               <span className="hidden sm:inline">登录</span>
             </button>
           )}
@@ -450,10 +439,10 @@ const App: React.FC = () => {
           {!isAuthenticated && (
             <button
               onClick={() => setShowApiKeyModal(true)}
-              className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title={apiKey ? "更换 API Key" : "设置 API Key"}
             >
-              <Key className="h-5 w-5 sm:h-6 sm:w-6" />
+              <Key className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
             </button>
           )}
 
@@ -461,54 +450,54 @@ const App: React.FC = () => {
             <>
               <button
                 onClick={() => setIsImageHistoryOpen(true)}
-                className="relative rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                className="relative rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title="图片历史"
               >
-                <ImageIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+                <ImageIcon className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
                 {imageHistory.length > 0 && (
-                  <span className="absolute top-1 right-1 flex h-2 w-2">
+                  <span className="absolute top-0.5 xs:top-1 right-0.5 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 xs:h-2 w-1.5 xs:w-2 bg-amber-500"></span>
                   </span>
                 )}
               </button>
               <button
                 onClick={togglePromptLibrary}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
+                className={`flex items-center gap-1 xs:gap-1.5 rounded-md xs:rounded-lg px-2 xs:px-3 py-1.5 xs:py-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
                   ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 title="提示词库"
               >
-                <Sparkles className="h-5 w-5" />
-                <span className="text-sm font-medium hidden sm:inline">提示词</span>
+                <Sparkles className="h-4.5 w-4.5 xs:h-5 xs:w-5" />
+                <span className="text-xs xs:text-sm font-medium hidden sm:inline">提示词</span>
               </button>
             </>
           )}
 
           <button
             onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="rounded-lg p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+            className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
             title="切换主题"
           >
-            {settings.theme === 'dark' ? <Sun className="h-5 w-5 sm:h-6 sm:w-6" /> : <Moon className="h-5 w-5 sm:h-6 sm:w-6" />}
+            {settings.theme === 'dark' ? <Sun className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" /> : <Moon className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />}
           </button>
 
           <button
             onClick={toggleSettings}
-            className={`rounded-lg p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isSettingsOpen
+            className={`rounded-md xs:rounded-lg p-1.5 xs:p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isSettingsOpen
               ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
               : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
               }`}
             title="设置"
           >
-            <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
+            <Settings className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 relative overflow-hidden flex flex-row">
+      <main className="flex-1 relative overflow-hidden flex flex-row min-h-0">
         {/* Conversation History Sidebar */}
         {canUseHistory && (
           <ConversationHistoryPanel

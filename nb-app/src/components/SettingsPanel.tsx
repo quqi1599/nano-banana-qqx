@@ -94,7 +94,7 @@ export const SettingsPanel: React.FC = () => {
       <div className="space-y-4 sm:space-y-8 flex-1 overflow-y-auto pb-safe scroll-smooth-touch">
         {/* Balance Section */}
         {apiKey && (
-          <section className="p-3 sm:p-4 rounded-xl bg-linear-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700">
+          <section className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
