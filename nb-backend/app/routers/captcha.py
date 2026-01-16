@@ -49,14 +49,19 @@ async def slider_challenge() -> Dict[str, Any]:
 @router.post("/slider/verify", response_model=VerifyResp)
 async def slider_verify(req: VerifyReq) -> VerifyResp:
     """验证滑块位置 - 只需要拖到最右边"""
-    if req.use not in ALLOWED_PURPOSES:
-        return VerifyResp(ok=False)
-
     max_x = float(TRACK_WIDTH - HANDLE_WIDTH)
     required_min_x = max_x * MIN_REQUIRED_RATIO
 
+    # 调试日志
+    print(f"🔍 滑块验证: final_x={req.final_x}, required_min={required_min_x}, max_x={max_x}, use={req.use}")
+
+    if req.use not in ALLOWED_PURPOSES:
+        print(f"❌ 无效的 purpose: {req.use}")
+        return VerifyResp(ok=False)
+
     # 检查是否拖到了足够右边的位置
     if req.final_x < required_min_x:
+        print(f"❌ 位置不够: {req.final_x} < {required_min_x}")
         return VerifyResp(ok=False)
 
     # 验证通过，签发 ticket
