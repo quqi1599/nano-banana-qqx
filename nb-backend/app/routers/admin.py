@@ -1250,43 +1250,49 @@ async def batch_adjust_credits(
 
     updated_count = 0
     updated_ids: list[str] = []
-    for user in users:
-        old_balance = user.credit_balance
-        user.credit_balance += data.amount
+    skipped_ids: list[str] = []
+    async with db.begin():
+        for user in users:
+            if user.id == admin.id:
+                skipped_ids.append(user.id)
+                continue
 
-        # 防止余额为负
-        if user.credit_balance < 0:
-            user.credit_balance = 0
+            user.credit_balance += data.amount
 
-        # 记录交易
-        transaction = CreditTransaction(
-            user_id=user.id,
-            amount=data.amount,
-            type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
-            description=reason,
-            balance_after=user.credit_balance,
+            # 防止余额为负
+            if user.credit_balance < 0:
+                user.credit_balance = 0
+
+            # 记录交易
+            transaction = CreditTransaction(
+                user_id=user.id,
+                amount=data.amount,
+                type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
+                description=reason,
+                balance_after=user.credit_balance,
+            )
+            db.add(transaction)
+            updated_count += 1
+            updated_ids.append(user.id)
+
+        _record_admin_audit(
+            db=db,
+            admin=admin,
+            action="batch_adjust_credits",
+            target_type="user",
+            target_ids=updated_ids,
+            reason=reason,
+            status_text="partial" if skipped_ids else "success",
+            request=request,
+            details={
+                "requested_count": len(data.user_ids),
+                "updated_count": updated_count,
+                "skipped_count": len(skipped_ids),
+                "skipped_ids": skipped_ids,
+                "amount": data.amount,
+                "total_delta": data.amount * updated_count,
+            },
         )
-        db.add(transaction)
-        updated_count += 1
-        updated_ids.append(user.id)
-
-    _record_admin_audit(
-        db=db,
-        admin=admin,
-        action="batch_adjust_credits",
-        target_type="user",
-        target_ids=updated_ids,
-        reason=reason,
-        status_text="success",
-        request=request,
-        details={
-            "requested_count": len(data.user_ids),
-            "updated_count": updated_count,
-            "amount": data.amount,
-            "total_delta": data.amount * updated_count,
-        },
-    )
-    await db.commit()
 
     logger.info(
         f"Admin {admin.email} batch adjusted credits for {updated_count} users, amount={data.amount}, reason: {reason}"
