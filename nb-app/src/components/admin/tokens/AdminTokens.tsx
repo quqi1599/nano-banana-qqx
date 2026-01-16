@@ -79,8 +79,8 @@ export const AdminTokens = () => {
         });
     };
 
-    // Handle check quota
-    const handleCheckQuota = async (id: string) => {
+    // Handle check quota - wrapper to call the hook's handleCheckQuota
+    const onCheckQuota = async (id: string) => {
         await handleCheckQuota(id, apiBaseUrl, (updated) => {
             setTokens(prev => prev.map(t => t.id === id ? updated : t));
         });
@@ -264,7 +264,7 @@ export const AdminTokens = () => {
                     tokenBaseUrlDrafts={tokenBaseUrlDrafts}
                     onBaseUrlDraftChange={(id, value) => setTokenBaseUrlDrafts(prev => ({ ...prev, [id]: value }))}
                     onSaveBaseUrl={handleSaveBaseUrl}
-                    onCheckQuota={handleCheckQuota}
+                    onCheckQuota={onCheckQuota}
                     onToggleToken={handleToggle}
                     onDeleteToken={handleDelete}
                     onCopyTokenKey={handleCopyTokenKey}
@@ -281,7 +281,7 @@ export const AdminTokens = () => {
                         <TokenMobileCard
                             key={token.id}
                             token={token}
-                            onCheckQuota={handleCheckQuota}
+                            onCheckQuota={onCheckQuota}
                             onToggleToken={handleToggle}
                             checkingQuotaTokenId={checkingQuotaTokenId}
                         />
