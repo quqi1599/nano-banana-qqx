@@ -3,14 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, update
 from sqlalchemy.orm import selectinload
 from typing import List
-from uuid import UUID
 
 from app.database import get_db
 from app.models.ticket import Ticket, TicketMessage
 from app.models.user import User
 from app.schemas.ticket import (
     TicketCreate, TicketResponse, TicketDetailResponse,
-    TicketMessageCreate, TicketUpdate
+    TicketMessageCreate, TicketUpdate, TicketResponse as TicketResponseSchema
 )
 from app.utils.security import get_current_user, get_admin_user as get_current_admin
 from app.services.email_service import (
@@ -220,7 +219,7 @@ async def reply_ticket(
     # 自动更新状态逻辑
     if is_admin_reply:
         if ticket.status == 'open':
-             ticket.status = 'pending' # 等待用户回复
+            ticket.status = 'pending'  # 等待用户回复
 
         # 发送邮件通知用户
         if ticket.user and ticket.user.email:
@@ -311,24 +310,13 @@ async def get_all_tickets(
     result = await db.execute(query)
     tickets = result.scalars().all()
 
-    # 手动填充 user_email，因为 Pydantic 模型里 TicketResponse 需要 user_email
-    # 但 Ticket 模型没有这个字段，它只有 user 关系
-    # 我们可以通过 Pydantic 的 validator 或者在这里转换
-    # 简单起见，我们构造一个包含 user_email 的 dict 列表返回？
-    # 或者让 Pydantic 从 user.email 获取？
-    # Response model 的 user_email 字段如果定义了，并且 ORM 对象有 user relation
-    # 我们需要在 response model 里加个 root_validator 或者 property
-
-    # 这里的简单做法是直接返回，但在 Schema 里做个处理。
-    # 为了方便，我们在 Schema 定义时没加 user_email source。
-    # 让我们在 Schema 里加个 field validator 或者在此处转换。
-
+    # 使用 Pydantic 的 model_validate 安全地构建响应
     response_data = []
     for t in tickets:
-        t_dict = t.__dict__.copy()
+        ticket_dict = TicketResponseSchema.model_validate(t).model_dump()
         if t.user:
-            t_dict['user_email'] = t.user.email
-        response_data.append(t_dict)
+            ticket_dict['user_email'] = t.user.email
+        response_data.append(ticket_dict)
 
     return response_data
 

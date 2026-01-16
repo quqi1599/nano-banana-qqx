@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     jwt_blacklist_fail_closed: bool = False
     login_fail_ip_limit: int = 50
     login_fail_ip_window_seconds: int = 3600
+    login_fail_limit: int = 20  # 登录失败锁定次数
+    ip_register_limit: int = 8  # 每 IP 24小时最多注册次数
+    email_register_limit: int = 5  # 每邮箱 24小时最多注册次数
+    reset_password_email_limit: int = 10  # 每邮箱 24小时最多重置密码次数
 
     # Auth cookies / CSRF
     auth_cookie_name: str = "nbnb_auth"
@@ -124,6 +128,13 @@ class Settings(BaseSettings):
     # Credits pricing defaults
     credits_gemini_3_pro: int = 10
     credits_gemini_25_flash: int = 1
+
+    # 模型白名单（逗号分隔，留空则允许所有模型）
+    allowed_models: str = (
+        "gemini-3-pro-image-preview,"
+        "gemini-2.5-flash-image-preview,"
+        "gemini-2.5-flash-image"
+    )
     
     @property
     def cors_origins(self) -> List[str]:
@@ -136,6 +147,13 @@ class Settings(BaseSettings):
     def admin_emails_list(self) -> List[str]:
         raw = ",".join([value for value in [self.admin_emails, self.admin_email] if value])
         return [email.strip().lower() for email in raw.split(",") if email.strip()]
+
+    @property
+    def allowed_models_list(self) -> List[str]:
+        """解析允许的模型列表，空则允许所有"""
+        if not self.allowed_models or not self.allowed_models.strip():
+            return []  # 空列表表示允许所有模型
+        return [m.strip() for m in self.allowed_models.split(",") if m.strip()]
 
     @property
     def primary_admin_email(self) -> str:

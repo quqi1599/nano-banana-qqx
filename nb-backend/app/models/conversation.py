@@ -3,10 +3,11 @@
 """
 from typing import Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, Boolean, Text, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+from app.utils.timezone import utc_now_naive
 
 
 class Conversation(Base):
@@ -25,12 +26,12 @@ class Conversation(Base):
     custom_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+        DateTime, default=utc_now_naive
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+        default=utc_now_naive,
+        onupdate=utc_now_naive
     )
 
     # 关系
@@ -58,7 +59,7 @@ class ConversationMessage(Base):
     is_thought: Mapped[bool] = mapped_column(Boolean, default=False)
     thinking_duration: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+        DateTime, default=utc_now_naive
     )
 
     # 关系

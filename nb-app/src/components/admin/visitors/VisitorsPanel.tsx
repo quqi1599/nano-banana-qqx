@@ -11,6 +11,7 @@ import {
 import {
     getVisitors,
     getVisitorStats,
+    getVisitorDetail,
     deleteVisitor,
     type VisitorInfo,
     type VisitorFilters,

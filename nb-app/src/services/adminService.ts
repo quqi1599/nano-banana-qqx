@@ -824,7 +824,26 @@ export const toggleEmailConfig = async (configId: string): Promise<{ message: st
 };
 
 // 发送测试邮件
-export const testSendEmail = async (configId: string | null, testEmail: string): Promise<{ message: string; success: boolean }> => {
+export interface TestEmailResult {
+    success: boolean;
+    message: string;
+    error_type?: string;
+    details?: {
+        connection?: {
+            host: string;
+            port: number;
+            encryption: string;
+            from: string;
+            to: string;
+        };
+        provider?: string;
+        timestamp?: string;
+        hint?: string;
+        status_code?: number;
+    };
+}
+
+export const testSendEmail = async (configId: string | null, testEmail: string): Promise<TestEmailResult> => {
     const payload = configId
         ? { config_id: configId, test_email: testEmail }
         : { config_id: null, test_email: testEmail };

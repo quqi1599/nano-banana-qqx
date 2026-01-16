@@ -7,7 +7,7 @@ API 代理任务
 - 批量 API 调用
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Any, Optional
 from httpx import AsyncClient
 
@@ -15,6 +15,17 @@ from app.celery_app import celery_app
 from app.tasks.base import record_task_result
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async(coro):
+    """
+    在同步上下文中运行异步函数
+
+    使用 asgiref.sync.async_to_sync 避免事件循环冲突
+    比 asyncio.run() 更安全，适用于 Celery worker 环境
+    """
+    from asgiref.sync import async_to_sync
+    return async_to_sync(coro)
 
 
 @celery_app.task(
@@ -49,8 +60,6 @@ def proxy_api_task(
 
     logger.info(f"[{task_id}] 开始代理 API 请求: {method} {url}")
 
-    import asyncio
-
     async def make_request():
         async with AsyncClient(timeout=timeout) as client:
             response = await client.request(
@@ -66,7 +75,7 @@ def proxy_api_task(
             }
 
     try:
-        result = asyncio.run(make_request())
+        result = _run_async(make_request())
         duration = (datetime.now() - start_time).total_seconds()
 
         return record_task_result(
@@ -113,8 +122,6 @@ def fetch_prompts_task(self) -> Dict[str, Any]:
 
     logger.info(f"[{task_id}] 开始获取提示词库")
 
-    import asyncio
-
     async def fetch():
         async with AsyncClient() as client:
             response = await client.get(
@@ -125,7 +132,7 @@ def fetch_prompts_task(self) -> Dict[str, Any]:
             return {"categories": []}
 
     try:
-        result = asyncio.run(fetch())
+        result = _run_async(fetch())
         duration = (datetime.now() - start_time).total_seconds()
 
         return record_task_result(
@@ -174,9 +181,8 @@ def batch_api_call_task(
 
     logger.info(f"[{task_id}] 开始批量 API 调用: {len(requests)} 个请求")
 
-    import asyncio
-
     async def fetch_all():
+        import asyncio
         semaphore = asyncio.Semaphore(concurrent)
 
         async def fetch_one(req):
@@ -198,7 +204,7 @@ def batch_api_call_task(
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     try:
-        results = asyncio.run(fetch_all())
+        results = _run_async(fetch_all())
 
         success_count = sum(1 for r in results if isinstance(r, dict) and r.get("success"))
         failed_count = len(results) - success_count

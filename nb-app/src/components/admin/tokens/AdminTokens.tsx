@@ -7,15 +7,13 @@ import {
     getTokens, addToken, deleteToken, updateToken, TokenInfo, checkTokenQuota
 } from '../../../services/adminService';
 import { formatBalance } from '../../../services/balanceService';
-import { getApiBaseUrl } from '../../../utils/endpointUtils';
-import { useAppStore } from '../../../store/useAppStore';
+import { getBackendUrl } from '../../../utils/backendUrl';
 import { TokenSummaryCard } from './TokenSummaryCard';
 
 type SortKey = 'priority' | 'remaining_quota' | 'last_used_at';
 
 export const AdminTokens = () => {
-    const { settings } = useAppStore();
-    const apiBaseUrl = getApiBaseUrl(settings.customEndpoint);
+    const apiBaseUrl = getBackendUrl();
     const [tokens, setTokens] = useState<TokenInfo[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');

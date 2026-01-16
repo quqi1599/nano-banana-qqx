@@ -15,6 +15,17 @@ from app.tasks.base import get_task_db, record_task_result
 logger = logging.getLogger(__name__)
 
 
+def _run_async(coro):
+    """
+    在同步上下文中运行异步函数
+
+    使用 asgiref.sync.async_to_sync 避免事件循环冲突
+    比 asyncio.run() 更安全，适用于 Celery worker 环境
+    """
+    from asgiref.sync import async_to_sync
+    return async_to_sync(coro)
+
+
 @celery_app.task(
     name="app.tasks.cleanup_tasks.cleanup_old_conversations_task",
     bind=True,
@@ -32,21 +43,15 @@ def cleanup_old_conversations_task(self) -> Dict[str, Any]:
     logger.info(f"[{task_id}] 开始执行对话清理任务")
 
     from app.services.conversation_cleanup import cleanup_old_conversations
-
-    db = get_task_db()
+    from app.database import async_session_maker
 
     try:
-        # 将同步 session 转换为异步调用需要特殊处理
-        # 这里简化为同步执行
-        import asyncio
-        from sqlalchemy.ext.asyncio import AsyncSession
+        # 使用 async_to_sync 避免事件循环冲突
+        async def cleanup():
+            async with async_session_maker() as db:
+                return await cleanup_old_conversations(db, dry_run=False)
 
-        # 创建异步 session
-        async_db = AsyncSession(bind=asyncio.run(
-            __import__("app.database", fromlist=["async_session_maker"]).async_session_maker()
-        ))
-
-        result = asyncio.run(cleanup_old_conversations(async_db, dry_run=False))
+        result = _run_async(cleanup())
 
         duration = (datetime.now() - start_time).total_seconds()
 
@@ -70,9 +75,6 @@ def cleanup_old_conversations_task(self) -> Dict[str, Any]:
             duration=duration,
         )
         raise
-
-    finally:
-        db.close()
 
 
 @celery_app.task(

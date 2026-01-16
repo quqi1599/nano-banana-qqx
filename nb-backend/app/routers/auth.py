@@ -47,11 +47,11 @@ async def get_redis():
     yield redis_client
 
 
-# 安全限制常量
-IP_REGISTER_LIMIT = 8  # 每 IP 24小时最多注册次数
-EMAIL_REGISTER_LIMIT = 5  # 每邮箱 24小时最多注册次数
-RESET_PASSWORD_EMAIL_LIMIT = 10  # 每邮箱 24小时最多重置密码次数
-LOGIN_FAIL_LIMIT = 20  # 登录失败锁定次数
+# 安全限制常量（从配置读取）
+IP_REGISTER_LIMIT = settings.ip_register_limit  # 每 IP 24小时最多注册次数
+EMAIL_REGISTER_LIMIT = settings.email_register_limit  # 每邮箱 24小时最多注册次数
+RESET_PASSWORD_EMAIL_LIMIT = settings.reset_password_email_limit  # 每邮箱 24小时最多重置密码次数
+LOGIN_FAIL_LIMIT = settings.login_fail_limit  # 登录失败锁定次数
 LIMIT_EXPIRE_SECONDS = 86400  # 24小时
 CAPTCHA_TICKET_USED_PREFIX = "captcha:ticket:used:"
 EMAIL_WHITELIST_CACHE_KEY = "email_whitelist:active:v1"

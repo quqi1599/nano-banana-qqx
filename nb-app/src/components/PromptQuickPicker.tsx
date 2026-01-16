@@ -365,6 +365,25 @@ const PromptDetailPreview: React.FC<PromptDetailPreviewProps> = ({ prompt }) => 
         </div>
       </div>
 
+      {/* 参考图 */}
+      {prompt.reference_image_urls && prompt.reference_image_urls.length > 0 && (
+        <div>
+          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+            参考图
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {prompt.reference_image_urls.map((url, index) => (
+              <img
+                key={index}
+                src={url}
+                alt={`参考图 ${index + 1}`}
+                className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 查看详情链接 */}
       {prompt.link && (
         <a

@@ -1012,31 +1012,43 @@ async def get_login_failures(
         if cursor == 0 or cursor == "0":
             break
 
-    items: list[LoginFailureItem] = []
+    ips: list[str] = []
     for key in keys:
-        if not key.startswith(LOGIN_FAIL_IP_KEY_PREFIX):
-            continue
-        ip = key[len(LOGIN_FAIL_IP_KEY_PREFIX):]
-        count_raw = await redis_client.get(key)
-        if not count_raw:
-            continue
-        count = int(count_raw)
-        if count <= 0:
-            continue
-        last_ts_raw = await redis_client.get(f"{LOGIN_FAIL_IP_TS_PREFIX}{ip}")
-        last_seen = datetime.utcfromtimestamp(int(last_ts_raw)) if last_ts_raw else None
-        last_email = await redis_client.get(f"{LOGIN_FAIL_IP_EMAIL_PREFIX}{ip}")
-        ttl_raw = await redis_client.ttl(key)
-        ttl_seconds = ttl_raw if ttl_raw >= 0 else None
-        items.append(
-            LoginFailureItem(
-                ip=ip,
-                count=count,
-                last_seen=last_seen,
-                last_email=last_email,
-                ttl_seconds=ttl_seconds,
+        if key.startswith(LOGIN_FAIL_IP_KEY_PREFIX):
+            ips.append(key[len(LOGIN_FAIL_IP_KEY_PREFIX):])
+
+    items: list[LoginFailureItem] = []
+    if ips:
+        async with redis_client.pipeline() as pipe:
+            for ip in ips:
+                pipe.get(f"{LOGIN_FAIL_IP_KEY_PREFIX}{ip}")
+                pipe.get(f"{LOGIN_FAIL_IP_TS_PREFIX}{ip}")
+                pipe.get(f"{LOGIN_FAIL_IP_EMAIL_PREFIX}{ip}")
+                pipe.ttl(f"{LOGIN_FAIL_IP_KEY_PREFIX}{ip}")
+            results = await pipe.execute()
+
+        for index, ip in enumerate(ips):
+            base = index * 4
+            count_raw = results[base]
+            if not count_raw:
+                continue
+            count = int(count_raw)
+            if count <= 0:
+                continue
+            last_ts_raw = results[base + 1]
+            last_seen = datetime.utcfromtimestamp(int(last_ts_raw)) if last_ts_raw else None
+            last_email = results[base + 2]
+            ttl_raw = results[base + 3]
+            ttl_seconds = ttl_raw if ttl_raw is not None and ttl_raw >= 0 else None
+            items.append(
+                LoginFailureItem(
+                    ip=ip,
+                    count=count,
+                    last_seen=last_seen,
+                    last_email=last_email,
+                    ttl_seconds=ttl_seconds,
+                )
             )
-        )
 
     items.sort(key=lambda item: (item.count, item.last_seen or datetime.min), reverse=True)
     return LoginFailureResponse(items=items[:limit], total=len(items))
@@ -1378,9 +1390,8 @@ async def export_users(
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """导出用户数据为 CSV"""
+    """导出用户数据为 CSV（限制最多导出 10000 条记录）"""
     from fastapi.responses import StreamingResponse
-    import io
     import csv
 
     # 构建查询（复用筛选逻辑）
@@ -1414,20 +1425,32 @@ async def export_users(
             pass
 
     query = query.order_by(User.created_at.desc())
+
+    # 限制导出数量，防止内存溢出
+    query = query.limit(10000)
+
     result = await db.execute(query)
     users = result.scalars().all()
 
-    # 创建 CSV
+    # 创建 CSV（优化格式）
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
 
-    # 写入 BOM 以支持 Excel 中文
+    # 写入 UTF-8 BOM 以支持 Excel 中文
     output.write('\ufeff')
+
+    # 写入标题行
+    export_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    writer.writerow(['NanoBanana 用户数据导出'])
+    writer.writerow([f'导出时间: {export_time}'])
+    writer.writerow([f'导出人: {admin.email}'])
+    writer.writerow([f'记录数量: {len(users)}'])
+    writer.writerow([])  # 空行
 
     # 写入表头
     writer.writerow([
-        '用户ID', '邮箱', '昵称', '管理员', '状态', '余额',
-        '注册时间', '最后登录', '登录IP', '备注'
+        '用户ID', '邮箱地址', '昵称', '管理员', '账户状态',
+        '积分余额', '注册时间', '最后登录时间', '登录IP', '备注'
     ])
 
     # 写入数据
@@ -1435,26 +1458,27 @@ async def export_users(
         writer.writerow([
             user.id,
             user.email,
-            user.nickname or '',
-            '是' if user.is_admin else '否',
-            '启用' if user.is_active else '禁用',
+            user.nickname or '-',
+            '管理员' if user.is_admin else '普通用户',
+            '正常' if user.is_active else '已禁用',
             user.credit_balance,
-            user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else '',
-            user.last_login_at.strftime('%Y-%m-%d %H:%M:%S') if user.last_login_at else '',
-            user.last_login_ip or '',
-            user.note or '',
+            user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else '-',
+            user.last_login_at.strftime('%Y-%m-%d %H:%M:%S') if user.last_login_at else '-',
+            user.last_login_ip or '-',
+            user.note or '-',
         ])
 
     # 记录导出操作
-    logger.info(f"Admin {admin.email} exported {len(users)} users")
+    logger.info("Admin %s exported %s users", admin.email, len(users))
 
     # 返回 CSV 文件
     output.seek(0)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8-sig')),
-        media_type='text/csv',
+        media_type='text/csv; charset=utf-8-sig',
         headers={
-            'Content-Disposition': f'attachment; filename=users_export_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.csv'
+            'Content-Disposition': f"attachment; filename=NanoBanana_用户_{timestamp}.csv"
         }
     )
 
@@ -1569,8 +1593,6 @@ async def delete_email_whitelist(
     await delete_cache(EMAIL_WHITELIST_CACHE_KEY)
 
     return {"message": "白名单已删除"}
-
-    return {"message": "删除成功"}
 
 
 # ============ 邮件配置管理 ============
@@ -2064,28 +2086,36 @@ async def get_user_conversation_timeline(
     date_result = await db.execute(date_query)
     date_rows = date_result.all()
 
-    # 构建时间线
+    # 构建时间线（批量取对话，避免 N+1）
     timeline = []
-    for date_obj, conv_count, msg_count in date_rows:
-        date_str = str(date_obj)
+    date_values = [row[0] for row in date_rows]
+    conversations_by_date: dict[str, list[AdminConversationResponse]] = {}
 
-        # 获取该日期的所有对话
+    if date_values:
         convs_result = await db.execute(
-            select(Conversation, User.email, User.nickname)
+            select(
+                Conversation,
+                User.email,
+                User.nickname,
+                cast(Conversation.created_at, Date).label("created_date"),
+            )
             .outerjoin(User, Conversation.user_id == User.id)
             .where(Conversation.user_id == user_id)
-            .where(cast(Conversation.created_at, Date) == date_obj)
+            .where(cast(Conversation.created_at, Date).in_(date_values))
             .order_by(Conversation.created_at.desc())
         )
-        conv_rows = convs_result.all()
-
-        conversations = []
-        for conv, user_email, user_nickname in conv_rows:
+        for conv, user_email, user_nickname, created_date in convs_result.all():
             conv_dict = AdminConversationResponse.model_validate(conv).model_dump()
             conv_dict["user_email"] = user_email or "未知用户"
             conv_dict["user_nickname"] = user_nickname
-            conversations.append(AdminConversationResponse(**conv_dict))
+            date_key = str(created_date)
+            conversations_by_date.setdefault(date_key, []).append(
+                AdminConversationResponse(**conv_dict)
+            )
 
+    for date_obj, conv_count, msg_count in date_rows:
+        date_str = str(date_obj)
+        conversations = conversations_by_date.get(date_str, [])
         timeline.append(
             ConversationTimelineItem(
                 date=date_str,
@@ -2346,11 +2376,8 @@ async def get_visitor_detail(
 ):
     """获取游客详情（包括对话列表）"""
     from app.models.conversation import Conversation
-    from sqlalchemy.orm import selectinload
-
     result = await db.execute(
         select(Visitor)
-        .options(selectinload(Visitor))
         .where(Visitor.visitor_id == visitor_id)
     )
     visitor = result.scalar_one_or_none()

@@ -169,7 +169,6 @@ async def get_prompts():
     
     # Fallback default
     return {"categories": []}
-settings = get_settings()
 
 
 def configure_logging() -> None:

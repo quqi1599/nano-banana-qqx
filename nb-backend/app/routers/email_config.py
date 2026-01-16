@@ -8,11 +8,13 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.database import get_db
 from app.models.smtp_config import SmtpConfig
+from app.models.user import User
 from app.services.email_service_v2 import (
     send_test_email,
     PRESET_PROVIDERS,
     create_sender,
 )
+from app.utils.security import get_admin_user
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,7 +80,7 @@ class SmtpConfigUpdate(BaseModel):
 
 
 class SmtpConfigResponse(BaseModel):
-    """SMTP 配置响应"""
+    """SMTP 配置响应（不包含敏感信息）"""
     id: str
     name: str
     provider: str
@@ -87,11 +89,12 @@ class SmtpConfigResponse(BaseModel):
     smtp_port: int
     smtp_encryption: str
     smtp_user: Optional[str] = None
-    smtp_password: Optional[str] = None
+    # 注意：不返回 smtp_password 和 api_key，仅表示是否存在
+    has_password: bool = False
+    has_api_key: bool = False
     from_email: Optional[str] = None
     from_name: str
     reply_to: Optional[str] = None
-    api_key: Optional[str] = None
     api_url: Optional[str] = None
     is_enabled: bool
     is_default: bool
@@ -100,6 +103,33 @@ class SmtpConfigResponse(BaseModel):
     description: Optional[str] = None
     created_at: str
     updated_at: str
+
+
+def _map_config_to_response(config: SmtpConfig) -> SmtpConfigResponse:
+    """辅助函数：将 SmtpConfig 映射到 SmtpConfigResponse（避免代码重复）"""
+    return SmtpConfigResponse(
+        id=config.id,
+        name=config.name,
+        provider=config.provider,
+        provider_name=SmtpConfig.PROVIDERS.get(config.provider, config.provider),
+        smtp_host=config.smtp_host,
+        smtp_port=config.smtp_port,
+        smtp_encryption=config.smtp_encryption,
+        smtp_user=config.smtp_user,
+        has_password=bool(config.smtp_password),
+        has_api_key=bool(config.api_key),
+        from_email=config.from_email,
+        from_name=config.from_name,
+        reply_to=config.reply_to,
+        api_url=config.api_url,
+        is_enabled=config.is_enabled,
+        is_default=config.is_default,
+        daily_limit=config.daily_limit,
+        hourly_limit=config.hourly_limit,
+        description=config.description,
+        created_at=config.created_at.isoformat(),
+        updated_at=config.updated_at.isoformat(),
+    )
 
 
 class TestEmailRequest(BaseModel):
@@ -140,6 +170,7 @@ async def get_providers():
 @router.get("/configs", response_model=List[SmtpConfigResponse])
 async def list_configs(
     enabled_only: bool = Query(False, description="仅显示启用的配置"),
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取所有邮件配置列表"""
@@ -151,36 +182,12 @@ async def list_configs(
     result = await db.execute(query)
     configs = result.scalars().all()
 
-    return [
-        SmtpConfigResponse(
-            id=config.id,
-            name=config.name,
-            provider=config.provider,
-            provider_name=SmtpConfig.PROVIDERS.get(config.provider, config.provider),
-            smtp_host=config.smtp_host,
-            smtp_port=config.smtp_port,
-            smtp_encryption=config.smtp_encryption,
-            smtp_user=config.smtp_user,
-            smtp_password="***" if config.smtp_password else None,
-            from_email=config.from_email,
-            from_name=config.from_name,
-            reply_to=config.reply_to,
-            api_key="***" if config.api_key else None,
-            api_url=config.api_url,
-            is_enabled=config.is_enabled,
-            is_default=config.is_default,
-            daily_limit=config.daily_limit,
-            hourly_limit=config.hourly_limit,
-            description=config.description,
-            created_at=config.created_at.isoformat(),
-            updated_at=config.updated_at.isoformat(),
-        )
-        for config in configs
-    ]
+    return [_map_config_to_response(config) for config in configs]
 
 
 @router.get("/configs/summary", response_model=EmailSettingsSummary)
 async def get_settings_summary(
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取邮件配置概要"""
@@ -191,32 +198,7 @@ async def get_settings_summary(
 
     enabled_configs = [c for c in configs if c.is_enabled]
     default_config = next((c for c in configs if c.is_default), None)
-    default_response = None
-
-    if default_config:
-        default_response = SmtpConfigResponse(
-            id=default_config.id,
-            name=default_config.name,
-            provider=default_config.provider,
-            provider_name=SmtpConfig.PROVIDERS.get(default_config.provider, default_config.provider),
-            smtp_host=default_config.smtp_host,
-            smtp_port=default_config.smtp_port,
-            smtp_encryption=default_config.smtp_encryption,
-            smtp_user=default_config.smtp_user,
-            smtp_password="***" if default_config.smtp_password else None,
-            from_email=default_config.from_email,
-            from_name=default_config.from_name,
-            reply_to=default_config.reply_to,
-            api_key="***" if default_config.api_key else None,
-            api_url=default_config.api_url,
-            is_enabled=default_config.is_enabled,
-            is_default=default_config.is_default,
-            daily_limit=default_config.daily_limit,
-            hourly_limit=default_config.hourly_limit,
-            description=default_config.description,
-            created_at=default_config.created_at.isoformat(),
-            updated_at=default_config.updated_at.isoformat(),
-        )
+    default_response = _map_config_to_response(default_config) if default_config else None
 
     providers = [
         ProviderInfo(
@@ -241,6 +223,7 @@ async def get_settings_summary(
 @router.get("/configs/{config_id}", response_model=SmtpConfigResponse)
 async def get_config(
     config_id: str,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """获取单个邮件配置详情"""
@@ -250,46 +233,16 @@ async def get_config(
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
 
-    return SmtpConfigResponse(
-        id=config.id,
-        name=config.name,
-        provider=config.provider,
-        provider_name=SmtpConfig.PROVIDERS.get(config.provider, config.provider),
-        smtp_host=config.smtp_host,
-        smtp_port=config.smtp_port,
-        smtp_encryption=config.smtp_encryption,
-        smtp_user=config.smtp_user,
-        smtp_password="***" if config.smtp_password else None,
-        from_email=config.from_email,
-        from_name=config.from_name,
-        reply_to=config.reply_to,
-        api_key="***" if config.api_key else None,
-        api_url=config.api_url,
-        is_enabled=config.is_enabled,
-        is_default=config.is_default,
-        daily_limit=config.daily_limit,
-        hourly_limit=config.hourly_limit,
-        description=config.description,
-        created_at=config.created_at.isoformat(),
-        updated_at=config.updated_at.isoformat(),
-    )
+    return _map_config_to_response(config)
 
 
 @router.post("/configs", response_model=SmtpConfigResponse)
 async def create_config(
     data: SmtpConfigCreate,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """创建新的邮件配置"""
-    # 如果设置为默认，取消其他配置的默认状态
-    if data.is_default:
-        await db.execute(
-            select(SmtpConfig).where(SmtpConfig.is_default == True)
-        )
-        result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
-        for config in result.scalars().all():
-            config.is_default = False
-
     # 应用预设配置
     preset = PRESET_PROVIDERS.get(data.provider)
     if preset:
@@ -301,61 +254,48 @@ async def create_config(
         smtp_port = data.smtp_port or 465
         smtp_encryption = data.smtp_encryption
 
-    config = SmtpConfig(
-        name=data.name,
-        provider=data.provider,
-        smtp_host=smtp_host,
-        smtp_port=smtp_port,
-        smtp_encryption=smtp_encryption,
-        smtp_user=data.smtp_user,
-        smtp_password=data.smtp_password,
-        from_email=data.from_email,
-        from_name=data.from_name,
-        reply_to=data.reply_to,
-        api_key=data.api_key,
-        api_url=data.api_url,
-        is_enabled=data.is_enabled,
-        is_default=data.is_default,
-        daily_limit=data.daily_limit,
-        hourly_limit=data.hourly_limit,
-        description=data.description,
-    )
+    # 使用事务确保数据一致性
+    async with db.begin():
+        # 如果设置为默认，取消其他配置的默认状态
+        if data.is_default:
+            result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
+            for config in result.scalars().all():
+                config.is_default = False
 
-    db.add(config)
-    await db.commit()
+        config = SmtpConfig(
+            name=data.name,
+            provider=data.provider,
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_encryption=smtp_encryption,
+            smtp_user=data.smtp_user,
+            smtp_password=data.smtp_password,
+            from_email=data.from_email,
+            from_name=data.from_name,
+            reply_to=data.reply_to,
+            api_key=data.api_key,
+            api_url=data.api_url,
+            is_enabled=data.is_enabled,
+            is_default=data.is_default,
+            daily_limit=data.daily_limit,
+            hourly_limit=data.hourly_limit,
+            description=data.description,
+        )
+
+        db.add(config)
+
     await db.refresh(config)
 
-    logger.info(f"Created email config: {config.id} ({config.name}, provider={config.provider})")
+    logger.info("Created email config: %s (provider=%s)", config.id, config.provider)
 
-    return SmtpConfigResponse(
-        id=config.id,
-        name=config.name,
-        provider=config.provider,
-        provider_name=SmtpConfig.PROVIDERS.get(config.provider, config.provider),
-        smtp_host=config.smtp_host,
-        smtp_port=config.smtp_port,
-        smtp_encryption=config.smtp_encryption,
-        smtp_user=config.smtp_user,
-        smtp_password="***" if config.smtp_password else None,
-        from_email=config.from_email,
-        from_name=config.from_name,
-        reply_to=config.reply_to,
-        api_key="***" if config.api_key else None,
-        api_url=config.api_url,
-        is_enabled=config.is_enabled,
-        is_default=config.is_default,
-        daily_limit=config.daily_limit,
-        hourly_limit=config.hourly_limit,
-        description=config.description,
-        created_at=config.created_at.isoformat(),
-        updated_at=config.updated_at.isoformat(),
-    )
+    return _map_config_to_response(config)
 
 
 @router.put("/configs/{config_id}", response_model=SmtpConfigResponse)
 async def update_config(
     config_id: str,
     data: SmtpConfigUpdate,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """更新邮件配置"""
@@ -365,81 +305,61 @@ async def update_config(
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
 
-    # 如果设置为默认，取消其他配置的默认状态
-    if data.is_default is True and not config.is_default:
-        other_result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
-        for other_config in other_result.scalars().all():
-            other_config.is_default = False
+    # 使用事务确保数据一致性
+    async with db.begin():
+        # 如果设置为默认，取消其他配置的默认状态
+        if data.is_default is True and not config.is_default:
+            other_result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
+            for other_config in other_result.scalars().all():
+                other_config.is_default = False
 
-    # 更新字段
-    if data.name is not None:
-        config.name = data.name
-    if data.provider is not None:
-        config.provider = data.provider
-    if data.smtp_host is not None:
-        config.smtp_host = data.smtp_host
-    if data.smtp_port is not None:
-        config.smtp_port = data.smtp_port
-    if data.smtp_encryption is not None:
-        config.smtp_encryption = data.smtp_encryption
-    if data.smtp_user is not None:
-        config.smtp_user = data.smtp_user
-    if data.smtp_password is not None:
-        config.smtp_password = data.smtp_password
-    if data.from_email is not None:
-        config.from_email = data.from_email
-    if data.from_name is not None:
-        config.from_name = data.from_name
-    if data.reply_to is not None:
-        config.reply_to = data.reply_to
-    if data.api_key is not None:
-        config.api_key = data.api_key
-    if data.api_url is not None:
-        config.api_url = data.api_url
-    if data.is_enabled is not None:
-        config.is_enabled = data.is_enabled
-    if data.is_default is not None:
-        config.is_default = data.is_default
-    if data.daily_limit is not None:
-        config.daily_limit = data.daily_limit
-    if data.hourly_limit is not None:
-        config.hourly_limit = data.hourly_limit
-    if data.description is not None:
-        config.description = data.description
+        # 更新字段
+        if data.name is not None:
+            config.name = data.name
+        if data.provider is not None:
+            config.provider = data.provider
+        if data.smtp_host is not None:
+            config.smtp_host = data.smtp_host
+        if data.smtp_port is not None:
+            config.smtp_port = data.smtp_port
+        if data.smtp_encryption is not None:
+            config.smtp_encryption = data.smtp_encryption
+        if data.smtp_user is not None:
+            config.smtp_user = data.smtp_user
+        if data.smtp_password is not None:
+            config.smtp_password = data.smtp_password
+        if data.from_email is not None:
+            config.from_email = data.from_email
+        if data.from_name is not None:
+            config.from_name = data.from_name
+        if data.reply_to is not None:
+            config.reply_to = data.reply_to
+        if data.api_key is not None:
+            config.api_key = data.api_key
+        if data.api_url is not None:
+            config.api_url = data.api_url
+        if data.is_enabled is not None:
+            config.is_enabled = data.is_enabled
+        if data.is_default is not None:
+            config.is_default = data.is_default
+        if data.daily_limit is not None:
+            config.daily_limit = data.daily_limit
+        if data.hourly_limit is not None:
+            config.hourly_limit = data.hourly_limit
+        if data.description is not None:
+            config.description = data.description
 
-    await db.commit()
     await db.refresh(config)
 
-    logger.info(f"Updated email config: {config.id} ({config.name})")
+    logger.info("Updated email config: %s", config.id)
 
-    return SmtpConfigResponse(
-        id=config.id,
-        name=config.name,
-        provider=config.provider,
-        provider_name=SmtpConfig.PROVIDERS.get(config.provider, config.provider),
-        smtp_host=config.smtp_host,
-        smtp_port=config.smtp_port,
-        smtp_encryption=config.smtp_encryption,
-        smtp_user=config.smtp_user,
-        smtp_password="***" if config.smtp_password else None,
-        from_email=config.from_email,
-        from_name=config.from_name,
-        reply_to=config.reply_to,
-        api_key="***" if config.api_key else None,
-        api_url=config.api_url,
-        is_enabled=config.is_enabled,
-        is_default=config.is_default,
-        daily_limit=config.daily_limit,
-        hourly_limit=config.hourly_limit,
-        description=config.description,
-        created_at=config.created_at.isoformat(),
-        updated_at=config.updated_at.isoformat(),
-    )
+    return _map_config_to_response(config)
 
 
 @router.delete("/configs/{config_id}")
 async def delete_config(
     config_id: str,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """删除邮件配置"""
@@ -452,7 +372,7 @@ async def delete_config(
     await db.delete(config)
     await db.commit()
 
-    logger.info(f"Deleted email config: {config_id}")
+    logger.info("Deleted email config: %s", config_id)
 
     return {"message": "配置已删除"}
 
@@ -460,6 +380,7 @@ async def delete_config(
 @router.post("/configs/{config_id}/set-default")
 async def set_default_config(
     config_id: str,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """设置默认邮件配置"""
@@ -477,7 +398,7 @@ async def set_default_config(
     config.is_default = True
     await db.commit()
 
-    logger.info(f"Set default email config: {config_id}")
+    logger.info("Set default email config: %s", config_id)
 
     return {"message": "已设置为默认配置"}
 
@@ -485,6 +406,7 @@ async def set_default_config(
 @router.post("/configs/{config_id}/toggle")
 async def toggle_config(
     config_id: str,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """切换邮件配置启用状态"""
@@ -497,7 +419,7 @@ async def toggle_config(
     config.is_enabled = not config.is_enabled
     await db.commit()
 
-    logger.info(f"Toggled email config {config_id}: is_enabled={config.is_enabled}")
+    logger.info("Toggled email config %s: is_enabled=%s", config_id, config.is_enabled)
 
     return {
         "message": f"配置已{'启用' if config.is_enabled else '禁用'}",
@@ -508,9 +430,10 @@ async def toggle_config(
 @router.post("/test-send")
 async def test_send(
     data: TestEmailRequest,
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """发送测试邮件"""
+    """发送测试邮件，返回详细诊断信息"""
     config = None
 
     if data.config_id:
@@ -544,20 +467,46 @@ async def test_send(
         "reply_to": config.reply_to,
         "api_key": config.api_key,
         "api_url": config.api_url,
+        "domain": config.api_url,  # For Mailgun
     }
 
     sender = create_sender(config_dict)
     provider_name = SmtpConfig.PROVIDERS.get(config.provider, config.provider)
 
-    success = sender.send(
-        data.test_email,
-        f"【NanoBanana】邮件配置测试 - {provider_name}",
-        f"<p>这是来自 {provider_name} 的测试邮件。</p><p>如果您收到此邮件，说明配置成功！</p>",
+    # 构建测试邮件 HTML
+    from datetime import datetime
+    send_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 导入邮件模板函数
+    from app.services.email_service import (
+        _header, _content, _footer, _email_wrapper, _container
     )
 
-    logger.info(f"Test email sent to {data.test_email}: success={success}")
+    content = _header("📧", "邮件配置测试", f"测试 {provider_name} 邮件服务", "#10b981")
+    content += _content(f"""
+<p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #6b7280; margin-bottom: 16px;">
+    如果您收到这封邮件，说明 <strong>{provider_name}</strong> 邮件服务配置成功！
+</p>
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
+    <tr>
+        <td style="background-color: #ecfdf5; border-left: 4px solid #10b981; border-radius: 0 12px 12px 0; padding: 20px;">
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px; font-weight: 600; color: #065f46; margin-bottom: 8px;">配置信息</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #047857;">
+                提供商: {provider_name}<br>
+                收件人: {data.test_email}<br>
+                发送时间: {send_time}
+            </p>
+        </td>
+    </tr>
+</table>
+""")
+    content += _footer("这是一封测试邮件，请勿回复")
 
-    return {
-        "message": "测试邮件发送成功" if success else "测试邮件发送失败，请检查配置",
-        "success": success,
-    }
+    html = _email_wrapper(_container(content))
+
+    # 发送并获取详细结果
+    result = sender.send(data.test_email, f"【NanoBanana】邮件配置测试 - {provider_name}", html)
+
+    logger.info("Test email sent: success=%s, error_type=%s", result.get("success"), result.get("error_type"))
+
+    return result

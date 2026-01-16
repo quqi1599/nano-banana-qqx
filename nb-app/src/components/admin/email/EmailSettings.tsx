@@ -33,6 +33,7 @@ import {
   type ProviderInfo,
   type SmtpConfigInfo,
   type SmtpConfigCreate,
+  type TestEmailResult,
 } from '../../../services/adminService';
 
 // 类型安全的输入值获取函数
@@ -51,9 +52,10 @@ export const EmailSettings: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SmtpConfigInfo | null>(null);
-  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
+  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({ edit: false });
   const [testingEmail, setTestingEmail] = useState<string | null>(null);
   const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [testResult, setTestResult] = useState<TestEmailResult | null>(null);
 
   // 表单状态
   const [formData, setFormData] = useState<SmtpConfigCreate>({
@@ -187,14 +189,18 @@ export const EmailSettings: React.FC = () => {
       return;
     }
     setTestingEmail(configId || 'default');
+    setTestResult(null);
     try {
       const result = await testSendEmail(configId, testEmailAddress);
-      alert(result.message);
+      setTestResult(result);
       if (result.success) {
         setTestEmailAddress('');
       }
     } catch (error: any) {
-      alert(error.message || '发送失败');
+      setTestResult({
+        success: false,
+        message: error.message || '发送失败',
+      });
     } finally {
       setTestingEmail(null);
     }
@@ -771,6 +777,75 @@ export const EmailSettings: React.FC = () => {
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-2">使用默认配置发送测试邮件</p>
+
+        {/* 测试结果反馈 */}
+        {testResult && (
+          <div className={`mt-4 rounded-xl p-4 border ${
+            testResult.success
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+          }`}>
+            <div className="flex items-start gap-3">
+              {testResult.success ? (
+                <Check size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+              ) : (
+                <X size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className={`font-medium ${
+                  testResult.success
+                    ? 'text-green-800 dark:text-green-300'
+                    : 'text-red-800 dark:text-red-300'
+                }`}>
+                  {testResult.message}
+                </p>
+
+                {/* 详细信息 */}
+                {testResult.details && (
+                  <div className="mt-3 space-y-2 text-sm">
+                    {testResult.details.provider && (
+                      <p className="text-gray-600 dark:text-gray-400">
+                        提供商: <span className="font-medium">{testResult.details.provider}</span>
+                      </p>
+                    )}
+                    {testResult.details.connection && (
+                      <div className="text-gray-600 dark:text-gray-400 space-y-1">
+                        <p>服务器: <span className="font-mono text-xs">{testResult.details.connection.host}</span></p>
+                        <p>端口: <span className="font-mono">{testResult.details.connection.port}</span></p>
+                        <p>加密: <span className="font-mono">{testResult.details.connection.encryption}</span></p>
+                      </div>
+                    )}
+                    {testResult.details.timestamp && (
+                      <p className="text-gray-500 dark:text-gray-500 text-xs">
+                        发送时间: {testResult.details.timestamp}
+                      </p>
+                    )}
+                    {testResult.details.hint && (
+                      <p className="text-amber-700 dark:text-amber-400 mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                        💡 {testResult.details.hint}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 错误类型提示 */}
+                {testResult.error_type && !testResult.success && (
+                  <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      错误类型: <code className="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">{testResult.error_type}</code>
+                    </p>
+                    {testResult.error_type === 'authentication_error' && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        阿里云邮件推送需要使用 SMTP 密码，而非邮箱登录密码。
+                        请在阿里云控制台创建 SMTP 密码。
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

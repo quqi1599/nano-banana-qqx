@@ -3,10 +3,11 @@
 跟踪游客使用的自定义 API 端点
 """
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import String, Integer, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
+from app.utils.timezone import utc_now_naive
 
 
 class Visitor(Base):
@@ -29,10 +30,10 @@ class Visitor(Base):
     image_count: Mapped[int] = mapped_column(Integer, default=0)
 
     first_seen: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+        DateTime, default=utc_now_naive
     )
     last_seen: Mapped[datetime] = mapped_column(
         DateTime,
-        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
-        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+        default=utc_now_naive,
+        onupdate=utc_now_naive
     )

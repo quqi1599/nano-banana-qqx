@@ -11,7 +11,26 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from functools import wraps
 
-from app.database import async_session_maker
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.config import get_settings
+
+_sync_engine = None
+_SessionLocal: Optional[sessionmaker] = None
+
+
+def _get_sync_sessionmaker() -> sessionmaker:
+    global _sync_engine, _SessionLocal
+    if _SessionLocal is None:
+        settings = get_settings()
+        _sync_engine = create_engine(
+            settings.database_url.replace("postgresql+asyncpg://", "postgresql://"),
+            pool_pre_ping=True,
+            pool_size=5,
+            max_overflow=10,
+        )
+        _SessionLocal = sessionmaker(bind=_sync_engine)
+    return _SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -22,23 +41,7 @@ def get_task_db():
 
     注意：Celery 任务运行在单独的进程中，需要独立的数据库会话
     """
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import Session, sessionmaker
-
-    from app.config import get_settings
-
-    settings = get_settings()
-
-    # 创建同步引擎（用于 Celery 任务）
-    sync_engine = create_engine(
-        settings.database_url.replace("postgresql+asyncpg://", "postgresql://"),
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-    )
-
-    SessionLocal = sessionmaker(bind=sync_engine)
-    return SessionLocal()
+    return _get_sync_sessionmaker()()
 
 
 def record_task_result(

@@ -4,6 +4,7 @@
 from datetime import datetime, timedelta, date as date_type
 from io import StringIO
 import csv
+import hashlib
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,16 @@ from app.utils.cache import get_cached_json, set_cached_json
 router = APIRouter()
 
 CACHE_TTL_SECONDS = 60
-CACHE_KEY_PREFIX = "stats:dashboard:v2"
+CACHE_KEY_PREFIX = "stats:dashboard:v3"
+
+
+def _generate_cache_key(start_dt: date_type, end_dt: date_type,
+                         include_daily: bool, include_model: bool,
+                         include_growth: bool) -> str:
+    """生成固定长度的缓存键（使用哈希避免键过长）"""
+    key_data = f"{start_dt.isoformat()}:{end_dt.isoformat()}:{include_daily}:{include_model}:{include_growth}"
+    hash_hex = hashlib.md5(key_data.encode()).hexdigest()[:16]
+    return f"{CACHE_KEY_PREFIX}:{hash_hex}"
 
 
 @router.get("/dashboard", response_model=DashboardStats)
@@ -60,10 +70,9 @@ async def get_dashboard(
     # 限制最大范围为90天
     if (end_dt - start_dt).days > 90:
         start_dt = end_dt - timedelta(days=90)
-    
-    cache_key = (
-        f"{CACHE_KEY_PREFIX}:{start_dt.isoformat()}:{end_dt.isoformat()}:"
-        f"{int(include_daily_stats)}:{int(include_model_stats)}:{int(include_user_growth)}"
+
+    cache_key = _generate_cache_key(
+        start_dt, end_dt, include_daily_stats, include_model_stats, include_user_growth
     )
     cached = await get_cached_json(cache_key)
     if cached is not None:
@@ -123,25 +132,36 @@ async def get_dashboard(
     )
     available_tokens = available_tokens_result.scalar() or 0
     
-    # 按日期范围的每日统计
+    # 按日期范围的每日统计（使用单次 GROUP BY 查询，避免 N+1）
     daily_stats = []
     if include_daily_stats:
+        daily_result = await db.execute(
+            select(
+                cast(UsageLog.created_at, Date).label('date'),
+                func.count(UsageLog.id).label('total_requests'),
+                func.sum(UsageLog.credits_used).label('total_credits'),
+                func.count(func.distinct(UsageLog.user_id)).label('unique_users'),
+            )
+            .where(
+                and_(
+                    cast(UsageLog.created_at, Date) >= start_dt,
+                    cast(UsageLog.created_at, Date) <= end_dt
+                )
+            )
+            .group_by(cast(UsageLog.created_at, Date))
+            .order_by(cast(UsageLog.created_at, Date))
+        )
+        daily_rows = {row.date: row for row in daily_result.all()}
+
+        # 填充所有日期（包括没有数据的日期）
         current_date = start_dt
         while current_date <= end_dt:
-            daily_result = await db.execute(
-                select(
-                    func.count(UsageLog.id),
-                    func.sum(UsageLog.credits_used),
-                    func.count(func.distinct(UsageLog.user_id)),
-                ).where(cast(UsageLog.created_at, Date) == current_date)
-            )
-            row = daily_result.one()
-            
+            row = daily_rows.get(current_date)
             daily_stats.append(DailyStats(
                 date=current_date.isoformat(),
-                total_requests=row[0] or 0,
-                total_credits_used=row[1] or 0,
-                unique_users=row[2] or 0,
+                total_requests=row.total_requests if row else 0,
+                total_credits_used=row.total_credits if row else 0,
+                unique_users=row.unique_users if row else 0,
             ))
             current_date += timedelta(days=1)
     
@@ -174,32 +194,47 @@ async def get_dashboard(
             for row in model_rows
         ]
     
-    # 用户增长趋势
+    # 用户增长趋势（使用单次查询获取累计用户数）
     user_growth = []
     if include_user_growth:
-        # 获取日期范围内每日新增用户
+        # 获取所有用户的创建日期，计算累计用户数
+        user_stats_result = await db.execute(
+            select(
+                cast(User.created_at, Date).label('date'),
+                func.count(User.id).label('new_users'),
+            )
+            .where(cast(User.created_at, Date) <= end_dt)
+            .group_by(cast(User.created_at, Date))
+            .order_by(cast(User.created_at, Date))
+        )
+        user_rows = user_stats_result.all()
+
+        # 计算累计用户数
+        running_total = 0
+        user_stats_by_date = {}
+        for row in user_rows:
+            running_total += row.new_users
+            user_stats_by_date[row.date] = (row.new_users, running_total)
+
+        # 填充所有日期
         current_date = start_dt
         while current_date <= end_dt:
-            # 当日新增用户
-            new_users_result = await db.execute(
-                select(func.count(User.id)).where(
-                    cast(User.created_at, Date) == current_date
-                )
-            )
-            new_users = new_users_result.scalar() or 0
-            
-            # 截至当日总用户
-            total_users_by_date_result = await db.execute(
-                select(func.count(User.id)).where(
-                    cast(User.created_at, Date) <= current_date
-                )
-            )
-            total_users_by_date = total_users_by_date_result.scalar() or 0
-            
+            stats = user_stats_by_date.get(current_date, (0, running_total))
+            # 如果当天没有新用户，使用之前的累计数
+            if current_date not in user_stats_by_date:
+                # 找到这一天之前的累计数
+                running_total_before = 0
+                for d in sorted(user_stats_by_date.keys()):
+                    if d < current_date:
+                        running_total_before = user_stats_by_date[d][1]
+                    else:
+                        break
+                stats = (0, running_total_before)
+
             user_growth.append(UserGrowthStats(
                 date=current_date.isoformat(),
-                new_users=new_users,
-                total_users=total_users_by_date,
+                new_users=stats[0],
+                total_users=stats[1],
             ))
             current_date += timedelta(days=1)
     
@@ -228,43 +263,75 @@ async def export_stats(
     end_date: str = Query(..., description="结束日期 (YYYY-MM-DD)"),
     data_type: str = Query("daily", description="导出类型: daily, model, user_growth"),
 ):
-    """导出统计数据为 CSV"""
+    """导出统计数据为 CSV（优化格式）"""
     try:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
     except ValueError:
         start_dt = datetime.utcnow().date() - timedelta(days=6)
         end_dt = datetime.utcnow().date()
-    
+
     if start_dt > end_dt:
         start_dt, end_dt = end_dt, start_dt
-    
+
     output = StringIO()
-    writer = csv.writer(output)
-    
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+
+    # 写入 UTF-8 BOM 以支持 Excel 中文
+    output.write('\ufeff')
+
+    # 写入标题行
+    export_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    writer.writerow(['NanoBanana 统计数据导出'])
+    writer.writerow([f'导出时间: {export_time}'])
+    writer.writerow([f'统计周期: {start_date} 至 {end_date}'])
+    writer.writerow([f'导出人: {admin.email}'])
+    writer.writerow([])  # 空行
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
     if data_type == "daily":
-        writer.writerow(["日期", "请求数", "消耗积分", "活跃用户"])
+        writer.writerow([])
+        writer.writerow(['【每日统计】'])
+        writer.writerow([])
+        writer.writerow(['日期', '请求次数', '消耗积分', '活跃用户数'])
+        # 使用单次 GROUP BY 查询，避免 N+1
+        daily_result = await db.execute(
+            select(
+                cast(UsageLog.created_at, Date).label('date'),
+                func.count(UsageLog.id).label('total_requests'),
+                func.sum(UsageLog.credits_used).label('total_credits'),
+                func.count(func.distinct(UsageLog.user_id)).label('unique_users'),
+            )
+            .where(
+                and_(
+                    cast(UsageLog.created_at, Date) >= start_dt,
+                    cast(UsageLog.created_at, Date) <= end_dt
+                )
+            )
+            .group_by(cast(UsageLog.created_at, Date))
+            .order_by(cast(UsageLog.created_at, Date))
+        )
+        daily_rows = {row.date: row for row in daily_result.all()}
+
+        # 填充所有日期（包括没有数据的日期）
         current_date = start_dt
         while current_date <= end_dt:
-            result = await db.execute(
-                select(
-                    func.count(UsageLog.id),
-                    func.sum(UsageLog.credits_used),
-                    func.count(func.distinct(UsageLog.user_id)),
-                ).where(cast(UsageLog.created_at, Date) == current_date)
-            )
-            row = result.one()
+            row = daily_rows.get(current_date)
             writer.writerow([
                 current_date.isoformat(),
-                row[0] or 0,
-                row[1] or 0,
-                row[2] or 0,
+                row.total_requests if row else 0,
+                int(row.total_credits) if row and row.total_credits else 0,
+                row.unique_users if row else 0,
             ])
             current_date += timedelta(days=1)
-        filename = f"daily_stats_{start_date}_to_{end_date}.csv"
-    
+        filename = f"NanoBanana_每日统计_{start_date}_至_{end_date}_{timestamp}.csv"
+
     elif data_type == "model":
-        writer.writerow(["模型名称", "请求数", "消耗积分"])
+        writer.writerow([])
+        writer.writerow(['【模型使用统计】'])
+        writer.writerow([])
+        writer.writerow(['模型名称', '请求次数', '消耗积分'])
         result = await db.execute(
             select(
                 UsageLog.model_name,
@@ -282,46 +349,68 @@ async def export_stats(
         )
         for row in result.all():
             writer.writerow([
-                row[0] or "unknown",
+                row[0] or "未知模型",
                 row[1] or 0,
-                row[2] or 0,
+                int(row[2]) if row[2] else 0,
             ])
-        filename = f"model_stats_{start_date}_to_{end_date}.csv"
-    
+        filename = f"NanoBanana_模型统计_{start_date}_至_{end_date}_{timestamp}.csv"
+
     elif data_type == "user_growth":
-        writer.writerow(["日期", "新增用户", "累计用户"])
+        writer.writerow([])
+        writer.writerow(['【用户增长统计】'])
+        writer.writerow([])
+        writer.writerow(['日期', '新增用户数', '累计用户数'])
+        # 使用单次查询获取所有日期的新增用户数，避免 N+1
+        user_stats_result = await db.execute(
+            select(
+                cast(User.created_at, Date).label('date'),
+                func.count(User.id).label('new_users'),
+            )
+            .where(cast(User.created_at, Date) <= end_dt)
+            .group_by(cast(User.created_at, Date))
+            .order_by(cast(User.created_at, Date))
+        )
+        user_rows = user_stats_result.all()
+
+        # 计算累计用户数
+        running_total = 0
+        user_stats_by_date = {}
+        for row in user_rows:
+            running_total += row.new_users
+            user_stats_by_date[row.date] = (row.new_users, running_total)
+
+        # 填充所有日期
         current_date = start_dt
         while current_date <= end_dt:
-            new_users_result = await db.execute(
-                select(func.count(User.id)).where(
-                    cast(User.created_at, Date) == current_date
-                )
-            )
-            new_users = new_users_result.scalar() or 0
-            
-            total_users_result = await db.execute(
-                select(func.count(User.id)).where(
-                    cast(User.created_at, Date) <= current_date
-                )
-            )
-            total_users = total_users_result.scalar() or 0
-            
+            stats = user_stats_by_date.get(current_date)
+            if stats:
+                new_users, total_users = stats
+            else:
+                # 如果当天没有新用户，找到之前的累计数
+                new_users = 0
+                total_users = 0
+                for d in sorted(user_stats_by_date.keys()):
+                    if d < current_date:
+                        total_users = user_stats_by_date[d][1]
+                    else:
+                        break
+
             writer.writerow([
                 current_date.isoformat(),
                 new_users,
                 total_users,
             ])
             current_date += timedelta(days=1)
-        filename = f"user_growth_{start_date}_to_{end_date}.csv"
-    
+        filename = f"NanoBanana_用户增长_{start_date}_至_{end_date}_{timestamp}.csv"
+
     else:
         return {"error": "Invalid data_type"}
-    
+
     output.seek(0)
-    
+
     return StreamingResponse(
         iter([output.getvalue()]),
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8-sig",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 

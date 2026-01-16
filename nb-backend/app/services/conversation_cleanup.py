@@ -14,7 +14,6 @@
    - ❌ 不清理: 其他所有表
 """
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
@@ -24,11 +23,9 @@ import logging
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.conversation_cleanup import ConversationCleanup
 from app.models.user import User
+from app.utils.timezone import CHINA_TZ, china_now, to_utc
 
 logger = logging.getLogger(__name__)
-
-# 东八区时区
-CHINA_TZ = ZoneInfo("Asia/Shanghai")
 
 # 保留天数
 RETENTION_DAYS = 14
@@ -36,7 +33,7 @@ RETENTION_DAYS = 14
 
 def get_china_now() -> datetime:
     """获取当前东八区时间"""
-    return datetime.now(CHINA_TZ)
+    return china_now()
 
 
 def get_cutoff_time() -> datetime:
@@ -62,7 +59,7 @@ async def cleanup_old_conversations(db: AsyncSession, dry_run: bool = False) -> 
         清理结果统计
     """
     cutoff_time = get_cutoff_time()
-    cutoff_time_utc = cutoff_time.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    cutoff_time_utc = to_utc(cutoff_time)
 
     logger.info(f"=" * 60)
     logger.info(f"开始清理用户对话数据（14天前的对话）")

@@ -200,8 +200,8 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-select">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex flex-col border border-gray-200 dark:border-gray-800 modal-mobile-padding touch-manipulation">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
@@ -395,9 +395,9 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                     />
                     <button
                       onClick={() => removeAttachment(i)}
-                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
+                      className="absolute -right-1 -top-1 flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
@@ -456,9 +456,9 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
               <button
                 onClick={handleAddStep}
                 disabled={steps.length >= 10}
-                className="px-3 py-1 rounded-lg text-xs font-medium bg-cream-500 text-white hover:bg-cream-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-cream-500 text-white hover:bg-cream-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                <Plus className="h-3 w-3 inline mr-1" />
+                <Plus className="h-4 w-4 inline mr-1" />
                 添加步骤
               </button>
             </div>
@@ -508,7 +508,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                         <button
                           onClick={() => handleMoveStep(index, 'up')}
                           disabled={index === 0}
-                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                          className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition"
                           title="上移"
                         >
                           <ChevronUp className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -516,7 +516,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                         <button
                           onClick={() => handleMoveStep(index, 'down')}
                           disabled={index === steps.length - 1}
-                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                          className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition"
                           title="下移"
                         >
                           <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -526,7 +526,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
                     <button
                       onClick={() => handleRemoveStep(index)}
                       disabled={steps.length === 1}
-                      className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition"
                       title="删除"
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />

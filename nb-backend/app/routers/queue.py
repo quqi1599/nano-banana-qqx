@@ -183,14 +183,6 @@ async def get_tasks(
                                 "status": "pending",
                             })
 
-        if status == "failed" or status is None:
-            # 获取失败任务
-            from celery.backends.redis import RedisBackend
-            backend = celery_app.backend
-
-            # 这里简化处理，实际可以通过 celery 的 failed 任务记录获取
-            pass
-
         tasks["total"] = len(tasks["tasks"])
 
         # 分页

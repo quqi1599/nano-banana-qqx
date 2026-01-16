@@ -769,3 +769,59 @@ p {
 .dark .glow-text {
   text-shadow: 0 0 20px rgba(212, 163, 115, 0.5);
 }
+
+/* ===== 移动端触摸优化 ===== */
+/* 防止双击缩放和误触 */
+.touch-manipulation {
+    touch-action: manipulation;
+}
+
+.no-select {
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+.no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 移动端安全区域适配 */
+@supports (bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 优化移动端按钮触摸反馈 */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  [role="button"] {
+    opacity: 0.9;
+  }
+}
+
+/* 优化移动端输入框字体大小 */
+@media (max-width: 640px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea {
+    font-size: 16px; /* 防止iOS自动缩放 */
+  }
+}
+
+/* 固定元素在移动端的安全区域 */
+@supports (bottom: env(safe-area-inset-bottom)) {
+  .fixed-bottom-safe {
+    bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* 确保模态框在移动端有足够的内边距 */
+@media (max-width: 640px) {
+  .modal-mobile-padding {
+    padding: 16px 16px 24px 16px; /* top right bottom left */
+  }
+}

@@ -60,6 +60,7 @@ export interface PromptItem {
   link: string;
   mode: 'edit' | 'generate';
   category: string;
+  reference_image_urls?: string[];
 }
 
 // Pipeline 相关类型

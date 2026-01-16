@@ -5,6 +5,7 @@
 import smtplib
 import random
 import string
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -12,6 +13,7 @@ from app.config import get_settings
 
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def generate_code(length: int = 6) -> str:
@@ -24,7 +26,7 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
     发送邮件 (同步方法，建议在后台任务中调用)
     """
     if not settings.aliyun_smtp_user or not settings.aliyun_smtp_password:
-        print("⚠️ 邮件服务未配置，跳过发送")
+        logger.warning("Email service not configured, skipping send")
         return False
 
     try:
@@ -55,11 +57,20 @@ def send_email(to_email: str, subject: str, html_content: str) -> bool:
             server.login(settings.aliyun_smtp_user, settings.aliyun_smtp_password)
             server.sendmail(settings.aliyun_smtp_user, [to_email], msg.as_string())
 
-        print(f"✅ 邮件发送成功: {to_email}")
+        logger.info("Email sent successfully to %s", _sanitize_log_input(to_email))
         return True
     except Exception as e:
-        print(f"❌ 邮件发送失败: {e}")
+        # 不记录完整的异常信息，避免泄露敏感配置（如密码）
+        logger.error("Failed to send email to %s: %s", _sanitize_log_input(to_email), type(e).__name__)
         return False
+
+
+def _sanitize_log_input(email: str) -> str:
+    """清理邮箱地址用于日志记录，防止日志注入"""
+    if not email:
+        return "(empty)"
+    # 移除潜在的换行符和其他控制字符
+    return ''.join(char for char in email if char.isprintable())[:100]
 
 
 # ============================================================================

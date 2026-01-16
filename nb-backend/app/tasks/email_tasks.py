@@ -106,33 +106,65 @@ def send_verification_code_task(
     Returns:
         任务结果
     """
-    from jinja2 import Template
+    task_id = self.request.id
+    start_time = datetime.now()
 
-    subject = "登录验证码 - NanoBanana"
+    logger.info("[%s] 发送验证码邮件: %s", task_id, to_email)
 
-    html_template = Template("""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">登录验证码</h2>
-        <p>您的验证码是：</p>
-        <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
-            {{ code }}
+    try:
+        from jinja2 import Template
+
+        subject = "登录验证码 - NanoBanana"
+
+        html_template = Template("""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #333;">登录验证码</h2>
+            <p>您的验证码是：</p>
+            <div style="background: #f5f5f5; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+                {{ code }}
+            </div>
+            <p>验证码有效期：{{ expire_minutes }} 分钟</p>
+            <p style="color: #999; font-size: 12px;">请勿将验证码告知他人</p>
         </div>
-        <p>验证码有效期：{{ expire_minutes }} 分钟</p>
-        <p style="color: #999; font-size: 12px;">请勿将验证码告知他人</p>
-    </div>
-    """)
+        """)
 
-    html_content = html_template.render(code=code, expire_minutes=expire_minutes)
-    text_content = f"您的验证码是：{code}，有效期 {expire_minutes} 分钟。"
+        html_content = html_template.render(code=code, expire_minutes=expire_minutes)
+        text_content = f"您的验证码是：{code}，有效期 {expire_minutes} 分钟。"
 
-    # 调用邮件发送任务
-    return send_email_task.delay(
-        to_email=to_email,
-        subject=subject,
-        html_content=html_content,
-        text_content=text_content,
-        category="verification",
-    )
+        # 直接调用邮件发送函数（不使用 delay，因为在任务中）
+        from app.services.email_service import send_email
+
+        result = send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+        )
+
+        duration = (datetime.now() - start_time).total_seconds()
+
+        return record_task_result(
+            task_id=task_id,
+            task_name="send_verification_code",
+            status="success" if result else "failed",
+            result={"to_email": to_email, "sent": result},
+            duration=duration,
+        )
+
+    except Exception as e:
+        logger.error("[%s] 验证码邮件发送失败: %s", task_id, e)
+
+        duration = (datetime.now() - start_time).total_seconds()
+
+        record_task_result(
+            task_id=task_id,
+            task_name="send_verification_code",
+            status="failed",
+            error=str(e),
+            duration=duration,
+        )
+
+        raise self.retry(exc=e)
 
 
 @celery_app.task(

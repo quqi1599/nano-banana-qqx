@@ -19,6 +19,7 @@ interface AdminOverviewProps {
 
 export const AdminOverview: React.FC<AdminOverviewProps> = ({
     stats,
+    isLoading,
     modelStatsLoading,
     dailyStatsLoading,
     modelStatsLoaded,
@@ -29,7 +30,26 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
     loginFailuresLoading,
     onReloadLoginFailures,
 }) => {
-    if (!stats) return null;
+    // Show loading state when data is being loaded
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-amber-500 border-t-transparent mb-2"></div>
+                    <p className="text-gray-500 text-sm">加载中...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show empty state when stats is null but not loading
+    if (!stats) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <p className="text-gray-400 text-sm">暂无数据</p>
+            </div>
+        );
+    }
 
     const formatShortDate = (value?: string | null) => {
         if (!value) return '—';

@@ -5,14 +5,29 @@
 import smtplib
 import random
 import string
+import logging
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, Dict, Any
 import httpx
 
 from app.config import get_settings
+from app.services.email_service import (
+    _email_wrapper, _container, _header, _content,
+    _code_box, _tips_box, _divider, _footer
+)
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+def _sanitize_log_input(email: str) -> str:
+    """清理邮箱地址用于日志记录，防止日志注入"""
+    if not email:
+        return "(empty)"
+    # 移除潜在的换行符和其他控制字符
+    return ''.join(char for char in email if char.isprintable())[:100]
 
 
 # ============================================================================
@@ -79,8 +94,8 @@ class EmailSender:
         self.api_key = config.get("api_key", "")
         self.api_url = config.get("api_url", "")
 
-    def send(self, to_email: str, subject: str, html_content: str) -> bool:
-        """发送邮件"""
+    def send(self, to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
+        """发送邮件，返回详细结果"""
         raise NotImplementedError
 
 
@@ -91,11 +106,33 @@ class EmailSender:
 class SmtpSender(EmailSender):
     """SMTP 邮件发送器 - 支持标准 SMTP 协议"""
 
-    def send(self, to_email: str, subject: str, html_content: str) -> bool:
-        """通过 SMTP 发送邮件"""
-        if not self.smtp_user or not self.smtp_password:
-            print("⚠️ SMTP 配置不完整，跳过发送")
-            return False
+    def send(self, to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
+        """通过 SMTP 发送邮件，返回详细结果"""
+        result = {
+            "success": False,
+            "message": "",
+            "error_type": "",
+            "details": {}
+        }
+
+        # 配置检查
+        if not self.smtp_user:
+            result["message"] = "SMTP 用户名未配置"
+            result["error_type"] = "config_error"
+            result["details"]["missing_field"] = "smtp_user"
+            return result
+
+        if not self.smtp_password:
+            result["message"] = "SMTP 密码未配置"
+            result["error_type"] = "config_error"
+            result["details"]["missing_field"] = "smtp_password"
+            return result
+
+        if not self.smtp_host:
+            result["message"] = "SMTP 服务器地址未配置"
+            result["error_type"] = "config_error"
+            result["details"]["missing_field"] = "smtp_host"
+            return result
 
         try:
             msg = MIMEMultipart('alternative')
@@ -113,6 +150,14 @@ class SmtpSender(EmailSender):
             use_ssl = self.smtp_port == 465 or self.smtp_encryption == "ssl"
             use_tls = self.smtp_encryption == "tls"
 
+            connection_info = {
+                "host": self.smtp_host,
+                "port": self.smtp_port,
+                "encryption": "SSL/TLS" if use_ssl else ("STARTTLS" if use_tls else "None"),
+                "from": self.from_email,
+                "to": to_email
+            }
+
             if use_ssl:
                 server = smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=20)
             else:
@@ -126,11 +171,66 @@ class SmtpSender(EmailSender):
                 server.login(self.smtp_user, self.smtp_password)
                 server.sendmail(self.from_email, [to_email], msg.as_string())
 
-            print(f"✅ 邮件发送成功: {to_email}")
-            return True
+            logger.info("SMTP email sent successfully to %s", _sanitize_log_input(to_email))
+            result["success"] = True
+            result["message"] = "邮件发送成功"
+            result["details"] = {
+                "connection": connection_info,
+                "provider": self._detect_provider(),
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            return result
+
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error("SMTP auth failed to %s: %s", _sanitize_log_input(to_email), str(e))
+            result["message"] = "SMTP 认证失败：用户名或密码错误"
+            result["error_type"] = "authentication_error"
+            result["details"]["hint"] = "请检查 SMTP 用户名和密码是否正确（阿里云需使用 SMTP 密码，非邮箱密码）"
+            return result
+
+        except smtplib.SMTPConnectError as e:
+            logger.error("SMTP connect failed to %s: %s", _sanitize_log_input(to_email), str(e))
+            result["message"] = f"无法连接到 SMTP 服务器 {self.smtp_host}:{self.smtp_port}"
+            result["error_type"] = "connection_error"
+            result["details"]["hint"] = "请检查服务器地址和端口是否正确，网络是否正常"
+            return result
+
+        except smtplib.SMTPException as e:
+            logger.error("SMTP error to %s: %s", _sanitize_log_input(to_email), str(e))
+            result["message"] = f"SMTP 错误: {str(e)}"
+            result["error_type"] = "smtp_error"
+            return result
+
+        except TimeoutError as e:
+            logger.error("SMTP timeout to %s", _sanitize_log_input(to_email))
+            result["message"] = "连接超时，请检查网络或稍后重试"
+            result["error_type"] = "timeout_error"
+            result["details"]["hint"] = "可能是网络延迟或服务器响应过慢"
+            return result
+
         except Exception as e:
-            print(f"❌ 邮件发送失败: {e}")
-            return False
+            logger.error("SMTP send failed to %s: %s", _sanitize_log_input(to_email), type(e).__name__)
+            result["message"] = f"发送失败: {type(e).__name__}"
+            result["error_type"] = "unknown_error"
+            return result
+
+    def _detect_provider(self) -> str:
+        """根据 SMTP 地址检测邮件服务商"""
+        host = self.smtp_host.lower()
+        if "aliyun" in host or "dm.aliyun" in host:
+            return "阿里云邮件推送"
+        elif "tencent" in host or "smtp.qq" in host:
+            return "腾讯云邮件推送"
+        elif "sendgrid" in host:
+            return "SendGrid"
+        elif "amazon" in host or "aws" in host:
+            return "Amazon SES"
+        elif "smtp.gmail" in host:
+            return "Gmail"
+        elif "smtp.office" in host or "outlook" in host:
+            return "Outlook"
+        else:
+            return "自定义 SMTP"
 
 
 # ============================================================================
@@ -140,11 +240,19 @@ class SmtpSender(EmailSender):
 class SendGridSender(EmailSender):
     """SendGrid API 发送器"""
 
-    def send(self, to_email: str, subject: str, html_content: str) -> bool:
-        """通过 SendGrid API 发送邮件"""
+    def send(self, to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
+        """通过 SendGrid API 发送邮件，返回详细结果"""
+        result = {
+            "success": False,
+            "message": "",
+            "error_type": "",
+            "details": {}
+        }
+
         if not self.api_key:
-            print("⚠️ SendGrid API Key 未配置")
-            return False
+            result["message"] = "SendGrid API Key 未配置"
+            result["error_type"] = "config_error"
+            return result
 
         try:
             with httpx.Client(timeout=30.0) as client:
@@ -170,14 +278,32 @@ class SendGridSender(EmailSender):
                     },
                 )
                 if response.status_code in [202, 200]:
-                    print(f"✅ SendGrid 邮件发送成功: {to_email}")
-                    return True
+                    logger.info("SendGrid email sent successfully to %s", _sanitize_log_input(to_email))
+                    result["success"] = True
+                    result["message"] = "邮件发送成功"
+                    result["details"] = {
+                        "provider": "SendGrid",
+                        "status_code": response.status_code,
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    return result
                 else:
-                    print(f"❌ SendGrid 发送失败: {response.status_code} - {response.text}")
-                    return False
+                    logger.error("SendGrid send failed to %s: status=%d", _sanitize_log_input(to_email), response.status_code)
+                    result["message"] = f"SendGrid API 返回错误: HTTP {response.status_code}"
+                    result["error_type"] = "api_error"
+                    result["details"]["status_code"] = response.status_code
+                    result["details"]["hint"] = "请检查 API Key 是否正确"
+                    return result
+        except httpx.TimeoutException:
+            logger.error("SendGrid timeout for %s", _sanitize_log_input(to_email))
+            result["message"] = "请求超时，请稍后重试"
+            result["error_type"] = "timeout_error"
+            return result
         except Exception as e:
-            print(f"❌ SendGrid 发送异常: {e}")
-            return False
+            logger.error("SendGrid exception for %s: %s", _sanitize_log_input(to_email), type(e).__name__)
+            result["message"] = f"发送失败: {type(e).__name__}"
+            result["error_type"] = "unknown_error"
+            return result
 
 
 # ============================================================================
@@ -187,15 +313,28 @@ class SendGridSender(EmailSender):
 class MailgunSender(EmailSender):
     """Mailgun API 发送器"""
 
-    def send(self, to_email: str, subject: str, html_content: str) -> bool:
-        """通过 Mailgun API 发送邮件"""
+    def send(self, to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
+        """通过 Mailgun API 发送邮件，返回详细结果"""
+        result = {
+            "success": False,
+            "message": "",
+            "error_type": "",
+            "details": {}
+        }
+
         if not self.api_key:
-            print("⚠️ Mailgun API Key 未配置")
-            return False
+            result["message"] = "Mailgun API Key 未配置"
+            result["error_type"] = "config_error"
+            return result
+
+        domain = self.config.get("domain", "")
+        if not domain:
+            result["message"] = "Mailgun 域名未配置"
+            result["error_type"] = "config_error"
+            result["details"]["missing_field"] = "domain"
+            return result
 
         try:
-            # 从 api_url 中提取 domain
-            domain = self.config.get("domain", "")
             base_url = self.api_url or "https://api.mailgun.net/v3/"
 
             with httpx.Client(timeout=30.0) as client:
@@ -210,14 +349,32 @@ class MailgunSender(EmailSender):
                     },
                 )
                 if response.status_code in [200, 201]:
-                    print(f"✅ Mailgun 邮件发送成功: {to_email}")
-                    return True
+                    logger.info("Mailgun email sent successfully to %s", _sanitize_log_input(to_email))
+                    result["success"] = True
+                    result["message"] = "邮件发送成功"
+                    result["details"] = {
+                        "provider": "Mailgun",
+                        "domain": domain,
+                        "status_code": response.status_code,
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    return result
                 else:
-                    print(f"❌ Mailgun 发送失败: {response.status_code} - {response.text}")
-                    return False
+                    logger.error("Mailgun send failed to %s: status=%d", _sanitize_log_input(to_email), response.status_code)
+                    result["message"] = f"Mailgun API 返回错误: HTTP {response.status_code}"
+                    result["error_type"] = "api_error"
+                    result["details"]["status_code"] = response.status_code
+                    return result
+        except httpx.TimeoutException:
+            logger.error("Mailgun timeout for %s", _sanitize_log_input(to_email))
+            result["message"] = "请求超时，请稍后重试"
+            result["error_type"] = "timeout_error"
+            return result
         except Exception as e:
-            print(f"❌ Mailgun 发送异常: {e}")
-            return False
+            logger.error("Mailgun exception for %s: %s", _sanitize_log_input(to_email), type(e).__name__)
+            result["message"] = f"发送失败: {type(e).__name__}"
+            result["error_type"] = "unknown_error"
+            return result
 
 
 # ============================================================================
@@ -239,165 +396,6 @@ def create_sender(config: Dict[str, Any]) -> EmailSender:
     provider = config.get("provider", "smtp")
     sender_class = SENDER_CLASSES.get(provider, SmtpSender)
     return sender_class(config)
-
-
-# ============================================================================
-# 邮件模板组件（复用原有的模板函数）
-# ============================================================================
-
-def _email_wrapper(content: str) -> str:
-    """邮件外层包装"""
-    return f"""
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <meta name="x-apple-disable-message-reformatting" />
-    <!--[if !mso]><!-->
-    <style type="text/css">
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        table {{ border-collapse: collapse; table-layout: fixed; }}
-        .gmail-hide {{ display: none; }}
-    </style>
-    <!--<![endif]-->
-    <!--[if mso]>
-    <noscript>
-        <xml>
-            <o:OfficeDocumentSettings>
-                <o:PixelsPerInch>96</o:PixelsPerInch>
-            </o:OfficeDocumentSettings>
-        </xml>
-    </noscript>
-    <![endif]-->
-    <style type="text/css">
-        body {{ margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }}
-        .external {{ display: block; width: 100%; }}
-        .button {{ -webkit-text-size-adjust: none; mso-hide: all; }}
-    </style>
-</head>
-<body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f5f5f5;">
-    <!--[if mso]>
-    <style type="text/css">
-        body, table, td {{font-family: Arial, sans-serif !important;}}
-    </style>
-    <![endif]-->
-    {content}
-</body>
-</html>
-"""
-
-
-def _container(content: str, width: int = 500) -> str:
-    """邮件容器"""
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f5f5f5; padding: 20px;">
-    <tr>
-        <td align="center" style="padding: 20px 10px;">
-            <table width="{width}" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-                <!--[if mso]>
-                <table width="{width}" cellpadding="0" cellspacing="0" role="presentation" style="margin: 0 auto; background-color: #ffffff;">
-                <tr><td style="padding: 0;">
-                <![endif]-->
-                {content}
-                <!--[if mso]>
-                </td></tr>
-                </table>
-                <![endif]-->
-            </table>
-        </td>
-    </tr>
-</table>
-"""
-
-
-def _header(icon: str, title: str, subtitle: str, bg_color: str = "#f59e0b") -> str:
-    """邮件头部"""
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: {bg_color};">
-    <tr>
-        <td align="center" style="padding: 36px 24px 32px;">
-            <div style="font-size: 44px; line-height: 44px; margin-bottom: 12px;">{icon}</div>
-            <h1 style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; line-height: 32px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">{title}</h1>
-            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: rgba(255,255,255,0.9);">{subtitle}</p>
-        </td>
-    </tr>
-</table>
-"""
-
-
-def _content(content: str) -> str:
-    """内容区域"""
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ffffff;">
-    <tr>
-        <td style="padding: 32px 24px;">
-            {content}
-        </td>
-    </tr>
-</table>
-"""
-
-
-def _code_box(code: str, label: str = "您的验证码", expire_minutes: int = 10) -> str:
-    """验证码展示框"""
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
-    <tr>
-        <td align="center" style="background-color: #fffbeb; border: 2px dashed #f59e0b; border-radius: 12px; padding: 24px;">
-            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #d97706; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px;">{label}</p>
-            <p style="margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; font-size: 36px; line-height: 44px; font-weight: 700; color: #1f2937; letter-spacing: 8px;">{code}</p>
-        </td>
-    </tr>
-</table>
-"""
-
-
-def _tips_box(items: list) -> str:
-    """提示框"""
-    tips_html = "".join([f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 12px;">
-    <tr>
-        <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #6b7280;">
-            <span style="font-size: 16px; margin-right: 8px;">{item['icon']}</span>
-            <span style="vertical-align: middle;">{item['text']}</span>
-        </td>
-    </tr>
-</table>
-""" for item in items])
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
-    <tr>
-        <td style="background-color: #f9fafb; border-radius: 12px; padding: 20px;">
-            {tips_html}
-        </td>
-    </tr>
-</table>
-"""
-
-
-def _divider() -> str:
-    """分隔线"""
-    return """
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px 0;">
-    <tr>
-        <td style="border-bottom: 1px solid #e5e7eb; font-size: 0; line-height: 0;">&nbsp;</td>
-    </tr>
-</table>
-"""
-
-
-def _footer(text: str) -> str:
-    """页脚"""
-    return f"""
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 8px;">
-    <tr>
-        <td align="center" style="padding-bottom: 24px;">
-            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 18px; color: #9ca3af;">{text}</p>
-        </td>
-    </tr>
-</table>
-"""
 
 
 # ============================================================================
@@ -426,14 +424,19 @@ def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
     return None
 
 
-def send_email_v2(to_email: str, subject: str, html_content: str) -> bool:
+def send_email_v2(to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
     """
     发送邮件 (V2 版本，支持多提供商)
+    返回详细结果字典
     """
     config = get_smtp_config_from_db()
     if not config:
-        print("⚠️ 邮件服务未配置，跳过发送")
-        return False
+        logger.warning("Email service not configured, skipping send")
+        return {
+            "success": False,
+            "message": "邮件服务未配置",
+            "error_type": "config_error"
+        }
 
     sender = create_sender(config)
     return sender.send(to_email, subject, html_content)
@@ -454,7 +457,8 @@ def send_verification_code_v2(to_email: str, code: str, purpose: str = "register
         icon = ""
         bg_color = "#f59e0b"
     else:
-        return send_password_reset_code_v2(to_email, code)
+        result = send_password_reset_code_v2(to_email, code)
+        return result.get("success", False) if isinstance(result, dict) else result
 
     content = _header(icon, title, "从一句话开始的图像创作", bg_color)
     content += _content(f"""
@@ -471,7 +475,8 @@ def send_verification_code_v2(to_email: str, code: str, purpose: str = "register
 """)
 
     html = _email_wrapper(_container(content))
-    return send_email_v2(to_email, subject, html)
+    result = send_email_v2(to_email, subject, html)
+    return result.get("success", False) if isinstance(result, dict) else result
 
 
 def send_password_reset_code_v2(to_email: str, code: str) -> bool:
@@ -515,12 +520,14 @@ def send_password_reset_code_v2(to_email: str, code: str) -> bool:
 """
 
     html = _email_wrapper(_container(content))
-    return send_email_v2(to_email, subject, html)
+    result = send_email_v2(to_email, subject, html)
+    return result.get("success", False) if isinstance(result, dict) else result
 
 
-def send_test_email(to_email: str, provider_name: str) -> bool:
-    """发送测试邮件"""
+def send_test_email(to_email: str, provider_name: str) -> Dict[str, Any]:
+    """发送测试邮件，返回详细结果"""
     subject = f"【NanoBanana】邮件配置测试 - {provider_name}"
+    send_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     content = _header("📧", "邮件配置测试", f"测试 {provider_name} 邮件服务", "#10b981")
     content += _content(f"""
@@ -534,7 +541,7 @@ def send_test_email(to_email: str, provider_name: str) -> bool:
             <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #047857;">
                 提供商: {provider_name}<br>
                 收件人: {to_email}<br>
-                发送时间: {content[:10] if content else 'N/A'}
+                发送时间: {send_time}
             </p>
         </td>
     </tr>
