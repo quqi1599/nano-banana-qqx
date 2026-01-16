@@ -63,7 +63,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@postgres:5432/nbnb
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      ENVIRONMENT: ${ENVIRONMENT:-production}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS_LIST: ${CORS_ORIGINS_LIST}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
       NEWAPI_BASE_URL: ${NEWAPI_BASE_URL:-https://nanobanana2.peacedejiai.cc}
