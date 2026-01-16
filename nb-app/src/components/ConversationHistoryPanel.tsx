@@ -81,6 +81,7 @@ export const ConversationHistoryPanel = ({
     const { isAuthenticated } = useAuthStore();
     const {
         apiKey,
+        visitorId,
         conversationList,
         conversationListTotal,
         conversationListPage,
@@ -95,7 +96,8 @@ export const ConversationHistoryPanel = ({
     const [editingTitle, setEditingTitle] = useState('');
     const totalCount = conversationListTotal || conversationList.length;
 
-    const canUseHistory = isAuthenticated || !!apiKey;
+    // 任何有身份标识的用户都能使用历史对话：登录用户、API Key用户、游客（visitorId）
+    const canUseHistory = isAuthenticated || !!apiKey || !!visitorId;
 
     useEffect(() => {
         if (isOpen && canUseHistory) {

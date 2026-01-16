@@ -696,6 +696,14 @@ export const useAppStore = create<AppState>()(
         } else {
           localStorage.removeItem(API_KEY_STORAGE);
         }
+        // 恢复对话 ID 时清空消息，需要用户重新加载或发送新消息
+        // 这样可以避免显示不一致的对话状态
+        if (state?.currentConversationId) {
+          // 如果有当前对话 ID，可以选择自动加载消息或清空
+          // 这里选择清空 currentConversationId，让用户重新选择
+          state.currentConversationId = null;
+          state.messages = [];
+        }
       },
       merge: (persistedState, currentState) => {
         const persisted = (persistedState as Partial<AppState>) || {};
@@ -715,6 +723,15 @@ export const useAppStore = create<AppState>()(
         imageHistory: state.imageHistory, // 持久化图片历史记录
         endpointHistory: state.endpointHistory, // 持久化 API 接口地址历史记录
         usageCount: state.usageCount, // 持久化本地使用次数
+        // 对话历史持久化到本地缓存，支持未登录用户查看历史
+        currentConversationId: state.currentConversationId,
+        conversationList: state.conversationList,
+        conversationListTotal: state.conversationListTotal,
+        conversationListPage: state.conversationListPage,
+        conversationListPageSize: state.conversationListPageSize,
+        messagesPage: state.messagesPage,
+        messagesPageSize: state.messagesPageSize,
+        messagesTotal: state.messagesTotal,
       }),
     }
   )
