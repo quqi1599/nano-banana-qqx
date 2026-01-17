@@ -35,7 +35,7 @@ class NotificationEmailResponse(BaseModel):
 
 # ========== API Endpoints ==========
 
-@router.get("/", response_model=List[NotificationEmailResponse])
+@router.get("", response_model=List[NotificationEmailResponse])
 async def get_notification_emails(
     db: AsyncSession = Depends(get_db),
     _: None = Depends(get_admin_user)
@@ -57,7 +57,7 @@ async def get_notification_emails(
     ]
 
 
-@router.post("/", response_model=NotificationEmailResponse)
+@router.post("", response_model=NotificationEmailResponse)
 async def add_notification_email(
     data: NotificationEmailCreate,
     db: AsyncSession = Depends(get_db),
