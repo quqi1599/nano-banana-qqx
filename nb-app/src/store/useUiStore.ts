@@ -100,12 +100,15 @@ export const useUiStore = create<UiState>((set) => ({
       toasts: [...state.toasts, { id, message, type }]
     }));
 
-    // 使用统一管理的定时器
-    scheduleToastRemoval(id, () => {
-      set((state) => ({
-        toasts: state.toasts.filter((t) => t.id !== id)
-      }));
-    });
+    // 错误类型需要手动关闭，不自动消失
+    // 成功和信息类型 3 秒后自动消失
+    if (type !== 'error') {
+      scheduleToastRemoval(id, () => {
+        set((state) => ({
+          toasts: state.toasts.filter((t) => t.id !== id)
+        }));
+      });
+    }
   },
 
   removeToast: (id) => {

@@ -5,6 +5,7 @@ import { AdminConversationDetail, ConversationMessage } from '../../../services/
 import { DEFAULT_API_ENDPOINT } from '../../../config/api';
 import { UserTypeBadge } from './utils/constants';
 import { formatDate, formatFullDate } from '../../../utils/formatters';
+import { CodeViewerModal, ClickableCodeTag } from '../../ui/CodeViewerModal';
 
 // 懒加载图片组件
 const LazyImage: React.FC<{
@@ -133,25 +134,27 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                             )}
                             {/* API Key 前缀显示（仅未登录用户且有前缀时） */}
                             {conversation.user_type === 'visitor' && conversation.api_key_prefix && (
-                                <span
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[11px] text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
-                                    onClick={() => navigator.clipboard.writeText(conversation.api_key_prefix || '')}
-                                    title="点击复制 API Key 前缀"
+                                <ClickableCodeTag
+                                    code={conversation.api_key_prefix || ''}
+                                    modalTitle="API Key 前缀"
+                                    icon="key"
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[11px] text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
                                 >
                                     <Key className="w-3 h-3" />
                                     {conversation.api_key_prefix}
-                                </span>
+                                </ClickableCodeTag>
                             )}
-                            <span
-                                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900/5 dark:bg-white/5 text-[11px] text-gray-500 dark:text-gray-300 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition"
-                                onClick={() => navigator.clipboard.writeText(conversation.custom_endpoint || DEFAULT_API_ENDPOINT)}
-                                title="点击复制完整 URL"
+                            <ClickableCodeTag
+                                code={conversation.custom_endpoint || DEFAULT_API_ENDPOINT}
+                                modalTitle="自定义 API 接口地址"
+                                icon="globe"
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-900/5 dark:bg-white/5 text-[11px] text-gray-500 dark:text-gray-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition"
                             >
                                 <Globe className="w-3 h-3" />
                                 <span className="break-all">
                                     {conversation.custom_endpoint || DEFAULT_API_ENDPOINT}
                                 </span>
-                            </span>
+                            </ClickableCodeTag>
                         </div>
                     </div>
                     <button

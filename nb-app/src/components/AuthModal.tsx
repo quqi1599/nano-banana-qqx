@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Mail, Lock, User, Loader2, Gift, Eye, EyeOff } from 'lucide-react';
 import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
+import { useUiStore } from '../store/useUiStore';
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface AuthModalProps {
 type TabType = 'login' | 'register' | 'redeem' | 'reset';
 
 export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
+    const { addToast } = useUiStore();
     const [activeTab, setActiveTab] = useState<TabType>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -41,6 +43,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (!/[A-Z]/.test(value)) return '密码需包含大写字母';
         if (!/\d/.test(value)) return '密码需包含数字';
         if (/\s/.test(value)) return '密码不能包含空格';
+        if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(value)) return '密码需包含特殊字符 (例如: !@#$%^&*)';
         return null;
     };
 
@@ -55,9 +58,12 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         try {
             const { access_token, user } = await login(email, password);
             storeLogin(access_token, user);
+            addToast('登录成功！', 'success');
             onClose();
         } catch (err) {
-            setError((err as Error).message);
+            const errorMessage = (err as Error).message;
+            setError(errorMessage);
+            addToast(`登录失败：${errorMessage}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -70,15 +76,18 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
         if (!registerCode.trim()) {
             setError('请输入验证码');
+            addToast('请输入邮箱验证码', 'error');
             return;
         }
         const passwordError = validatePassword(password);
         if (passwordError) {
             setError(passwordError);
+            addToast(`密码格式错误：${passwordError}`, 'error');
             return;
         }
         if (password !== confirmPassword) {
             setError('两次输入的密码不一致');
+            addToast('两次输入的密码不一致', 'error');
             return;
         }
 
@@ -91,9 +100,12 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 registerCode.trim()
             );
             storeLogin(access_token, user);
+            addToast('注册成功！欢迎加入', 'success');
             onClose();
         } catch (err) {
-            setError((err as Error).message);
+            const errorMessage = (err as Error).message;
+            setError(errorMessage);
+            addToast(`注册失败：${errorMessage}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -132,8 +144,11 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             setSuccess(`兑换成功！${addedText}；当前余额 ${balanceText}`);
             setRedeemCodeInput('');
             refreshCredits();
+            addToast(`兑换成功！${addedText}`, 'success');
         } catch (err) {
-            setError((err as Error).message);
+            const errorMessage = (err as Error).message;
+            setError(errorMessage);
+            addToast(`兑换失败：${errorMessage}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -158,6 +173,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const initiateRegisterCode = async () => {
         if (!email.trim()) {
             setError('请输入邮箱地址');
+            addToast('请先输入邮箱地址', 'error');
             return;
         }
         if (registerCodeCooldown > 0 || registerCodeSending) return;
@@ -168,8 +184,11 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             await sendCode(email.trim(), 'register');
             setSuccess('验证码已发送，请查收邮箱');
             setRegisterCodeCooldown(60);
+            addToast('验证码已发送，请查收邮箱', 'success');
         } catch (err) {
-            setError((err as Error).message);
+            const errorMessage = (err as Error).message;
+            setError(errorMessage);
+            addToast(`发送验证码失败：${errorMessage}`, 'error');
         } finally {
             setRegisterCodeSending(false);
         }
@@ -178,6 +197,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     const initiateResetCode = async () => {
         if (!resetEmail.trim()) {
             setError('请输入邮箱地址');
+            addToast('请先输入邮箱地址', 'error');
             return;
         }
         if (codeCooldown > 0 || codeSending) return;
@@ -188,8 +208,11 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             await sendCode(resetEmail.trim(), 'reset');
             setSuccess('验证码已发送，请查收邮箱');
             setCodeCooldown(60);
+            addToast('验证码已发送，请查收邮箱', 'success');
         } catch (err) {
-            setError((err as Error).message);
+            const errorMessage = (err as Error).message;
+            setError(errorMessage);
+            addToast(`发送验证码失败：${errorMessage}`, 'error');
         } finally {
             setCodeSending(false);
         }
@@ -203,6 +226,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         const passwordError = validatePassword(resetNewPassword);
         if (passwordError) {
             setError(passwordError);
+            addToast(`密码格式错误：${passwordError}`, 'error');
             return;
         }
         setIsLoading(true);
@@ -213,8 +237,11 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
             setResetNewPassword('');
             setEmail(resetEmail.trim());
             setActiveTab('login');
+            addToast('密码重置成功，请使用新密码登录', 'success');
         } catch (err) {
-            setError((err as Error).message);
+            const errorMessage = (err as Error).message;
+            setError(errorMessage);
+            addToast(`密码重置失败：${errorMessage}`, 'error');
         } finally {
             setIsLoading(false);
         }
