@@ -440,7 +440,7 @@ async def send_code(
     logger.info(f"[验证码] 验证码已保存到数据库: 邮箱={data.email}, 用途={data.purpose}")
 
     # 直接发送邮件 (使用 email_service，同测试邮件)
-    email_sent = send_verification_code(data.email, code, data.purpose)
+    email_sent = await send_verification_code(data.email, code, data.purpose)
     logger.info(f"[邮件] 邮件发送结果: 邮箱={data.email}, 成功={email_sent}")
 
     # 重置密码时增加计数
