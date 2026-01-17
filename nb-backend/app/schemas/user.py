@@ -30,6 +30,7 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
     captcha_ticket: Optional[str] = None
+    visitor_id: Optional[str] = None  # 游客 ID，登录后转移游客对话
 
 
 class UserResponse(BaseModel):

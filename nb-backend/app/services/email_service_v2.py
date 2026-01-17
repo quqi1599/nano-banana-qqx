@@ -2,6 +2,7 @@
 邮件发送服务 V2 - 支持多个邮件提供商
 支持: 阿里云、腾讯云、通用 SMTP、SendGrid、Mailgun、Amazon SES
 """
+import asyncio
 import smtplib
 import random
 import string
@@ -615,3 +616,25 @@ def send_test_email(to_email: str, provider_name: str) -> Dict[str, Any]:
 
     html = _email_wrapper(_container(content))
     return send_email_v2(to_email, subject, html)
+
+
+# ============================================================================
+# 同步包装器 - 用于 FastAPI BackgroundTasks
+# ============================================================================
+
+def send_verification_code_v2_sync(to_email: str, code: str, purpose: str = "register") -> None:
+    """
+    同步版本的验证码发送函数，用于 FastAPI BackgroundTasks
+    BackgroundTasks 不能直接执行 async 函数，需要此包装器
+    """
+    try:
+        # 在新的事件循环中运行异步函数
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(send_verification_code_v2(to_email, code, purpose))
+            logger.info(f"[邮件] 后台任务发送完成: 收件人={_sanitize_log_input(to_email)}, 成功={result}")
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.error(f"[邮件] 后台任务发送失败: 收件人={_sanitize_log_input(to_email)}, 错误={e}")

@@ -6,6 +6,7 @@ import { getBackendUrl } from '../utils/backendUrl';
 import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = `${getBackendUrl()}/api`;
+const VISITOR_ID_STORAGE = 'nbnb_visitor_id';
 
 let cachedUser: User | null = null;
 
@@ -101,9 +102,19 @@ export const register = async (
   code: string,
   captchaTicket?: string
 ): Promise<AuthResponse> => {
+  // 获取游客 ID，用于转移游客对话
+  const visitorId = localStorage.getItem(VISITOR_ID_STORAGE);
+
   const data = await request<AuthResponse>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, nickname, code, ...(captchaTicket && { captcha_ticket: captchaTicket }) }),
+    body: JSON.stringify({
+      email,
+      password,
+      nickname,
+      code,
+      ...(captchaTicket && { captcha_ticket: captchaTicket }),
+      ...(visitorId && { visitor_id: visitorId }),
+    }),
   });
 
   saveUser(data.user);
@@ -119,9 +130,17 @@ export const login = async (
   password: string,
   captchaTicket?: string
 ): Promise<AuthResponse> => {
+  // 获取游客 ID，用于转移游客对话
+  const visitorId = localStorage.getItem(VISITOR_ID_STORAGE);
+
   const data = await request<AuthResponse>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, ...(captchaTicket && { captcha_ticket: captchaTicket }) }),
+    body: JSON.stringify({
+      email,
+      password,
+      ...(captchaTicket && { captcha_ticket: captchaTicket }),
+      ...(visitorId && { visitor_id: visitorId }),
+    }),
   });
 
   saveUser(data.user);

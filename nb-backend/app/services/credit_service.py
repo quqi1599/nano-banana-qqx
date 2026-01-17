@@ -73,39 +73,38 @@ class CreditService:
         if credits_to_use <= 0:
             raise CreditOperationError("扣除积分数必须大于 0", "INVALID_AMOUNT")
 
-        async with self.db.begin():
-            result = await self.db.execute(
-                update(User)
-                .where(User.id == user_id, User.credit_balance >= credits_to_use)
-                .values(credit_balance=User.credit_balance - credits_to_use)
-                .returning(User.credit_balance)
-            )
-            balance_after = result.scalar_one_or_none()
+        result = await self.db.execute(
+            update(User)
+            .where(User.id == user_id, User.credit_balance >= credits_to_use)
+            .values(credit_balance=User.credit_balance - credits_to_use)
+            .returning(User.credit_balance)
+        )
+        balance_after = result.scalar_one_or_none()
 
-            if balance_after is None:
-                # 用户不存在或余额不足，查询当前余额
-                balance_result = await self.db.execute(
-                    select(User.credit_balance).where(User.id == user_id)
-                )
-                current_balance = balance_result.scalar_one_or_none()
-                if current_balance is None:
-                    raise CreditOperationError("用户不存在", "USER_NOT_FOUND")
-                raise CreditOperationError(
-                    f"次数不足，需要 {credits_to_use} 次，当前余额 {current_balance}",
-                    "INSUFFICIENT_CREDITS",
-                )
-
-            # 记录交易
-            self._balance_after = balance_after
-            self._balance_before = balance_after + credits_to_use
-            self._transaction = CreditTransaction(
-                user_id=user_id,
-                amount=-credits_to_use,
-                type=TransactionType.CONSUME.value,
-                description=f"使用模型: {model_name}",
-                balance_after=balance_after,
+        if balance_after is None:
+            # 用户不存在或余额不足，查询当前余额
+            balance_result = await self.db.execute(
+                select(User.credit_balance).where(User.id == user_id)
             )
-            self.db.add(self._transaction)
+            current_balance = balance_result.scalar_one_or_none()
+            if current_balance is None:
+                raise CreditOperationError("用户不存在", "USER_NOT_FOUND")
+            raise CreditOperationError(
+                f"次数不足，需要 {credits_to_use} 次，当前余额 {current_balance}",
+                "INSUFFICIENT_CREDITS",
+            )
+
+        # 记录交易
+        self._balance_after = balance_after
+        self._balance_before = balance_after + credits_to_use
+        self._transaction = CreditTransaction(
+            user_id=user_id,
+            amount=-credits_to_use,
+            type=TransactionType.CONSUME.value,
+            description=f"使用模型: {model_name}",
+            balance_after=balance_after,
+        )
+        self.db.add(self._transaction)
 
         # 标记为已预留，支持后续退款
         self._reserved = True
@@ -137,22 +136,21 @@ class CreditService:
         # 使用传入的 db 或实例的 db
         target_db = db or self.db
 
-        async with target_db.begin():
-            result = await target_db.execute(
-                update(User)
-                .where(User.id == self._user_id)
-                .values(credit_balance=User.credit_balance + self._credits_to_use)
-                .returning(User.credit_balance)
-            )
-            balance_after = result.scalar_one_or_none()
-            if balance_after is not None:
-                target_db.add(CreditTransaction(
-                    user_id=self._user_id,
-                    amount=self._credits_to_use,
-                    type=TransactionType.BONUS.value,
-                    description=f"{reason}: {self._model_name}",
-                    balance_after=balance_after,
-                ))
+        result = await target_db.execute(
+            update(User)
+            .where(User.id == self._user_id)
+            .values(credit_balance=User.credit_balance + self._credits_to_use)
+            .returning(User.credit_balance)
+        )
+        balance_after = result.scalar_one_or_none()
+        if balance_after is not None:
+            target_db.add(CreditTransaction(
+                user_id=self._user_id,
+                amount=self._credits_to_use,
+                type=TransactionType.BONUS.value,
+                description=f"{reason}: {self._model_name}",
+                balance_after=balance_after,
+            ))
 
         # 清除预留标记，防止重复退款
         self._reserved = False

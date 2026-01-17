@@ -82,9 +82,11 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
 
     // Handle viewing conversation detail
     const handleViewDetail = useCallback(async (id: string) => {
-        await loadConversationDetail(id);
+        // 立即显示弹窗，提供即时反馈
         setShowDetailModal(true);
-    }, [loadConversationDetail, setShowDetailModal]);
+        // 然后加载数据（弹窗会显示 loading 状态）
+        await loadConversationDetail(id);
+    }, [setShowDetailModal, loadConversationDetail]);
 
     // Handle closing modal
     const handleCloseModal = useCallback(() => {

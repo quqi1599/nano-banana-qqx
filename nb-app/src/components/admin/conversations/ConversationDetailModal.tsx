@@ -1,10 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Loader2, User, Bot, Globe, Key } from 'lucide-react';
 import { AdminConversationDetail, ConversationMessage } from '../../../services/conversationService';
 import { DEFAULT_API_ENDPOINT } from '../../../config/api';
 import { UserTypeBadge } from './utils/constants';
 import { formatDate, formatFullDate } from '../../../utils/formatters';
+
+// 懒加载图片组件
+const LazyImage: React.FC<{
+    src: string;
+    alt: string;
+    className?: string;
+    onClick?: () => void;
+}> = ({ src, alt, className, onClick }) => {
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [shouldLoad, setShouldLoad] = useState(false);
+    const imgRef = useRef<HTMLImageElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setShouldLoad(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '50px' }
+        );
+
+        if (imgRef.current) {
+            observer.observe(imgRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <img
+            ref={imgRef}
+            src={shouldLoad ? src : undefined}
+            alt={alt}
+            className={className}
+            onClick={onClick}
+            style={{ opacity: isLoaded ? 1 : 0.5, transition: 'opacity 0.2s' }}
+            onLoad={() => setIsLoaded(true)}
+        />
+    );
+};
 
 interface ConversationDetailModalProps {
     conversation: AdminConversationDetail;
@@ -51,13 +93,17 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                     {msg.images && msg.images.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
                             {msg.images.map((img, imgIdx) => (
-                                <img
+                                <div
                                     key={imgIdx}
-                                    src={`data:${img.mimeType};base64,${img.base64}`}
-                                    alt={`消息图片 ${imgIdx + 1}`}
-                                    className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition"
+                                    className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:opacity-90 transition"
                                     onClick={() => handleImageClick(img.base64, img.mimeType)}
-                                />
+                                >
+                                    <LazyImage
+                                        src={`data:${img.mimeType};base64,${img.base64}`}
+                                        alt={`消息图片 ${imgIdx + 1}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
                             ))}
                         </div>
                     )}
@@ -67,8 +113,8 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-100 overflow-hidden">
                 {/* 头部 */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
                     <div>

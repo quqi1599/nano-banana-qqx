@@ -88,7 +88,8 @@ def _should_merge_visitor_history(current_user: Optional[User]) -> bool:
 
 def _get_conversation_filter(current_user: Optional[User], visitor_id: Optional[str]):
     if current_user:
-        if visitor_id and _should_merge_visitor_history(current_user):
+        # 登录用户可以访问自己创建的对话 + 作为游客时创建的对话
+        if visitor_id:
             logger.debug(f"[会话] 合并用户和游客历史: user_id={current_user.id}, visitor_id={visitor_id}")
             return or_(
                 Conversation.user_id == current_user.id,

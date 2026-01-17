@@ -35,7 +35,7 @@ from app.utils.rate_limiter import RateLimiter
 from app.utils.cache import get_cached_json, set_cached_json
 from app.utils.redis_client import redis_client
 from app.services.email_service import generate_code
-from app.services.email_service_v2 import send_verification_code_v2
+from app.services.email_service_v2 import send_verification_code_v2_sync
 
 router = APIRouter()
 settings = get_settings()
@@ -228,6 +228,7 @@ class UserRegisterWithCode(BaseModel):
     nickname: Optional[str] = None
     code: str
     captcha_ticket: Optional[str] = None
+    visitor_id: Optional[str] = None  # 游客 ID，注册后转移游客对话
 
 
 class ResetPasswordRequest(BaseModel):
@@ -441,7 +442,7 @@ async def send_code(
     logger.info(f"[验证码] 验证码已保存到数据库: 邮箱={data.email}, 用途={data.purpose}")
 
     # 后台发送邮件 (使用数据库配置的 SMTP)
-    background_tasks.add_task(send_verification_code_v2, data.email, code, data.purpose)
+    background_tasks.add_task(send_verification_code_v2_sync, data.email, code, data.purpose)
     logger.info(f"[邮件] 邮件发送任务已加入后台队列: 邮箱={data.email}, 用途={data.purpose}")
 
     # 重置密码时增加计数
@@ -570,6 +571,23 @@ async def register(
     access_token = create_access_token(data={"sub": user.id})
     _set_auth_cookies(response, access_token)
 
+    # 转移游客对话到用户账号
+    if data.visitor_id:
+        from app.models.conversation import Conversation
+        from sqlalchemy import update as sql_update
+
+        transfer_result = await db.execute(
+            sql_update(Conversation)
+            .where(
+                Conversation.visitor_id == data.visitor_id,
+                Conversation.user_id.is_(None)
+            )
+            .values(user_id=user.id)
+        )
+        transferred_count = transfer_result.rowcount
+        if transferred_count > 0:
+            logger.info(f"[注册] 转移游客对话到用户: visitor_id={data.visitor_id[:8]}..., user_id={user.id}, 数量={transferred_count}")
+
     logger.info(f"[注册] 注册成功: 邮箱={data.email}, 用户ID={user.id}, is_admin={user.is_admin}")
 
     return TokenResponse(
@@ -654,6 +672,24 @@ async def login(
         user_agent=request.headers.get("user-agent"),
     )
     db.add(login_record)
+
+    # 转移游客对话到用户账号
+    if data.visitor_id:
+        from app.models.conversation import Conversation
+        from sqlalchemy import update as sql_update
+
+        transfer_result = await db.execute(
+            sql_update(Conversation)
+            .where(
+                Conversation.visitor_id == data.visitor_id,
+                Conversation.user_id.is_(None)
+            )
+            .values(user_id=user.id)
+        )
+        transferred_count = transfer_result.rowcount
+        if transferred_count > 0:
+            logger.info(f"[登录] 转移游客对话到用户: visitor_id={data.visitor_id[:8]}..., user_id={user.id}, 数量={transferred_count}")
+
     await db.commit()
 
     return TokenResponse(
