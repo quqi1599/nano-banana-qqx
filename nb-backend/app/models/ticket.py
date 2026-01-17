@@ -32,6 +32,11 @@ class Ticket(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+    # 管理员最后回复时间（用于自动关闭：超过3天用户未回复则自动关闭）
+    last_admin_reply_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+
     # 关联
     user = relationship("User", back_populates="tickets")
     messages = relationship(

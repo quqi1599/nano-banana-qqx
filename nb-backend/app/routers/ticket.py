@@ -39,6 +39,20 @@ async def create_ticket(
     db: AsyncSession = Depends(get_db)
 ):
     """创建新工单"""
+    # 检查用户在线工单数量（仅统计 open 和 pending 状态，resolved 和 closed 不计入）
+    active_count_query = select(func.count(Ticket.id)).where(
+        Ticket.user_id == current_user.id,
+        Ticket.status.in_(['open', 'pending'])
+    )
+    active_count_result = await db.execute(active_count_query)
+    active_count = active_count_result.scalar() or 0
+
+    if active_count >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail=f"您已有 {active_count} 条在线工单，最多允许 3 条。已解决或已关闭的工单不计入限制。"
+        )
+
     # 1. 创建工单
     new_ticket = Ticket(
         user_id=current_user.id,
@@ -220,6 +234,9 @@ async def reply_ticket(
     if is_admin_reply:
         if ticket.status == 'open':
             ticket.status = 'pending'  # 等待用户回复
+
+        # 更新管理员最后回复时间（用于自动关闭）
+        ticket.last_admin_reply_at = datetime.utcnow()
 
         # 发送邮件通知用户
         if ticket.user and ticket.user.email:

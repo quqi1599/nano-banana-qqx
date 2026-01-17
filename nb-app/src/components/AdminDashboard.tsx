@@ -38,6 +38,20 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [selectedUserInfo, setSelectedUserInfo] = useState<{ email: string; nickname?: string | null } | null>(null);
 
+    // 从工单跳转到用户管理的状态
+    const [gotoUserEmail, setGotoUserEmail] = useState<string | null>(null);
+
+    // 处理从工单跳转到用户管理
+    const handleGotoUser = (userEmail: string) => {
+        setGotoUserEmail(userEmail);
+        setActiveTab('users');
+    };
+
+    // 清除跳转状态
+    const clearGotoUser = () => {
+        setGotoUserEmail(null);
+    };
+
     // Dashboard Stats State (kept here to pass to AdminOverview, or could move into AdminOverview?)
     // AdminOverview takes props: stats, isLoading, etc.
     // It seems AdminDashboard orchestrates the stats fetching for the Overview.
@@ -179,9 +193,9 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
 
             {activeTab === 'codes' && <AdminRedeemCodes />}
 
-            {activeTab === 'users' && <UserManagementPanel apiBase={apiBaseUrl} onViewConversations={handleViewConversations} />}
+            {activeTab === 'users' && <UserManagementPanel apiBase={apiBaseUrl} onViewConversations={handleViewConversations} initialSearch={gotoUserEmail || undefined} onSearchChange={clearGotoUser} />}
 
-            {activeTab === 'tickets' && <AdminTickets />}
+            {activeTab === 'tickets' && <AdminTickets onGotoUser={handleGotoUser} />}
 
             {activeTab === 'conversations' && (
                 <AdminConversations

@@ -986,6 +986,10 @@ export const useAppStore = create<AppState>()(
           localStorage.removeItem(API_KEY_STORAGE);
         }
 
+        if (!shouldPersistLocalHistory()) {
+          return;
+        }
+
         // 对于本地对话（未登录用户），恢复最后活动的对话
         const hasLocalConversations = state.localConversations && state.localConversations.length > 0;
 

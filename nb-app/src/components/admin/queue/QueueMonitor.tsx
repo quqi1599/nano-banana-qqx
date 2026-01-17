@@ -323,6 +323,7 @@ export const QueueMonitor: React.FC = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const requestInFlight = useRef(false);
 
     // 添加日志
     const addLog = useCallback((level: LogEntry['level'], message: string, details?: string) => {
@@ -333,6 +334,10 @@ export const QueueMonitor: React.FC = () => {
 
     // 加载数据
     const loadData = useCallback(async () => {
+        if (requestInFlight.current) {
+            return;
+        }
+        requestInFlight.current = true;
         try {
             const [dashData, tasksData, workersData] = await Promise.all([
                 getQueueDashboard(),
@@ -347,11 +352,16 @@ export const QueueMonitor: React.FC = () => {
         } finally {
             setLoading(false);
             setRefreshing(false);
+            requestInFlight.current = false;
         }
     }, [selectedQueue, selectedStatus, addLog]);
 
     // 刷新
     const handleRefresh = useCallback(() => {
+        if (requestInFlight.current) {
+            addLog('info', '已有刷新请求进行中，已跳过本次刷新');
+            return;
+        }
         setRefreshing(true);
         addLog('info', '正在刷新队列数据...');
         loadData();

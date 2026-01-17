@@ -9,9 +9,7 @@ const SESSION_ID_KEY = 'nb_session_id';
 const STORAGE_PREFIX = 'session_data_';
 
 export const SessionManager: React.FC = () => {
-    const {
-        isAuthenticated
-    } = useAuthStore();
+    const { isAuthenticated, isLoading: authLoading } = useAuthStore();
 
     const {
         localConversationId,
@@ -19,14 +17,21 @@ export const SessionManager: React.FC = () => {
         loadLocalConversation,
         setInputText,
         inputText,
+        loadConversationList,
+        loadConversation,
     } = useAppStore();
 
     // Use a ref to track if we allow saving (to avoid overwriting storage with empty state on initial load)
     const isLoadedRef = useRef(false);
     const sessionIdRef = useRef<string | null>(null);
+    const remoteRestoreRef = useRef(false);
 
     // Initialize Session
     useEffect(() => {
+        if (authLoading) {
+            return;
+        }
+
         if (isAuthenticated) {
             isLoadedRef.current = true; // Logged in users rely on other mechanisms, enable 'save' effectively means nothing or handle differently
             return;
@@ -73,7 +78,45 @@ export const SessionManager: React.FC = () => {
         };
 
         initSession();
-    }, [isAuthenticated, loadLocalConversation, localConversationId, localConversations, setInputText]);
+    }, [authLoading, isAuthenticated, loadLocalConversation, localConversationId, localConversations, setInputText]);
+
+    useEffect(() => {
+        if (authLoading) return;
+        if (!isAuthenticated) {
+            remoteRestoreRef.current = false;
+            return;
+        }
+        if (remoteRestoreRef.current) return;
+        remoteRestoreRef.current = true;
+
+        const restoreRemote = async () => {
+            try {
+                const { conversationListPageSize } = useAppStore.getState();
+                const pageSize = conversationListPageSize || 20;
+                await loadConversationList(1, pageSize);
+
+                const state = useAppStore.getState();
+                if (state.messages.length > 0) return;
+                if (state.conversationList.length === 0) return;
+
+                let targetId = state.currentConversationId;
+                if (!targetId || !state.conversationList.some((conv) => conv.id === targetId)) {
+                    targetId = state.conversationList[0]?.id;
+                }
+                if (targetId) {
+                    await loadConversation(targetId);
+                }
+            } catch (e) {
+                console.error('[SessionManager] Failed to restore server history', e);
+            }
+        };
+
+        if (useAppStore.persist.hasHydrated()) {
+            restoreRemote();
+        } else {
+            useAppStore.persist.onFinishHydration(restoreRemote);
+        }
+    }, [authLoading, isAuthenticated, loadConversationList, loadConversation]);
 
     // Save Session on Change
     useEffect(() => {

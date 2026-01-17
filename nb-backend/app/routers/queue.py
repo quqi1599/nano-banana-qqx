@@ -32,6 +32,7 @@ from app.utils.queue_monitor import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["队列监控"])
+CELERY_INSPECT_TIMEOUT_SECONDS = 1.0
 
 
 def _normalize_status(status: Optional[str]) -> Optional[str]:
@@ -167,12 +168,12 @@ async def get_celery_stats(broker_redis=None, store_redis=None) -> Dict[str, Any
         stats["queues"] = await _get_queue_lengths(broker_redis)
         stats["tasks"]["pending"] = sum(stats["queues"].values())
 
-        inspect = celery_app.control.inspect()
-        active = inspect.active() or {}
-        stats["tasks"]["active"] = sum(len(tasks) for tasks in active.values())
-
+        inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
         ping = inspect.ping() or {}
         stats["workers"]["count"] = len(ping)
+        if ping:
+            active = inspect.active() or {}
+            stats["tasks"]["active"] = sum(len(tasks) for tasks in active.values())
 
         stats["tasks"]["failed"] = await store_redis.zcard(build_status_key("failed"))
         stats["tasks"]["succeeded"] = await store_redis.zcard(build_status_key("succeeded"))
@@ -221,10 +222,14 @@ async def get_workers(
     try:
         from app.celery_app import celery_app
 
-        inspect = celery_app.control.inspect()
+        inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
         ping = inspect.ping() or {}
-        stats = inspect.stats() or {}
-        active = inspect.active() or {}
+        if ping:
+            stats = inspect.stats() or {}
+            active = inspect.active() or {}
+        else:
+            stats = {}
+            active = {}
 
         worker_names = set(ping.keys()) | set(stats.keys()) | set(active.keys())
         workers["total"] = len(worker_names)
@@ -273,7 +278,7 @@ async def get_tasks(
     try:
         normalized_status = _normalize_status(status)
         if normalized_status in {"active", "pending"}:
-            inspect = celery_app.control.inspect()
+            inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
             if normalized_status == "active":
                 active = inspect.active() or {}
                 for worker, worker_tasks in active.items():
@@ -318,7 +323,7 @@ async def get_tasks(
             tasks["tasks"] = store_result["tasks"]
             tasks["total"] = store_result["total"]
             if normalized_status is None and not tasks["tasks"]:
-                inspect = celery_app.control.inspect()
+                inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
                 active = inspect.active() or {}
                 reserved = inspect.reserved() or {}
                 fallback = []
@@ -614,10 +619,14 @@ async def get_dashboard(
         dashboard["overview"]["queues"] = await _get_queue_lengths(broker_redis)
         dashboard["overview"]["tasks"]["pending"] = sum(dashboard["overview"]["queues"].values())
 
-        inspect = celery_app.control.inspect()
-        active = inspect.active() or {}
+        inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
         ping = inspect.ping() or {}
-        stats = inspect.stats() or {}
+        if ping:
+            stats = inspect.stats() or {}
+            active = inspect.active() or {}
+        else:
+            stats = {}
+            active = {}
 
         dashboard["overview"]["workers"]["total"] = len(set(active.keys()) | set(ping.keys()) | set(stats.keys()))
         dashboard["overview"]["workers"]["online"] = len(set(ping.keys()) | set(stats.keys()))

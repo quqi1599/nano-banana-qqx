@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LayoutDashboard, Key, Coins, Gift, Users,
     LogOut, ShieldCheck, Ticket, MessageCircle, Layers, Mail
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { getAdminUnreadCount } from '../../../services/ticketService';
 
 type TabType = 'dashboard' | 'tokens' | 'pricing' | 'codes' | 'users' | 'tickets' | 'conversations' | 'queue' | 'email';
 
@@ -15,6 +16,24 @@ interface AdminSidebarProps {
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeTab, collapsed = false }) => {
     const { logout } = useAuthStore();
+    const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
+
+    // 轮询获取工单未读数量
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const data = await getAdminUnreadCount();
+                setTicketUnreadCount(data.unread_count);
+            } catch (error) {
+                console.error('获取工单未读数量失败:', error);
+            }
+        };
+
+        fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 30000); // 每30秒刷新一次
+
+        return () => clearInterval(interval);
+    }, []);
 
     const navItems = [
         { id: 'dashboard', label: '总览', icon: LayoutDashboard },
@@ -22,7 +41,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
         { id: 'pricing', label: '模型与定价', icon: Coins },
         { id: 'codes', label: '兑换码', icon: Gift },
         { id: 'users', label: '用户管理', icon: Users },
-        { id: 'tickets', label: '工单支持', icon: Ticket },
+        { id: 'tickets', label: '工单支持', icon: Ticket, showBadge: true },
         { id: 'conversations', label: '会话查看', icon: MessageCircle },
         { id: 'queue', label: '队列监控', icon: Layers },
         { id: 'email', label: '邮件配置', icon: Mail },
@@ -56,6 +75,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
                 {navItems.map((item) => {
                     const isActive = activeTab === item.id;
                     const Icon = item.icon;
+                    const showBadge = item.showBadge && ticketUnreadCount > 0;
 
                     return (
                         <button
@@ -80,7 +100,36 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
                                     ${isActive ? 'text-cream-600 dark:text-cream-400' : 'text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'}
                                 `}
                             />
-                            {!collapsed && <span>{item.label}</span>}
+                            {!collapsed && (
+                                <span className="flex items-center gap-2">
+                                    {item.label}
+                                </span>
+                            )}
+
+                            {/* 红点提醒（类似微信朋友圈） */}
+                            {showBadge && (
+                                <span className={`flex items-center ${collapsed ? 'absolute top-1 right-1' : ''}`}>
+                                    {/* 脉冲动画 */}
+                                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
+                                    {/* 红点 */}
+                                    <span className="relative inline-flex items-center justify-center rounded-full bg-red-500">
+                                        {ticketUnreadCount > 99 ? (
+                                            // 超过99显示99+
+                                            <span className="text-[8px] font-bold text-white min-w-[14px] h-[14px] px-0.5">
+                                                99+
+                                            </span>
+                                        ) : ticketUnreadCount > 1 ? (
+                                            // 多个未读显示数字
+                                            <span className="text-[8px] font-bold text-white min-w-[14px] h-[14px] px-1">
+                                                {ticketUnreadCount}
+                                            </span>
+                                        ) : (
+                                            // 单个未读只显示红点
+                                            <span className="w-2 h-2"></span>
+                                        )}
+                                    </span>
+                                </span>
+                            )}
 
                             {/* Tooltip for collapsed mode */}
                             {collapsed && (

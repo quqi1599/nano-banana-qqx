@@ -5,10 +5,12 @@
 - 对话历史清理
 - 过期验证码清理
 - 临时文件清理
+- 自动关闭过期工单
 """
 import logging
 from datetime import datetime
 from typing import Dict, Any
+from sqlalchemy import select
 from app.celery_app import celery_app
 from app.tasks.base import get_task_db, record_task_result
 
@@ -168,4 +170,83 @@ def cleanup_old_logs_task(self, days: int = 30) -> Dict[str, Any]:
         result={"message": f"清理了 {days} 天前的日志"},
         duration=duration,
     )
+
+
+@celery_app.task(
+    name="app.tasks.cleanup_tasks.auto_close_stale_tickets_task",
+    bind=True,
+)
+def auto_close_stale_tickets_task(self) -> Dict[str, Any]:
+    """
+    自动关闭超过3天未回复的工单
+
+    规则：
+    - 工单状态为 pending（管理员已回复，等待用户回复）
+    - 管理员最后回复时间超过3天
+    - 自动将工单状态设为 resolved（已解决）
+
+    Returns:
+        关闭结果统计
+    """
+    task_id = self.request.id
+    start_time = datetime.now()
+
+    logger.info(f"[{task_id}] 开始执行自动关闭工单任务")
+
+    from app.database import async_session_maker
+    from datetime import timedelta
+    from sqlalchemy import update
+
+    try:
+        # 使用 async_to_sync 避免事件循环冲突
+        async def close_stale_tickets():
+            async with async_session_maker() as db:
+                from app.models.ticket import Ticket
+
+                # 3天前的时间点
+                cutoff_time = datetime.utcnow() - timedelta(days=3)
+
+                # 查找需要自动关闭的工单
+                # 状态为 pending 且 last_admin_reply_at 超过3天
+                query = select(Ticket).where(
+                    Ticket.status == 'pending',
+                    Ticket.last_admin_reply_at.isnot(None),
+                    Ticket.last_admin_reply_at < cutoff_time
+                )
+                result = await db.execute(query)
+                stale_tickets = result.scalars().all()
+
+                closed_count = 0
+                for ticket in stale_tickets:
+                    ticket.status = 'resolved'
+                    closed_count += 1
+
+                await db.commit()
+
+                return {"closed_count": closed_count}
+
+        result = _run_async(close_stale_tickets())
+
+        duration = (datetime.now() - start_time).total_seconds()
+
+        return record_task_result(
+            task_id=task_id,
+            task_name="auto_close_stale_tickets",
+            status="success",
+            result=result,
+            duration=duration,
+        )
+
+    except Exception as e:
+        logger.error(f"[{task_id}] 自动关闭工单失败: {e}")
+        duration = (datetime.now() - start_time).total_seconds()
+
+        record_task_result(
+            task_id=task_id,
+            task_name="auto_close_stale_tickets",
+            status="failed",
+            error=str(e),
+            duration=duration,
+        )
+        raise
 

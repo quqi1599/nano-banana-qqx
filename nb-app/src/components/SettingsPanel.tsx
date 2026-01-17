@@ -9,8 +9,9 @@ import { WeChatQRModal } from './WeChatQRModal';
 export const SettingsPanel: React.FC = () => {
   const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt, usageCount } = useAppStore();
   const { addToast, showDialog } = useUiStore();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user, refreshCredits } = useAuthStore();
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [loadingCredits, setLoadingCredits] = useState(false);
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [showWeChatQR, setShowWeChatQR] = useState(false);
   const [modelPricing, setModelPricing] = useState<ModelPricingInfo[]>([]);
@@ -75,6 +76,22 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
+  // 刷新登录用户积分
+  const handleRefreshCredits = async () => {
+    setLoadingCredits(true);
+    setBalanceError(null);
+    try {
+      await refreshCredits();
+      addToast("积分刷新成功", 'success');
+    } catch (error: any) {
+      const message = error?.message || '积分刷新失败';
+      setBalanceError(message);
+      addToast(`积分刷新失败: ${message}`, 'error');
+    } finally {
+      setLoadingCredits(false);
+    }
+  };
+
   const getBookmarkUrl = () => {
     const params = new URLSearchParams();
     if (settings.customEndpoint) params.set('endpoint', settings.customEndpoint);
@@ -114,77 +131,119 @@ export const SettingsPanel: React.FC = () => {
       </div>
 
       <div className="space-y-4 sm:space-y-8 flex-1 overflow-y-auto pb-safe scroll-smooth-touch">
-        {/* Balance Section */}
-        {apiKey && (
-          <section className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700">
+        {/* Balance Section - 登录用户显示积分 */}
+        {isAuthenticated ? (
+          <section className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-amber-50 to-white dark:from-gray-900 dark:to-gray-800 border border-amber-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">API 余额</h3>
+                <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 dark:text-amber-400" />
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">我的积分</h3>
               </div>
               <button
-                onClick={handleFetchBalance}
-                disabled={loadingBalance}
-                className="p-1 sm:p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 text-blue-600 dark:text-blue-400 disabled:opacity-50 transition"
-                title="刷新余额"
+                onClick={handleRefreshCredits}
+                disabled={loadingCredits}
+                className="p-1 sm:p-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-800/30 text-amber-600 dark:text-amber-400 disabled:opacity-50 transition"
+                title="刷新积分"
               >
-                <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${loadingBalance ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${loadingCredits ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
-            {loadingBalance && !balance ? (
+            {loadingCredits ? (
               <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center py-2 sm:py-3">
-                查询中...
+                刷新中...
               </div>
-            ) : balance ? (
+            ) : (
               <div>
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">总额度</div>
-                    <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
-                      {formatBalance(balance.hardLimitUsd, balance.isUnlimited)}
-                    </div>
+                <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-3 sm:p-4 text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
+                    {user?.credit_balance?.toLocaleString() || '0'}
                   </div>
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">已使用</div>
-                    <div className="text-xs sm:text-sm font-bold text-orange-600 dark:text-orange-400 truncate">
-                      {formatBalance(balance.usage, balance.isUnlimited)}
-                    </div>
-                  </div>
-                  <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
-                    <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">剩余</div>
-                    <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400 truncate">
-                      {formatBalance(balance.remaining, balance.isUnlimited)}
-                    </div>
+                  <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    可用积分
                   </div>
                 </div>
                 {balanceError && (
-                  <div className="mt-2 text-[10px] sm:text-xs text-center space-y-1">
-                    <div className="text-red-600 dark:text-red-400">
-                      余额刷新失败: {balanceError}
-                    </div>
-                    {usageCount > 0 && (
-                      <div className="text-gray-500 dark:text-gray-400">
-                        本地已使用 {usageCount} 次
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center py-1.5 sm:py-2 space-y-1">
-                <div>点击刷新按钮查询余额</div>
-                {usageCount > 0 && (
-                  <div>本地已使用 {usageCount} 次</div>
-                )}
-                {balanceError && (
-                  <div className="text-red-600 dark:text-red-400">
-                    余额查询失败: {balanceError}
+                  <div className="mt-2 text-[10px] sm:text-xs text-center text-red-600 dark:text-red-400">
+                    {balanceError}
                   </div>
                 )}
               </div>
             )}
           </section>
+        ) : (
+          /* Balance Section - 未登录用户显示 API 余额 */
+          apiKey && (
+            <section className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-cream-50 to-white dark:from-gray-900 dark:to-gray-800 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">API 余额</h3>
+                </div>
+                <button
+                  onClick={handleFetchBalance}
+                  disabled={loadingBalance}
+                  className="p-1 sm:p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/30 text-blue-600 dark:text-blue-400 disabled:opacity-50 transition"
+                  title="刷新余额"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${loadingBalance ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {loadingBalance && !balance ? (
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center py-2 sm:py-3">
+                  查询中...
+                </div>
+              ) : balance ? (
+                <div>
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
+                      <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">总额度</div>
+                      <div className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white truncate">
+                        {formatBalance(balance.hardLimitUsd, balance.isUnlimited)}
+                      </div>
+                    </div>
+                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
+                      <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">已使用</div>
+                      <div className="text-xs sm:text-sm font-bold text-orange-600 dark:text-orange-400 truncate">
+                        {formatBalance(balance.usage, balance.isUnlimited)}
+                      </div>
+                    </div>
+                    <div className="bg-white/50 dark:bg-gray-900/30 rounded-lg p-2 sm:p-2.5 text-center">
+                      <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">剩余</div>
+                      <div className="text-xs sm:text-sm font-bold text-green-600 dark:text-green-400 truncate">
+                        {formatBalance(balance.remaining, balance.isUnlimited)}
+                      </div>
+                    </div>
+                  </div>
+                  {balanceError && (
+                    <div className="mt-2 text-[10px] sm:text-xs text-center space-y-1">
+                      <div className="text-red-600 dark:text-red-400">
+                        余额刷新失败: {balanceError}
+                      </div>
+                      {usageCount > 0 && (
+                        <div className="text-gray-500 dark:text-gray-400">
+                          本地已使用 {usageCount} 次
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 text-center py-1.5 sm:py-2 space-y-1">
+                  <div>点击刷新按钮查询余额</div>
+                  {usageCount > 0 && (
+                    <div>本地已使用 {usageCount} 次</div>
+                  )}
+                  {balanceError && (
+                    <div className="text-red-600 dark:text-red-400">
+                      余额查询失败: {balanceError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )
         )}
 
         {/* Resolution */}

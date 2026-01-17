@@ -16,6 +16,8 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
     const [error, setError] = useState('');
     const [closeSuccess, setCloseSuccess] = useState(false);
 
@@ -75,7 +77,8 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
 
     const handleCreate = async () => {
         if (!newTitle.trim() || !newContent.trim()) return;
-        setIsLoading(true);
+        setIsCreating(true);
+        setError('');
         try {
             await createTicket(newTitle, newContent, newPriority, newCategory);
             setNewTitle('');
@@ -87,7 +90,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
         } catch (err) {
             setError((err as Error).message);
         } finally {
-            setIsLoading(false);
+            setIsCreating(false);
         }
     };
 
@@ -117,7 +120,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
 
     const handleCloseTicket = async () => {
         if (!selectedTicket) return;
-        setIsLoading(true);
+        setIsClosing(true);
         try {
             await closeTicket(selectedTicket.id);
             setCloseSuccess(true);
@@ -126,7 +129,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
         } catch (err) {
             setError((err as Error).message);
         } finally {
-            setIsLoading(false);
+            setIsClosing(false);
         }
     };
 
@@ -275,10 +278,10 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                             <div className="pt-4">
                                 <button
                                     onClick={handleCreate}
-                                    disabled={isLoading || !newTitle || !newContent}
+                                    disabled={isCreating || !newTitle || !newContent}
                                     className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 disabled:opacity-50 disabled:shadow-none transition"
                                 >
-                                    {isLoading ? '提交中...' : '提交工单'}
+                                    {isCreating ? '提交中...' : '提交工单'}
                                 </button>
                             </div>
                         </div>
@@ -350,10 +353,10 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                                 {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (
                                     <button
                                         onClick={handleCloseTicket}
-                                        disabled={isLoading}
+                                        disabled={isClosing}
                                         className="w-full py-2 text-sm text-gray-500 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                                     >
-                                        关闭工单
+                                        {isClosing ? '关闭中...' : '关闭工单'}
                                     </button>
                                 )}
                                 {selectedTicket.status === 'closed' && (

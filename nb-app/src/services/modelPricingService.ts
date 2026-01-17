@@ -5,7 +5,7 @@
 import { getBackendUrl } from '../utils/backendUrl';
 import { buildRequestOptions } from '../utils/request';
 
-const API_BASE = `${getBackendUrl()}/api`;
+const API_BASE = `${getBackendUrl()}/api/v1`;
 
 /**
  * 模型计费信息
@@ -42,7 +42,7 @@ const request = async <T>(
  * 获取模型计费配置（需要登录）
  */
 export const getModelPricing = async (): Promise<ModelPricingInfo[]> => {
-  return request<ModelPricingInfo[]>('/users/model-pricing');
+  return request<ModelPricingInfo[]>('/user/model-pricing');
 };
 
 /**

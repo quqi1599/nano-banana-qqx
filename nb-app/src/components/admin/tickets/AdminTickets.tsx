@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { X, MessageSquare, Send, Loader2, ExternalLink } from 'lucide-react';
 import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketStatus } from '../../../services/ticketService';
 import { ErrorAlert, InlineLoading } from '../common';
 import { formatDate } from '../../../utils/formatters';
 
-export const AdminTickets = () => {
+interface AdminTicketsProps {
+    onGotoUser?: (userEmail: string) => void;
+}
+
+export const AdminTickets = ({ onGotoUser }: AdminTicketsProps) => {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [ticketStatusFilter, setTicketStatusFilter] = useState('all');
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -108,7 +112,15 @@ export const AdminTickets = () => {
                                     {t.status}
                                 </span>
                             </div>
-                            <div className="text-xs text-gray-400">{formatDate(t.created_at)}</div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <span>{formatDate(t.created_at)}</span>
+                                {t.user_email && (
+                                    <>
+                                        <span>·</span>
+                                        <span className="truncate max-w-[120px]">{t.user_email}</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -117,9 +129,19 @@ export const AdminTickets = () => {
                 {selectedTicket ? (
                     <>
                         <div className="p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold text-gray-900 dark:text-white">{selectedTicket.title}</h3>
-                                <p className="text-xs text-gray-500">{selectedTicket.user_email}</p>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-gray-900 dark:text-white truncate">{selectedTicket.title}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                    {selectedTicket.user_email && (
+                                        <button
+                                            onClick={() => onGotoUser?.(selectedTicket.user_email!)}
+                                            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                                        >
+                                            <span className="truncate max-w-[150px]">{selectedTicket.user_email}</span>
+                                            <ExternalLink size={12} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 {selectedTicket.status === 'open' && (

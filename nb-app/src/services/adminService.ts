@@ -6,19 +6,75 @@ import { getBackendUrl } from '../utils/backendUrl';
 import { buildRequestOptions } from '../utils/request';
 
 const API_BASE = `${getBackendUrl()}/api/admin`;
+const QUEUE_REQUEST_TIMEOUT_MS = 10000;
+
+type RequestOptions = RequestInit & {
+    timeoutMs?: number;
+};
 
 // 通用请求
-const request = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...buildRequestOptions(options),
-    });
+const request = async <T>(endpoint: string, options: RequestOptions = {}): Promise<T> => {
+    const { timeoutMs, signal, ...fetchOptions } = options;
+    if (!timeoutMs) {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...buildRequestOptions(fetchOptions),
+            signal,
+        });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: '请求失败' }));
-        throw new Error(error.detail || `HTTP error ${response.status}`);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: '请求失败' }));
+            throw new Error(error.detail || `HTTP error ${response.status}`);
+        }
+
+        return response.json();
     }
 
-    return response.json();
+    const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let didTimeout = false;
+    const handleAbort = () => controller.abort();
+
+    if (signal) {
+        if (signal.aborted) {
+            controller.abort();
+        } else {
+            signal.addEventListener('abort', handleAbort, { once: true });
+        }
+    }
+
+    timeoutId = setTimeout(() => {
+        didTimeout = true;
+        controller.abort();
+    }, timeoutMs);
+
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...buildRequestOptions(fetchOptions),
+            signal: controller.signal,
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ detail: '请求失败' }));
+            throw new Error(error.detail || `HTTP error ${response.status}`);
+        }
+
+        return response.json();
+    } catch (error) {
+        if (controller.signal.aborted) {
+            if (didTimeout) {
+                throw new Error('请求超时');
+            }
+            throw new Error('请求已取消');
+        }
+        throw error;
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+        if (signal) {
+            signal.removeEventListener('abort', handleAbort);
+        }
+    }
 };
 
 // ========== Token 池管理 ==========
@@ -728,12 +784,12 @@ export interface DashboardData {
 
 // 获取队列统计
 export const getQueueStats = async (): Promise<QueueStats> => {
-    return request('/queue/stats');
+    return request('/queue/stats', { timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 获取 Worker 列表
 export const getQueueWorkers = async (): Promise<WorkersResponse> => {
-    return request('/queue/workers');
+    return request('/queue/workers', { timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 获取任务列表
@@ -749,37 +805,37 @@ export const getQueueTasks = async (params: {
     if (params.limit) queryParams.set('limit', String(params.limit));
     if (params.offset) queryParams.set('offset', String(params.offset));
     const query = queryParams.toString();
-    return request(`/queue/tasks${query ? `?${query}` : ''}`);
+    return request(`/queue/tasks${query ? `?${query}` : ''}`, { timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 获取任务详情
 export const getTaskDetail = async (taskId: string): Promise<TaskDetail> => {
-    return request(`/queue/tasks/${taskId}`);
+    return request(`/queue/tasks/${taskId}`, { timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 重试失败任务
 export const retryTask = async (taskId: string): Promise<{ id: string; status: string; message: string }> => {
-    return request(`/queue/tasks/${taskId}/retry`, { method: 'POST' });
+    return request(`/queue/tasks/${taskId}/retry`, { method: 'POST', timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 取消/删除任务
 export const cancelTask = async (taskId: string): Promise<{ id: string; status: string; message: string }> => {
-    return request(`/queue/tasks/${taskId}`, { method: 'DELETE' });
+    return request(`/queue/tasks/${taskId}`, { method: 'DELETE', timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 清空队列
 export const purgeQueue = async (queue: string): Promise<{ queue: string; purged_count: number; message: string }> => {
-    return request(`/queue/purge?queue=${encodeURIComponent(queue)}`, { method: 'POST' });
+    return request(`/queue/purge?queue=${encodeURIComponent(queue)}`, { method: 'POST', timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 重启 Worker 进程池
 export const restartWorkers = async (): Promise<{ status: string; message: string }> => {
-    return request('/queue/workers/pool_restart', { method: 'POST' });
+    return request('/queue/workers/pool_restart', { method: 'POST', timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // 获取仪表板数据
 export const getQueueDashboard = async (): Promise<DashboardData> => {
-    return request('/queue/dashboard');
+    return request('/queue/dashboard', { timeoutMs: QUEUE_REQUEST_TIMEOUT_MS });
 };
 
 // ========== 邮件配置 ==========

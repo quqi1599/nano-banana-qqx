@@ -39,9 +39,11 @@ function useDebounce<T>(value: T, delay: number): T {
 interface UserManagementPanelProps {
     apiBase?: string;
     onViewConversations?: (userId: string, userEmail: string, userNickname?: string | null) => void;
+    initialSearch?: string;  // 初始搜索关键词（从工单跳转过来时使用）
+    onSearchChange?: (value: string) => void;  // 搜索变化时的回调（用于清除跳转状态）
 }
 
-export function UserManagementPanel({ apiBase, onViewConversations }: UserManagementPanelProps) {
+export function UserManagementPanel({ apiBase, onViewConversations, initialSearch, onSearchChange }: UserManagementPanelProps) {
     // ===== 状态管理 =====
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(false);
@@ -162,10 +164,18 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     useEffect(() => { loadUsers(); }, [loadUsers]);
     useEffect(() => { loadTags(); }, [loadTags]);
 
+    // 当从工单跳转过来时，设置搜索词
+    useEffect(() => {
+        if (initialSearch) {
+            setSearchQuery(initialSearch);
+        }
+    }, [initialSearch]);
+
     // ===== 搜索和筛选 =====
     const handleSearchChange = (value: string) => {
         setSearchQuery(value);
         setPage(1);
+        onSearchChange?.(value);  // 通知父组件搜索已变化
     };
 
     const updateFilter = (key: keyof UserFilters, value: any) => {

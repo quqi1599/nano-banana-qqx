@@ -75,6 +75,11 @@ celery_app.conf.update(
             "task": "app.tasks.stats_tasks.collect_hourly_stats_task",
             "schedule": crontab(minute=0),
         },
+        # 每6小时自动关闭超过3天未回复的工单
+        "auto-close-stale-tickets": {
+            "task": "app.tasks.cleanup_tasks.auto_close_stale_tickets_task",
+            "schedule": crontab(hour="*/6", minute=0),
+        },
     },
 )
 
