@@ -122,7 +122,7 @@ class UserNoteUpdate(BaseModel):
 class UserCreate(BaseModel):
     """创建用户请求"""
     email: str = Field(..., min_length=3, max_length=255)
-    password: str = Field(..., min_length=6, max_length=100)
+    password: str = Field(..., max_length=100)
     nickname: Optional[str] = Field(None, max_length=100)
     credit_balance: int = Field(0, ge=0)
     pro3_balance: int = Field(0, ge=0)
@@ -134,7 +134,7 @@ class UserCreate(BaseModel):
 
 class UserPasswordUpdate(BaseModel):
     """修改用户密码请求"""
-    new_password: str = Field(..., min_length=6, max_length=100)
+    new_password: str = Field(..., max_length=100)
 
 
 class UserTagsUpdate(BaseModel):

@@ -3,7 +3,6 @@
 """
 from datetime import datetime, timedelta
 import time
-import re
 import secrets
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
@@ -270,41 +269,7 @@ class ChangePasswordRequest(BaseModel):
 
 
 def validate_password_strength(password: str) -> None:
-    if len(password) < settings.password_min_length:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"密码长度至少 {settings.password_min_length} 位",
-        )
-
-    if not re.search(r"[a-z]", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码需包含小写字母",
-        )
-
-    if not re.search(r"[A-Z]", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码需包含大写字母",
-        )
-
-    if not re.search(r"\d", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码需包含数字",
-        )
-
-    if re.search(r"\s", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码不能包含空格",
-        )
-
-    if not re.search(r"[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="密码需包含特殊字符 (例如: !@#$%^&*)",
-        )
+    return
 
 
 async def get_active_email_whitelist(db: AsyncSession) -> List[str]:

@@ -434,10 +434,6 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             showToast('请输入有效的邮箱地址', 'error');
             return;
         }
-        if (newUserPassword.length < 6) {
-            showToast('密码至少需要6个字符', 'error');
-            return;
-        }
 
         setCreatingUser(true);
         try {
@@ -473,10 +469,6 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
     };
 
     const handleChangePassword = async () => {
-        if (newPassword.length < 6) {
-            showToast('密码至少需要6个字符', 'error');
-            return;
-        }
         if (newPassword !== confirmPassword) {
             showToast('两次输入的密码不一致', 'error');
             return;

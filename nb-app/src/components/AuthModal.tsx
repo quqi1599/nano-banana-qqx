@@ -37,16 +37,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
     const { login: storeLogin, isAuthenticated, user, refreshCredits } = useAuthStore();
 
-    const validatePassword = (value: string): string | null => {
-        if (value.length < 8) return '密码长度至少8位';
-        if (!/[a-z]/.test(value)) return '密码需包含小写字母';
-        if (!/[A-Z]/.test(value)) return '密码需包含大写字母';
-        if (!/\d/.test(value)) return '密码需包含数字';
-        if (/\s/.test(value)) return '密码不能包含空格';
-        if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(value)) return '密码需包含特殊字符 (例如: !@#$%^&*)';
-        return null;
-    };
-
     if (!isOpen) return null;
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -77,12 +67,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         if (!registerCode.trim()) {
             setError('请输入验证码');
             addToast('请输入邮箱验证码', 'error');
-            return;
-        }
-        const passwordError = validatePassword(password);
-        if (passwordError) {
-            setError(passwordError);
-            addToast(`密码格式错误：${passwordError}`, 'error');
             return;
         }
         if (password !== confirmPassword) {
@@ -223,12 +207,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         setError('');
         setSuccess('');
 
-        const passwordError = validatePassword(resetNewPassword);
-        if (passwordError) {
-            setError(passwordError);
-            addToast(`密码格式错误：${passwordError}`, 'error');
-            return;
-        }
         setIsLoading(true);
         try {
             await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword);
@@ -406,7 +384,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetNewPassword(e.currentTarget.value)}
                                             placeholder="新密码"
                                             required
-                                            minLength={8}
                                             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
                                     </div>
@@ -457,7 +434,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
                                             placeholder="密码"
                                             required
-                                            minLength={8}
                                             className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
                                         <button
@@ -478,7 +454,6 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.currentTarget.value)}
                                                 placeholder="确认密码"
                                                 required
-                                                minLength={8}
                                                 className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 outline-none transition-colors ${confirmPassword && password !== confirmPassword
                                                     ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
                                                     : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
