@@ -193,9 +193,7 @@ export const AdminApp: React.FC = () => {
         <aside className="hidden lg:flex w-1/2 flex-col justify-between px-10 py-12">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
+              <img src="/logo_new.png" alt="Logo" className="h-12 w-12 rounded-2xl shadow-lg shadow-amber-500/30" />
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">DEAI Admin</p>
                 <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">管理控制台</h1>
@@ -228,7 +226,7 @@ export const AdminApp: React.FC = () => {
           <div className="w-full max-w-md">
             <div className="mb-6 text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start gap-2 text-sm font-medium text-slate-500">
-                <ShieldCheck className="h-4 w-4 text-amber-500" />
+                <img src="/logo_new.png" alt="Logo" className="h-4 w-4" />
                 管理员登录
               </div>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">

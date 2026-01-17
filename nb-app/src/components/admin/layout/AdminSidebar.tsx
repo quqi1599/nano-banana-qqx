@@ -37,9 +37,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
             {/* Logo Area */}
             <div className="h-16 flex items-center px-6 border-b border-cream-100 dark:border-gray-800/50">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cream-400 to-cream-600 flex items-center justify-center text-white shadow-lg shadow-cream-500/20">
-                        <ShieldCheck size={18} strokeWidth={2.5} />
-                    </div>
+                    <img src="/logo_new.png" alt="Logo" className="w-8 h-8 rounded-xl shadow-lg shadow-cream-500/20" />
                     {!collapsed && (
                         <div>
                             <h1 className="font-bold text-gray-900 dark:text-white leading-none">管理后台</h1>

@@ -16,12 +16,16 @@ async def check_openai_quota(api_key: str, base_url: str = DEFAULT_API_BASE) -> 
     返回剩余额度（美元），失败返回 None
     """
     headers = {"Authorization": f"Bearer {api_key}"}
-    
+
+    # 确保 base_url 不以 / 结尾，路径不以 / 开头
+    clean_base_url = base_url.rstrip('/')
+    clean_path = "/v1/dashboard/billing/subscription"
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             # 1. 查询订阅信息（总额度）
             sub_res = await client.get(
-                f"{base_url}/v1/dashboard/billing/subscription",
+                f"{clean_base_url}{clean_path}",
                 headers=headers
             )
             if sub_res.status_code != 200:
@@ -38,9 +42,9 @@ async def check_openai_quota(api_key: str, base_url: str = DEFAULT_API_BASE) -> 
             now = datetime.utcnow()
             start_date = now - timedelta(days=99)
             end_date = now + timedelta(days=1)
-            
+
             usage_res = await client.get(
-                f"{base_url}/v1/dashboard/billing/usage",
+                f"{clean_base_url}/v1/dashboard/billing/usage",
                 params={
                     "start_date": start_date.strftime("%Y-%m-%d"),
                     "end_date": end_date.strftime("%Y-%m-%d"),
@@ -67,10 +71,14 @@ async def check_new_api_quota(api_key: str, base_url: str = DEFAULT_API_BASE) ->
     """
     headers = {"Authorization": f"Bearer {api_key}"}
 
+    # 确保 base_url 不以 / 结尾，路径不以 / 开头
+    clean_base_url = base_url.rstrip('/')
+    clean_path = "/api/usage/token"
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             res = await client.get(
-                f"{base_url}/api/usage/token",
+                f"{clean_base_url}{clean_path}",
                 headers=headers
             )
             if res.status_code != 200:

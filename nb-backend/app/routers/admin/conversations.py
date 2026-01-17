@@ -23,6 +23,7 @@ from app.schemas.admin import (
 from app.schemas.conversation import (
     AdminConversationResponse,
     AdminConversationDetailResponse,
+    ConversationResponse,
     MessageResponse,
     UserType,
 )
@@ -130,7 +131,7 @@ def _build_admin_conversation_response(
     Returns:
         管理员对话响应（包含 api_key_prefix 用于分组显示）
     """
-    conv_dict = AdminConversationResponse.model_validate(conversation).model_dump()
+    conv_dict = ConversationResponse.model_validate(conversation).model_dump()
     conv_dict["user_email"] = user_email or (
         f"Guest ({conversation.visitor_id[:8]}...)" if conversation.visitor_id else "Guest"
     )
