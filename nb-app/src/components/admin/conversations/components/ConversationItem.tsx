@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Hash, User, Clock, Trash2, Globe } from 'lucide-react';
+import { MessageSquare, Hash, User, Clock, Trash2, Globe, Key } from 'lucide-react';
 import { AdminConversation } from '../../../../services/conversationService';
 import { UserTypeBadge, getInputValue } from '../../utils/constants';
 import { formatDate } from '../../../../utils/formatters';
@@ -15,6 +15,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     onViewDetail,
     onDelete,
 }) => {
+    const apiKeyValue = conversation.api_key || conversation.api_key_prefix || '';
+    const apiKeyPreview = conversation.api_key_prefix || (conversation.api_key ? conversation.api_key.slice(0, 8) : '');
+
     return (
         <div
             className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition cursor-pointer"
@@ -57,17 +60,19 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
                             </span>
                         )}
                         {/* API Key 前缀显示（仅未登录用户且有前缀时） */}
-                        {conversation.user_type === 'visitor' && conversation.api_key_prefix && (
+                        {conversation.user_type !== 'user' && (conversation.api_key_prefix || conversation.api_key) && (
                             <span
                                 className="flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    navigator.clipboard.writeText(conversation.api_key_prefix || '');
+                                    if (apiKeyValue) {
+                                        navigator.clipboard.writeText(apiKeyValue);
+                                    }
                                 }}
-                                title="点击复制 API Key 前缀"
+                                title="点击复制 API Key"
                             >
                                 <Key className="w-3 h-3" />
-                                {conversation.api_key_prefix}
+                                {apiKeyPreview}
                             </span>
                         )}
                         <span className="flex items-center gap-1">

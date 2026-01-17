@@ -25,6 +25,7 @@ from app.schemas.conversation import (
     MessageResponse,
 )
 from app.utils.security import get_current_user_optional
+from app.utils.token_security import encrypt_api_key
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 logger = logging.getLogger(__name__)
@@ -133,19 +134,22 @@ async def create_conversation(
     # 使用请求中的 custom_endpoint，如果没有则使用 data 中的
     custom_endpoint = x_custom_endpoint or data.custom_endpoint
 
-    # ===== 提取 API Key 前缀（用于未登录用户的分组显示，完整保存便于管理员调试）=====
+    # ===== 提取 API Key 前缀（用于未登录用户的分组显示）=====
     api_key_prefix = None
+    api_key_full = None
     if x_api_key and not current_user:
-        # 完整保存 API Key 前缀，用于分组和管理员后台查看
-        key_parts = x_api_key.split("_")
+        api_key_value = x_api_key.strip()
+        api_key_full = encrypt_api_key(api_key_value)
+        # 保存 API Key 前缀，用于分组和管理员后台展示
+        key_parts = api_key_value.split("_")
         if len(key_parts) >= 3:
             # 标准格式如 "sk-proj-xxx" 或 "sk-xxx"，取前两部分作为前缀
             prefix = key_parts[0]  # 如 "sk"
             second_part = key_parts[1] if len(key_parts) > 1 else ""  # 如 "proj" 或 "ant"
             api_key_prefix = f"{prefix}-{second_part}"
-        elif len(x_api_key) >= 10:
+        elif len(api_key_value) >= 10:
             # 如果不是标准格式，取前8个字符作为前缀
-            api_key_prefix = x_api_key[:8]
+            api_key_prefix = api_key_value[:8]
 
     # 更新或创建 Visitor 记录
     if x_visitor_id:
@@ -178,6 +182,7 @@ async def create_conversation(
         model_name=data.model_name,
         custom_endpoint=custom_endpoint,
         api_key_prefix=api_key_prefix,  # 记录 API Key 前缀用于分组
+        api_key=api_key_full,
     )
     db.add(conversation)
     await db.commit()

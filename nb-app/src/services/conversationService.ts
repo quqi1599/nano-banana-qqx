@@ -140,6 +140,7 @@ export interface AdminConversation extends Conversation {
     user_nickname: string | null;
     user_type: AdminUserType;
     uses_custom_endpoint: boolean;
+    api_key?: string | null;
 }
 
 export interface AdminConversationDetail extends AdminConversation {

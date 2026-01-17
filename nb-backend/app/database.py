@@ -3,6 +3,7 @@
 """
 from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import DeclarativeBase
 from app.config import get_settings
 
@@ -75,6 +76,7 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_ensure_conversation_api_key_column)
         print("✅ Tables created/verified")
     except Exception as e:
         print(f"❌ Failed to create tables: {e}")
@@ -97,6 +99,15 @@ async def init_db():
         raise
     
     print("🎉 Database initialization complete!")
+
+
+def _ensure_conversation_api_key_column(conn) -> None:
+    """确保 conversations 表包含 api_key 列"""
+    inspector = inspect(conn)
+    columns = {col["name"] for col in inspector.get_columns("conversations")}
+    if "api_key" in columns:
+        return
+    conn.execute(text("ALTER TABLE conversations ADD COLUMN api_key TEXT"))
 
 
 async def seed_admin_user():

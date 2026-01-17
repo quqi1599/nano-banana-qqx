@@ -61,6 +61,8 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     onClose,
 }) => {
     const [imagePreview, setImagePreview] = useState<{ src: string; show: boolean } | null>(null);
+    const apiKeyValue = conversation.api_key || conversation.api_key_prefix || '';
+    const apiKeyPreview = conversation.api_key_prefix || (conversation.api_key ? conversation.api_key.slice(0, 8) : '');
 
     const handleImageClick = (base64: string, mimeType: string) => {
         setImagePreview({ src: `data:${mimeType};base64,${base64}`, show: true });
@@ -133,15 +135,15 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                                 </span>
                             )}
                             {/* API Key 前缀显示（仅未登录用户且有前缀时） */}
-                            {conversation.user_type === 'visitor' && conversation.api_key_prefix && (
+                            {conversation.user_type !== 'user' && (conversation.api_key_prefix || conversation.api_key) && (
                                 <ClickableCodeTag
-                                    code={conversation.api_key_prefix || ''}
-                                    modalTitle="API Key 前缀"
+                                    code={apiKeyValue}
+                                    modalTitle="API Key"
                                     icon="key"
                                     className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-[11px] text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition"
                                 >
                                     <Key className="w-3 h-3" />
-                                    {conversation.api_key_prefix}
+                                    {apiKeyPreview}
                                 </ClickableCodeTag>
                             )}
                             <ClickableCodeTag

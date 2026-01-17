@@ -89,6 +89,29 @@ services:
     mem_limit: 256m
     cpus: "0.5"
 
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./nb-backend
+      dockerfile: Dockerfile
+    container_name: nbnb-celery-worker
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@postgres:5432/nbnb
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: "1.0"
+
 volumes:
   postgres_data:
   redis_data:

@@ -21,7 +21,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.database import get_db
 from app.models.user import User
@@ -184,6 +184,109 @@ async def generate_redeem_codes(
         flash_credits=data.flash_credits,
         remark=data.remark,
     )
+
+
+@router.delete("/redeem-codes/{code_id}")
+async def delete_redeem_code(
+    code_id: str,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    删除单个兑换码
+
+    Args:
+        code_id: 兑换码ID
+
+    Returns:
+        删除成功消息
+    """
+    stmt = delete(RedeemCode).where(RedeemCode.id == code_id)
+    result = await db.execute(stmt)
+
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="兑换码不存在",
+        )
+
+    await db.commit()
+
+    logger.info("Admin %s deleted redeem code %s", admin.email, code_id)
+
+    return {"message": "兑换码已删除"}
+
+
+@router.delete("/redeem-codes/batch/used")
+async def delete_used_redeem_codes(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    一键删除所有已使用的兑换码
+
+    Returns:
+        删除数量和消息
+    """
+    stmt = delete(RedeemCode).where(RedeemCode.is_used == True)
+    result = await db.execute(stmt)
+    deleted_count = result.rowcount
+    await db.commit()
+
+    logger.info("Admin %s deleted %d used redeem codes", admin.email, deleted_count)
+
+    return {
+        "message": f"已删除 {deleted_count} 个已使用的兑换码",
+        "deleted_count": deleted_count
+    }
+
+
+@router.delete("/redeem-codes/batch/unused")
+async def delete_unused_redeem_codes(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    一键删除所有未使用的兑换码
+
+    Returns:
+        删除数量和消息
+    """
+    stmt = delete(RedeemCode).where(RedeemCode.is_used == False)
+    result = await db.execute(stmt)
+    deleted_count = result.rowcount
+    await db.commit()
+
+    logger.info("Admin %s deleted %d unused redeem codes", admin.email, deleted_count)
+
+    return {
+        "message": f"已删除 {deleted_count} 个未使用的兑换码",
+        "deleted_count": deleted_count
+    }
+
+
+@router.delete("/redeem-codes/batch/all")
+async def delete_all_redeem_codes(
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    清空所有兑换码
+
+    Returns:
+        删除数量和消息
+    """
+    stmt = delete(RedeemCode)
+    result = await db.execute(stmt)
+    deleted_count = result.rowcount
+    await db.commit()
+
+    logger.info("Admin %s deleted all redeem codes (total: %d)", admin.email, deleted_count)
+
+    return {
+        "message": f"已清空所有兑换码（共 {deleted_count} 个）",
+        "deleted_count": deleted_count
+    }
 
 
 # 导出主路由器供 main.py 使用

@@ -182,6 +182,22 @@ export const getRedeemCodes = async (batchId?: string, isUsed?: boolean): Promis
     return request(`/redeem-codes?${params.toString()}`);
 };
 
+export const deleteRedeemCode = async (codeId: string): Promise<{ message: string }> => {
+    return request(`/redeem-codes/${codeId}`, { method: 'DELETE' });
+};
+
+export const deleteUsedRedeemCodes = async (): Promise<{ message: string; deleted_count: number }> => {
+    return request('/redeem-codes/batch/used', { method: 'DELETE' });
+};
+
+export const deleteUnusedRedeemCodes = async (): Promise<{ message: string; deleted_count: number }> => {
+    return request('/redeem-codes/batch/unused', { method: 'DELETE' });
+};
+
+export const deleteAllRedeemCodes = async (): Promise<{ message: string; deleted_count: number }> => {
+    return request('/redeem-codes/batch/all', { method: 'DELETE' });
+};
+
 // ========== 用户管理 ==========
 
 export interface AdminUser {

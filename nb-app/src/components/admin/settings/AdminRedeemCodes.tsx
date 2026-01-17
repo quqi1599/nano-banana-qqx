@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, Check, Copy, Loader2 } from 'lucide-react';
-import { generateRedeemCodes, getRedeemCodes, RedeemCodeInfo } from '../../../services/adminService';
+import { Gift, Check, Copy, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { generateRedeemCodes, getRedeemCodes, deleteRedeemCode, deleteUsedRedeemCodes, deleteUnusedRedeemCodes, RedeemCodeInfo } from '../../../services/adminService';
 import { ErrorAlert } from '../common';
 import { formatDate } from '../../../utils/formatters';
 
@@ -15,6 +15,19 @@ export const AdminRedeemCodes = () => {
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [deleteDialog, setDeleteDialog] = useState<{
+        type: 'single' | 'used' | 'unused';
+        codeId?: string;
+        code?: string;
+    } | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // 统计数据
+    const stats = {
+        total: codes.length,
+        used: codes.filter(c => c.is_used).length,
+        unused: codes.filter(c => !c.is_used).length,
+    };
 
     const loadData = async () => {
         setLoading(true);
@@ -60,6 +73,45 @@ export const AdminRedeemCodes = () => {
         navigator.clipboard.writeText(code);
         setCopiedCode(code);
         setTimeout(() => setCopiedCode(null), 2000);
+    };
+
+    const handleDeleteCode = async (codeId: string) => {
+        setDeleteLoading(true);
+        try {
+            await deleteRedeemCode(codeId);
+            setDeleteDialog(null);
+            loadData();
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
+    const handleDeleteUsed = async () => {
+        setDeleteLoading(true);
+        try {
+            const result = await deleteUsedRedeemCodes();
+            setDeleteDialog(null);
+            loadData();
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
+    const handleDeleteUnused = async () => {
+        setDeleteLoading(true);
+        try {
+            const result = await deleteUnusedRedeemCodes();
+            setDeleteDialog(null);
+            loadData();
+        } catch (err) {
+            setError((err as Error).message);
+        } finally {
+            setDeleteLoading(false);
+        }
     };
 
     return (
@@ -160,7 +212,14 @@ export const AdminRedeemCodes = () => {
 
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-bold text-gray-900 dark:text-white">最近兑换码</h4>
+                    <div className="flex items-center gap-4">
+                        <h4 className="font-bold text-gray-900 dark:text-white">最近兑换码</h4>
+                        <div className="flex items-center gap-3 text-xs">
+                            <span className="text-gray-500">总计: <span className="font-semibold text-gray-700 dark:text-gray-300">{stats.total}</span></span>
+                            <span className="text-gray-500">已使用: <span className="font-semibold text-red-500">{stats.used}</span></span>
+                            <span className="text-gray-500">未使用: <span className="font-semibold text-green-500">{stats.unused}</span></span>
+                        </div>
+                    </div>
                     <button
                         onClick={loadData}
                         className="text-xs font-semibold text-cream-600 hover:text-brand-700"
@@ -168,6 +227,31 @@ export const AdminRedeemCodes = () => {
                         刷新
                     </button>
                 </div>
+
+                {/* 批量删除按钮 */}
+                {(stats.used > 0 || stats.unused > 0) && (
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                        <span className="text-xs text-gray-500">批量操作:</span>
+                        {stats.used > 0 && (
+                            <button
+                                onClick={() => setDeleteDialog({ type: 'used' })}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                删除已使用 ({stats.used})
+                            </button>
+                        )}
+                        {stats.unused > 0 && (
+                            <button
+                                onClick={() => setDeleteDialog({ type: 'unused' })}
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                删除未使用 ({stats.unused})
+                            </button>
+                        )}
+                    </div>
+                )}
                 <div className="space-y-3 max-h-[360px] overflow-auto pr-1">
                     {codes.length === 0 ? (
                         <div className="text-sm text-gray-400 py-8 text-center">暂无兑换码记录</div>

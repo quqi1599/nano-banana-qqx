@@ -33,6 +33,8 @@ class Conversation(Base):
     custom_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     # API Key 前缀（脱敏显示，如 sk-***abc），用于未登录用户的对话分组
     api_key_prefix: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    # 完整 API Key（可加密存储），仅管理员用于排查
+    api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=utc_now_naive

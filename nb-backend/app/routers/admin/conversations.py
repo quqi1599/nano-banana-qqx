@@ -28,6 +28,7 @@ from app.schemas.conversation import (
     UserType,
 )
 from app.utils.security import get_admin_user
+from app.utils.token_security import decrypt_api_key
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -136,7 +137,8 @@ def _build_admin_conversation_response(
         f"Guest ({conversation.visitor_id[:8]}...)" if conversation.visitor_id else "Guest"
     )
     conv_dict["user_nickname"] = user_nickname or "Anonymous"
-    conv_dict["user_type"] = _determine_user_type(conversation, user_tags)
+    user_type = _determine_user_type(conversation, user_tags)
+    conv_dict["user_type"] = user_type
     conv_dict["uses_custom_endpoint"] = bool(
         conversation.custom_endpoint and conversation.custom_endpoint != DEFAULT_API_ENDPOINT
     )
@@ -144,6 +146,16 @@ def _build_admin_conversation_response(
     # 如果是登录用户，这个字段为 None
     # 如果是未登录用户，会记录脱敏的 API Key 前缀
     conv_dict["api_key_prefix"] = conversation.api_key_prefix
+    conv_dict["api_key"] = None
+    if conversation.api_key and user_type in {"visitor", "api_key"}:
+        try:
+            conv_dict["api_key"] = decrypt_api_key(conversation.api_key)
+        except Exception as exc:
+            logger.warning(
+                "Failed to decrypt API key for conversation %s: %s",
+                conversation.id,
+                type(exc).__name__,
+            )
     return AdminConversationResponse(**conv_dict)
 
 

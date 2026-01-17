@@ -90,6 +90,8 @@ class AdminConversationResponse(ConversationResponse):
     custom_endpoint: Optional[str] = None
     # Admin 可以看到完整的 API Key 前缀（用于排查问题）
     api_key_prefix: Optional[str] = None
+    # Admin 可以看到完整 API Key（仅未登录/ApiKey 用户）
+    api_key: Optional[str] = None
 
 
 class AdminConversationDetailResponse(AdminConversationResponse):
