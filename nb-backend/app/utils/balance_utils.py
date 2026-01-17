@@ -61,36 +61,36 @@ async def check_openai_quota(api_key: str, base_url: str = DEFAULT_API_BASE) -> 
 
 async def check_new_api_quota(api_key: str, base_url: str = DEFAULT_API_BASE) -> Optional[float]:
     """
-    使用 New API 平台的 /api/user/self 接口查询余额
+    使用 New API 平台的 /api/usage/token 接口查询余额
+    文档: https://doc.newapi.pro/api/token-usage/
     返回剩余额度（美元），失败返回 None
     """
     headers = {"Authorization": f"Bearer {api_key}"}
-    
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             res = await client.get(
-                f"{base_url}/api/user/self",
+                f"{base_url}/api/usage/token",
                 headers=headers
             )
             if res.status_code != 200:
                 return None
-            
+
             data = res.json()
-            if not data.get("success") or not data.get("data"):
+            # New API 使用 code 字段而不是 success 字段
+            if not data.get("code") or not data.get("data"):
                 return None
-            
-            # New API 的额度单位是"分"，需要转换为美元（÷ 500000）
-            quota = data["data"].get("quota", 0)
-            used_quota = data["data"].get("used_quota", 0)
-            
-            quota_in_usd = quota / 500000
-            used_in_usd = used_quota / 500000
-            
-            if quota_in_usd >= 100000000:
+
+            # 使用 API 返回的 unlimited_quota 字段判断是否无限
+            if data["data"].get("unlimited_quota", False):
                 return float("inf")
-            
-            return quota_in_usd - used_in_usd
-            
+
+            # New API 的额度单位是"分"，需要转换为美元（÷ 500000）
+            # 直接使用 API 返回的 total_available 字段
+            total_available = data["data"].get("total_available", 0)
+
+            return total_available / 500000
+
         except Exception:
             return None
 

@@ -1,5 +1,6 @@
 import { AppSettings } from '../types';
-import { resolveApiBaseUrl } from '../utils/endpointUtils';
+import { resolveApiBaseUrl, getApiBaseUrl } from '../utils/endpointUtils';
+import { DEFAULT_API_ENDPOINT } from '../config/api';
 
 // New API 的计费单位：1美元 = 500000分
 const NEW_API_CREDIT_TO_USD_RATE = 1 / 500000;
@@ -13,13 +14,21 @@ export interface BalanceInfo {
 
 /**
  * New API 平台返回的数据结构
+ * 文档: https://doc.newapi.pro/api/token-usage/
  */
-interface NewApiDataResponse {
-  success: boolean;
+interface NewApiTokenUsageResponse {
+  code: boolean;
   message?: string;
   data?: {
-    quota: number;        // 总额度（单位：分）
-    used_quota: number;   // 已使用额度（单位：分）
+    object: string;
+    name: string;
+    total_granted: number;      // 授予总量（单位：分）
+    total_used: number;         // 已使用额度（单位：分）
+    total_available: number;    // 可用剩余额度（单位：分）
+    unlimited_quota: boolean;   // 是否无限额度
+    model_limits?: Record<string, boolean>;
+    model_limits_enabled: boolean;
+    expires_at: number;         // 到期时间，0 表示永不过期
   };
 }
 
@@ -76,14 +85,14 @@ const fetchBalanceOpenAI = async (
 };
 
 /**
- * 使用 New API 平台的 /api/user/self 接口查询余额
- * 文档: https://docs.newapi.pro
+ * 使用 New API 平台的 /api/usage/token 接口查询余额
+ * 文档: https://doc.newapi.pro/api/token-usage/
  */
 const fetchBalanceNewApi = async (
   baseUrl: string,
   headers: Record<string, string>
 ): Promise<BalanceInfo> => {
-  const res = await fetch(`${baseUrl}/api/user/self`, {
+  const res = await fetch(`${baseUrl}/api/usage/token`, {
     headers,
   });
 
@@ -91,24 +100,25 @@ const fetchBalanceNewApi = async (
     throw new Error(`New API 查询失败: ${res.status} ${res.statusText}`);
   }
 
-  const data: NewApiDataResponse = await res.json();
+  const data: NewApiTokenUsageResponse = await res.json();
 
-  if (!data.success || !data.data) {
+  // New API 使用 code 字段而不是 success 字段
+  if (!data.code || !data.data) {
     throw new Error(data.message || 'New API 返回数据格式错误');
   }
 
   // New API 的额度单位是"分"，需要转换为美元
   // 参考: 1美元 = 500000分（New API 的计费单位）
-  const quotaInUsd = data.data.quota * NEW_API_CREDIT_TO_USD_RATE;
-  const usedInUsd = data.data.used_quota * NEW_API_CREDIT_TO_USD_RATE;
-  const remaining = quotaInUsd - usedInUsd;
+  const grantedInUsd = data.data.total_granted * NEW_API_CREDIT_TO_USD_RATE;
+  const usedInUsd = data.data.total_used * NEW_API_CREDIT_TO_USD_RATE;
 
-  const isUnlimited = quotaInUsd >= 100000000;
+  // 使用 API 返回的 unlimited_quota 字段判断是否无限
+  const isUnlimited = data.data.unlimited_quota;
 
   return {
-    hardLimitUsd: isUnlimited ? Infinity : quotaInUsd,
+    hardLimitUsd: isUnlimited ? Infinity : grantedInUsd,
     usage: isUnlimited ? 0 : usedInUsd,
-    remaining: isUnlimited ? Infinity : remaining,
+    remaining: isUnlimited ? Infinity : data.data.total_available * NEW_API_CREDIT_TO_USD_RATE,
     isUnlimited,
   };
 };
@@ -121,15 +131,23 @@ export const fetchBalance = async (
   apiKey: string,
   settings: AppSettings
 ): Promise<BalanceInfo> => {
-  // 如果用户设置了自定义 API 域名，使用完整 URL；否则使用本地代理路径
+  // 获取实际的目标端点（用户自定义或默认）
+  const targetEndpoint = getApiBaseUrl(settings.customEndpoint);
+  // 获取请求基础 URL（开发环境使用代理，生产环境直接使用目标端点）
   const baseUrl = resolveApiBaseUrl(settings.customEndpoint);
+
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
   };
 
+  // 开发环境：设置代理目标端点头，让 Vite 代理知道转发到哪里
+  if (import.meta.env.DEV) {
+    headers['x-target-endpoint'] = targetEndpoint;
+  }
+
   // 1. 先尝试 OpenAI 兼容的 Dashboard API
   try {
-    console.log('尝试使用 OpenAI Dashboard API 查询余额...');
+    console.log(`尝试使用 OpenAI Dashboard API 查询余额... (目标: ${targetEndpoint})`);
     const result = await fetchBalanceOpenAI(baseUrl, headers);
     console.log('OpenAI Dashboard API 查询成功');
     return result;
@@ -137,7 +155,7 @@ export const fetchBalance = async (
     console.warn('OpenAI Dashboard API 查询失败，尝试 New API...', openaiError);
   }
 
-  // 2. 降级到 New API 的 /api/user/self 接口
+  // 2. 降级到 New API 的 /api/usage/token 接口
   try {
     console.log('尝试使用 New API 查询余额...');
     const result = await fetchBalanceNewApi(baseUrl, headers);
