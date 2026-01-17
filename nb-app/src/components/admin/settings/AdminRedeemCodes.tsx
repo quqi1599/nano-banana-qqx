@@ -281,13 +281,22 @@ export const AdminRedeemCodes = () => {
                                     }`}>
                                         {code.is_used ? '已使用' : '未使用'}
                                     </span>
-                                    <button
-                                        onClick={() => handleCopyCode(code.code)}
-                                        className="text-xs text-gray-400 hover:text-cream-600 flex items-center gap-1"
-                                    >
-                                        {copiedCode === code.code ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                                        {copiedCode === code.code ? '已复制' : '复制'}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => handleCopyCode(code.code)}
+                                            className="text-xs text-gray-400 hover:text-cream-600 flex items-center gap-1"
+                                        >
+                                            {copiedCode === code.code ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                            {copiedCode === code.code ? '已复制' : '复制'}
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteDialog({ type: 'single', codeId: code.id, code: code.code })}
+                                            className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
+                                            title="删除"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="sm:col-span-6 text-xs text-gray-400 flex flex-wrap gap-3">
                                     <span>创建 {formatDate(code.created_at)}</span>
@@ -299,6 +308,56 @@ export const AdminRedeemCodes = () => {
                     )}
                 </div>
             </div>
+
+            {/* 删除确认对话框 */}
+            {deleteDialog && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-fade-in-up">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                <AlertTriangle className="w-5 h-5 text-red-500" />
+                            </div>
+                            <h3 className="font-bold text-gray-900 dark:text-white">确认删除</h3>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                            {deleteDialog.type === 'single' && (
+                                <>确定要删除兑换码 <span className="font-mono font-semibold text-gray-800 dark:text-gray-200">{deleteDialog.code}</span> 吗？此操作不可恢复。</>
+                            )}
+                            {deleteDialog.type === 'used' && (
+                                <>确定要删除所有 <span className="font-semibold text-red-500">{stats.used}</span> 个已使用的兑换码吗？此操作不可恢复。</>
+                            )}
+                            {deleteDialog.type === 'unused' && (
+                                <>确定要删除所有 <span className="font-semibold text-orange-500">{stats.unused}</span> 个未使用的兑换码吗？此操作不可恢复。</>
+                            )}
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setDeleteDialog(null)}
+                                disabled={deleteLoading}
+                                className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (deleteDialog.type === 'single') {
+                                        handleDeleteCode(deleteDialog.codeId!);
+                                    } else if (deleteDialog.type === 'used') {
+                                        handleDeleteUsed();
+                                    } else if (deleteDialog.type === 'unused') {
+                                        handleDeleteUnused();
+                                    }
+                                }}
+                                disabled={deleteLoading}
+                                className="px-4 py-2 text-sm font-semibold bg-red-500 text-white rounded-xl hover:bg-red-600 transition flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                {deleteLoading ? '删除中...' : '确认删除'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
