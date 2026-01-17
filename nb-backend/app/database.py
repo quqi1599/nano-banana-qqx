@@ -70,6 +70,7 @@ def run_migrations() -> None:
 
 async def init_db():
     """初始化数据库表"""
+    print("🔧 Initializing database...")
     # 先导入所有模型，确保它们注册到 Base.metadata
     from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history, admin_audit_log, smtp_config  # noqa: F401
     
@@ -78,9 +79,27 @@ async def init_db():
     # 如需从零初始化数据库，请直接运行: alembic upgrade head
     
     # 运行 Alembic 迁移（处理增量变更）
+    print("📦 Running migrations...")
     await asyncio.to_thread(run_migrations)
-    await seed_model_pricing()
-    await seed_admin_user()
+    print("✅ Migrations completed")
+    
+    print("💰 Seeding model pricing...")
+    try:
+        await seed_model_pricing()
+        print("✅ Model pricing seeded")
+    except Exception as e:
+        print(f"❌ Failed to seed model pricing: {e}")
+        raise
+    
+    print("👤 Seeding admin user...")
+    try:
+        await seed_admin_user()
+        print("✅ Admin user seeded")
+    except Exception as e:
+        print(f"❌ Failed to seed admin user: {e}")
+        raise
+    
+    print("🎉 Database initialization complete!")
 
 
 async def seed_admin_user():
