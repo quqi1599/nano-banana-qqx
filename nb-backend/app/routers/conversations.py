@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 import json
 import uuid
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc, func, or_
@@ -26,6 +27,7 @@ from app.schemas.conversation import (
 from app.utils.security import get_current_user_optional
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+logger = logging.getLogger(__name__)
 
 
 def generate_title(content: str, max_length: int = 50) -> str:
@@ -87,13 +89,17 @@ def _should_merge_visitor_history(current_user: Optional[User]) -> bool:
 def _get_conversation_filter(current_user: Optional[User], visitor_id: Optional[str]):
     if current_user:
         if visitor_id and _should_merge_visitor_history(current_user):
+            logger.debug(f"[会话] 合并用户和游客历史: user_id={current_user.id}, visitor_id={visitor_id}")
             return or_(
                 Conversation.user_id == current_user.id,
                 Conversation.visitor_id == visitor_id,
             )
+        logger.debug(f"[会话] 用户对话过滤: user_id={current_user.id}")
         return Conversation.user_id == current_user.id
     if visitor_id:
+        logger.debug(f"[会话] 游客对话过滤: visitor_id={visitor_id[:8]}...")
         return Conversation.visitor_id == visitor_id
+    logger.warning("[会话] 未登录且未提供游客标识")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="未登录且未提供游客标识",
@@ -188,6 +194,9 @@ async def get_conversations(
     page_size: Optional[int] = Query(None, ge=1, le=100),
 ):
     """获取当前用户（或游客）的对话列表"""
+    user_id = current_user.id if current_user else None
+    logger.info(f"[会话] 获取对话列表: user_id={user_id}, visitor_id={x_visitor_id[:8] if x_visitor_id else None}..., page={page}, page_size={page_size}")
+
     filters = _get_conversation_filter(current_user, x_visitor_id)
     query = (
         select(Conversation)
@@ -255,6 +264,9 @@ async def get_conversation_messages(
     db: AsyncSession = Depends(get_db),
 ):
     """获取对话消息分页"""
+    user_id = current_user.id if current_user else None
+    logger.info(f"[会话] 获取消息请求: conversation_id={conversation_id}, user_id={user_id}, visitor_id={x_visitor_id[:8] if x_visitor_id else None}..., page={page}, page_size={page_size}")
+
     filters = _get_conversation_filter(current_user, x_visitor_id)
     exists_result = await db.execute(
         select(Conversation.id).where(
@@ -265,6 +277,15 @@ async def get_conversation_messages(
         )
     )
     if not exists_result.scalar_one_or_none():
+        # 查询该对话是否存在（不限用户）以提供更详细的错误信息
+        debug_result = await db.execute(
+            select(Conversation).where(Conversation.id == conversation_id)
+        )
+        debug_conv = debug_result.scalar_one_or_none()
+        if debug_conv:
+            logger.warning(f"[会话] 获取消息失败 - 对话存在但不属于当前用户: conversation_id={conversation_id}, owner_user_id={debug_conv.user_id}, owner_visitor_id={debug_conv.visitor_id[:8] if debug_conv.visitor_id else None}...")
+        else:
+            logger.warning(f"[会话] 获取消息失败 - 对话不存在: conversation_id={conversation_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="对话不存在",
@@ -305,6 +326,9 @@ async def add_message(
     db: AsyncSession = Depends(get_db),
 ):
     """向对话添加消息"""
+    user_id = current_user.id if current_user else None
+    logger.info(f"[会话] 添加消息请求: conversation_id={conversation_id}, user_id={user_id}, visitor_id={x_visitor_id[:8] if x_visitor_id else None}..., role={data.role}")
+
     # 验证对话所有权
     filters = _get_conversation_filter(current_user, x_visitor_id)
     result = await db.execute(
@@ -318,6 +342,15 @@ async def add_message(
     conversation = result.scalar_one_or_none()
 
     if not conversation:
+        # 查询该对话是否存在（不限用户）以提供更详细的错误信息
+        debug_result = await db.execute(
+            select(Conversation).where(Conversation.id == conversation_id)
+        )
+        debug_conv = debug_result.scalar_one_or_none()
+        if debug_conv:
+            logger.warning(f"[会话] 对话存在但不属于当前用户: conversation_id={conversation_id}, owner_user_id={debug_conv.user_id}, owner_visitor_id={debug_conv.visitor_id[:8] if debug_conv.visitor_id else None}..., request_user_id={user_id}, request_visitor_id={x_visitor_id[:8] if x_visitor_id else None}...")
+        else:
+            logger.warning(f"[会话] 对话不存在: conversation_id={conversation_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="对话不存在",
@@ -364,6 +397,7 @@ async def add_message(
 
     await db.commit()
     await db.refresh(message)
+    logger.info(f"[会话] 消息添加成功: conversation_id={conversation_id}, message_id={message.id}, role={data.role}, conversation_message_count={conversation.message_count}")
     return _serialize_message(message)
 
 

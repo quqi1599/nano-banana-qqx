@@ -275,6 +275,9 @@ export const useAppStore = create<AppState>()(
               updated_at: now,
               messages: [],
               server_id: state.currentConversationId || null,
+              visitor_id: state.visitorId || null,
+              custom_endpoint: state.settings.customEndpoint || null,
+              api_key_prefix: state.apiKey ? state.apiKey.slice(0, 8) : null,
             };
             localConversations = [newConversation, ...localConversations];
             conversationIndex = 0;
@@ -999,13 +1002,10 @@ export const useAppStore = create<AppState>()(
               return;
             }
           }
-          // 如果没有活动的本地对话，使用最新的一个
-          const latestConversation = state.localConversations[0];
-          if (latestConversation) {
-            state.localConversationId = latestConversation.id;
-            state.messages = latestConversation.messages || [];
-            state.currentConversationId = latestConversation.server_id || null;
-          }
+          // Default to empty state (New Chat) if no valid localConversationId is found
+          state.localConversationId = null;
+          state.currentConversationId = null;
+          state.messages = [];
         } else {
           // 没有本地对话，清空状态
           state.localConversationId = null;
