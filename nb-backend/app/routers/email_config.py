@@ -254,36 +254,34 @@ async def create_config(
         smtp_port = data.smtp_port or 465
         smtp_encryption = data.smtp_encryption
 
-    # 使用事务确保数据一致性
-    async with db.begin():
-        # 如果设置为默认，取消其他配置的默认状态
-        if data.is_default:
-            result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
-            for config in result.scalars().all():
-                config.is_default = False
+    # 如果设置为默认，取消其他配置的默认状态
+    if data.is_default:
+        result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
+        for config in result.scalars().all():
+            config.is_default = False
 
-        config = SmtpConfig(
-            name=data.name,
-            provider=data.provider,
-            smtp_host=smtp_host,
-            smtp_port=smtp_port,
-            smtp_encryption=smtp_encryption,
-            smtp_user=data.smtp_user,
-            smtp_password=data.smtp_password,
-            from_email=data.from_email,
-            from_name=data.from_name,
-            reply_to=data.reply_to,
-            api_key=data.api_key,
-            api_url=data.api_url,
-            is_enabled=data.is_enabled,
-            is_default=data.is_default,
-            daily_limit=data.daily_limit,
-            hourly_limit=data.hourly_limit,
-            description=data.description,
-        )
+    config = SmtpConfig(
+        name=data.name,
+        provider=data.provider,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_encryption=smtp_encryption,
+        smtp_user=data.smtp_user,
+        smtp_password=data.smtp_password,
+        from_email=data.from_email,
+        from_name=data.from_name,
+        reply_to=data.reply_to,
+        api_key=data.api_key,
+        api_url=data.api_url,
+        is_enabled=data.is_enabled,
+        is_default=data.is_default,
+        daily_limit=data.daily_limit,
+        hourly_limit=data.hourly_limit,
+        description=data.description,
+    )
 
-        db.add(config)
-
+    db.add(config)
+    await db.flush()  # 确保数据写入但不提交事务
     await db.refresh(config)
 
     logger.info("Created email config: %s (provider=%s)", config.id, config.provider)
@@ -305,50 +303,49 @@ async def update_config(
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
 
-    # 使用事务确保数据一致性
-    async with db.begin():
-        # 如果设置为默认，取消其他配置的默认状态
-        if data.is_default is True and not config.is_default:
-            other_result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
-            for other_config in other_result.scalars().all():
-                other_config.is_default = False
+    # 如果设置为默认，取消其他配置的默认状态
+    if data.is_default is True and not config.is_default:
+        other_result = await db.execute(select(SmtpConfig).where(SmtpConfig.is_default == True))
+        for other_config in other_result.scalars().all():
+            other_config.is_default = False
 
-        # 更新字段
-        if data.name is not None:
-            config.name = data.name
-        if data.provider is not None:
-            config.provider = data.provider
-        if data.smtp_host is not None:
-            config.smtp_host = data.smtp_host
-        if data.smtp_port is not None:
-            config.smtp_port = data.smtp_port
-        if data.smtp_encryption is not None:
-            config.smtp_encryption = data.smtp_encryption
-        if data.smtp_user is not None:
-            config.smtp_user = data.smtp_user
-        if data.smtp_password is not None:
-            config.smtp_password = data.smtp_password
-        if data.from_email is not None:
-            config.from_email = data.from_email
-        if data.from_name is not None:
-            config.from_name = data.from_name
-        if data.reply_to is not None:
-            config.reply_to = data.reply_to
-        if data.api_key is not None:
-            config.api_key = data.api_key
-        if data.api_url is not None:
-            config.api_url = data.api_url
-        if data.is_enabled is not None:
-            config.is_enabled = data.is_enabled
-        if data.is_default is not None:
-            config.is_default = data.is_default
-        if data.daily_limit is not None:
-            config.daily_limit = data.daily_limit
-        if data.hourly_limit is not None:
-            config.hourly_limit = data.hourly_limit
-        if data.description is not None:
-            config.description = data.description
+    # 更新字段
+    if data.name is not None:
+        config.name = data.name
+    if data.provider is not None:
+        config.provider = data.provider
+    if data.smtp_host is not None:
+        config.smtp_host = data.smtp_host
+    if data.smtp_port is not None:
+        config.smtp_port = data.smtp_port
+    if data.smtp_encryption is not None:
+        config.smtp_encryption = data.smtp_encryption
+    if data.smtp_user is not None:
+        config.smtp_user = data.smtp_user
+    if data.smtp_password is not None:
+        config.smtp_password = data.smtp_password
+    if data.from_email is not None:
+        config.from_email = data.from_email
+    if data.from_name is not None:
+        config.from_name = data.from_name
+    if data.reply_to is not None:
+        config.reply_to = data.reply_to
+    if data.api_key is not None:
+        config.api_key = data.api_key
+    if data.api_url is not None:
+        config.api_url = data.api_url
+    if data.is_enabled is not None:
+        config.is_enabled = data.is_enabled
+    if data.is_default is not None:
+        config.is_default = data.is_default
+    if data.daily_limit is not None:
+        config.daily_limit = data.daily_limit
+    if data.hourly_limit is not None:
+        config.hourly_limit = data.hourly_limit
+    if data.description is not None:
+        config.description = data.description
 
+    await db.flush()  # 确保数据写入但不提交事务
     await db.refresh(config)
 
     logger.info("Updated email config: %s", config.id)
