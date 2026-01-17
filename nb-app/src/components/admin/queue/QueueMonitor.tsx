@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Activity, AlertCircle, CheckCircle, Clock, Download, Layers,
     PauseCircle, Play, RefreshCw, Server, Trash2, XCircle, Zap, TrendingUp,
-    AlertTriangle, ArrowUp, ArrowDown, Minus
+    Minus
 } from 'lucide-react';
 import {
     DashboardData, getQueueDashboard, getQueueTasks, getQueueWorkers,
@@ -44,32 +44,49 @@ interface TaskStatusBadgeProps {
 }
 
 const TaskStatusBadge: React.FC<TaskStatusBadgeProps> = ({ status }) => {
-    const config: Record<string, { color: string; icon: React.ComponentType<any>; label: string }> = {
-        pending: { color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20', icon: Clock, label: '等待中' },
-        active: { color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20', icon: Play, label: '执行中' },
+    const config: Record<string, { color: string; icon: React.ComponentType<any>; label: string; shortLabel?: string }> = {
+        pending: { color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20', icon: Clock, label: '等待中', shortLabel: '等待' },
+        active: { color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20', icon: Play, label: '执行中', shortLabel: '执行' },
         succeeded: { color: 'text-green-600 bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle, label: '成功' },
         failed: { color: 'text-red-600 bg-red-50 dark:bg-red-900/20', icon: XCircle, label: '失败' },
+        revoked: { color: 'text-gray-600 bg-gray-100 dark:bg-gray-800', icon: Minus, label: '已取消', shortLabel: '取消' },
     };
 
-    const { color, icon: Icon, label } = config[status] || config.pending;
+    const { color, icon: Icon, label, shortLabel } = config[status] || config.pending;
 
     return (
         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${color} flex-shrink-0`}>
             <Icon size={10} className="w-3 h-3 sm:w-3 sm:h-3" />
             <span className="hidden sm:inline">{label}</span>
-            <span className="sm:hidden">{label.slice(0, 2)}</span>
+            <span className="sm:hidden">{shortLabel || label.slice(0, 2)}</span>
         </span>
     );
 };
 
+const normalizeTimestamp = (value?: number): number | null => {
+    if (!value) return null;
+    return value < 1e12 ? value * 1000 : value;
+};
+
 // 格式化执行时长
-const formatDuration = (startTime?: number): string => {
-    if (!startTime) return '--';
-    const seconds = Math.floor((Date.now() - startTime) / 1000);
+const formatDuration = (startTime?: number, duration?: number): string => {
+    if (typeof duration === 'number' && !Number.isNaN(duration)) {
+        return `${duration.toFixed(1)}s`;
+    }
+    const startMs = normalizeTimestamp(startTime);
+    if (!startMs) return '--';
+    const seconds = Math.floor((Date.now() - startMs) / 1000);
+    if (seconds < 0) return '--';
     if (seconds < 60) return `${seconds}s`;
     const minutes = Math.floor(seconds / 60);
     const remainSeconds = seconds % 60;
     return `${minutes}m ${remainSeconds}s`;
+};
+
+const formatTimestamp = (value?: number): string => {
+    const ts = normalizeTimestamp(value);
+    if (!ts) return '--';
+    return new Date(ts).toLocaleString();
 };
 
 // 任务列表项
@@ -98,10 +115,10 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry, onCancel }) => {
                             <p className="text-xs text-gray-500 font-mono truncate">
                                 ID: {task.id.slice(0, 8)}...
                             </p>
-                            {task.time_start && (
+                            {(task.time_start || typeof task.duration === 'number') && (
                                 <span className="text-xs text-gray-400 flex items-center gap-1">
                                     <Clock size={10} />
-                                    {formatDuration(task.time_start)}
+                                    {formatDuration(task.time_start, task.duration)}
                                 </span>
                             )}
                         </div>
@@ -149,17 +166,51 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry, onCancel }) => {
                             </p>
                         </div>
                         <div>
+                            <p className="text-gray-500 mb-1">队列 / Worker</p>
+                            <p className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded break-all">
+                                {(task.queue || '--')}{task.worker ? ` / ${task.worker}` : ''}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-gray-500 mb-1">开始时间</p>
+                            <p className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                                {formatTimestamp(task.time_start)}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-gray-500 mb-1">时长</p>
+                            <p className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                                {formatDuration(task.time_start, task.duration)}
+                            </p>
+                        </div>
+                        <div className="col-span-2">
                             <p className="text-gray-500 mb-1">参数</p>
                             <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-24">
                                 {JSON.stringify(task.kwargs || task.args || {}, null, 2)}
                             </pre>
                         </div>
+                        {task.result !== undefined && (
+                            <div className="col-span-2">
+                                <p className="text-gray-500 mb-1">结果</p>
+                                <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-24">
+                                    {JSON.stringify(task.result, null, 2)}
+                                </pre>
+                            </div>
+                        )}
                         {task.error && (
                             <div className="col-span-2">
                                 <p className="text-gray-500 mb-1">错误信息</p>
                                 <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded">
                                     {task.error}
                                 </p>
+                            </div>
+                        )}
+                        {task.traceback && (
+                            <div className="col-span-2">
+                                <p className="text-gray-500 mb-1">Traceback</p>
+                                <pre className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded overflow-auto max-h-40">
+                                    {task.traceback}
+                                </pre>
                             </div>
                         )}
                     </div>
@@ -381,11 +432,13 @@ export const QueueMonitor: React.FC = () => {
         return () => clearInterval(interval);
     }, [autoRefresh]);
 
-    // 初始加载
     useEffect(() => {
         loadData();
+    }, [loadData]);
+
+    useEffect(() => {
         addLog('info', '队列监控已启动');
-    }, []);
+    }, [addLog]);
 
     // 计算队列总数
     const totalPending = dashboard?.overview?.tasks?.pending || 0;
@@ -395,9 +448,9 @@ export const QueueMonitor: React.FC = () => {
     const throughputHour = dashboard?.throughput?.last_hour || 0;
     const throughputDay = dashboard?.throughput?.last_day || 0;
 
-    // 从任务列表计算成功/失败数
-    const failedCount = tasks.filter(t => t.status === 'failed').length;
-    const succeededCount = tasks.filter(t => t.status === 'succeeded').length;
+    const failedCount = dashboard?.overview?.tasks?.failed ?? tasks.filter(t => t.status === 'failed').length;
+    const succeededCount = dashboard?.overview?.tasks?.succeeded ?? tasks.filter(t => t.status === 'succeeded').length;
+    const AutoRefreshIcon = autoRefresh ? PauseCircle : Play;
 
     if (loading) {
         return (
@@ -413,9 +466,15 @@ export const QueueMonitor: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 sm:gap-3">
                     <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">队列监控中心</h2>
-                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-600 text-xs font-medium rounded-full flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        实时
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1.5 ${
+                        autoRefresh
+                            ? 'bg-green-100 dark:bg-green-900/20 text-green-600'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
+                    }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                            autoRefresh ? 'bg-green-500 animate-pulse' : 'bg-gray-400'
+                        }`} />
+                        {autoRefresh ? '实时' : '暂停'}
                     </span>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2">
@@ -426,7 +485,7 @@ export const QueueMonitor: React.FC = () => {
                                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600'
                             }`}
                     >
-                        <Play size={14} className="sm:w-4 sm:h-4" />
+                        <AutoRefreshIcon size={14} className="sm:w-4 sm:h-4" />
                         <span className="hidden sm:inline">自动刷新</span>
                         <span className="sm:hidden">自动</span>
                     </button>
@@ -547,6 +606,7 @@ export const QueueMonitor: React.FC = () => {
                             <option value="active">执行中</option>
                             <option value="failed">失败</option>
                             <option value="succeeded">成功</option>
+                            <option value="revoked">已取消</option>
                         </select>
                         <button
                             onClick={handleExportTasks}

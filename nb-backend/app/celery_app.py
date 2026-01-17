@@ -28,6 +28,7 @@ celery_app = Celery(
         "app.tasks.cleanup_tasks",
         "app.tasks.api_tasks",
         "app.tasks.stats_tasks",
+        "app.tasks.monitor",
     ]
 )
 

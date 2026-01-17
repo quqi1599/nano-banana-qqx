@@ -14,6 +14,7 @@ from functools import wraps
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.config import get_settings
+from app.utils.queue_monitor import record_task_update
 
 _sync_engine = None
 _SessionLocal: Optional[sessionmaker] = None
@@ -90,6 +91,25 @@ def record_task_result(
     else:
         log_data["result"] = result
         logger.info(f"Task completed: {log_data}")
+
+    status_map = {
+        "success": "succeeded",
+        "failed": "failed",
+        "pending": "pending",
+        "active": "active",
+    }
+    monitor_status = status_map.get(status, status)
+    record_task_update(
+        task_id,
+        {
+            "name": task_name,
+            "status": monitor_status,
+            "result": result if not error else None,
+            "error": error,
+            "duration": duration,
+            "time_done": datetime.utcnow().timestamp(),
+        },
+    )
 
     return log_data
 

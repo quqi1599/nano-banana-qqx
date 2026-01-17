@@ -646,9 +646,17 @@ export interface TaskInfo {
     name: string;
     args?: unknown[];
     kwargs?: Record<string, unknown>;
+    queue?: string;
     worker?: string;
     time_start?: number;
-    status: 'pending' | 'active' | 'failed' | 'succeeded';
+    time_received?: number;
+    time_done?: number;
+    time_retry?: number;
+    duration?: number;
+    retries?: number;
+    retry_task_id?: string;
+    retry_requested_at?: number;
+    status: 'pending' | 'active' | 'failed' | 'succeeded' | 'revoked';
     result?: unknown;
     error?: string;
     traceback?: string;
@@ -668,6 +676,15 @@ export interface TaskDetail {
     error?: string;
     traceback?: string;
     backend: string;
+    name?: string;
+    queue?: string;
+    worker?: string;
+    args?: unknown[];
+    kwargs?: Record<string, unknown>;
+    time_start?: number;
+    time_done?: number;
+    duration?: number;
+    retries?: number;
 }
 
 export interface DashboardData {
@@ -680,6 +697,8 @@ export interface DashboardData {
         tasks: {
             pending: number;
             active: number;
+            failed: number;
+            succeeded: number;
         };
     };
     recent_tasks: TaskInfo[];
