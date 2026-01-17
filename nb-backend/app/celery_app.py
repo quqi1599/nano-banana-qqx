@@ -17,7 +17,7 @@ from app.config import get_settings
 settings = get_settings()
 
 # Redis 配置
-redis_url = getattr(settings, 'celery_broker', settings.redis_url)
+redis_url = settings.celery_broker or settings.redis_url
 
 celery_app = Celery(
     "nbnb",
@@ -34,6 +34,8 @@ celery_app = Celery(
 
 # Celery 配置
 celery_app.conf.update(
+    # Broker 连接重试
+    broker_connection_retry_on_startup=True,
     # 任务结果过期时间（1天）
     result_expires=86400,
     # 任务结果序列化格式

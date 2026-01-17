@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, MessageSquare, Send, Loader2, ExternalLink } from 'lucide-react';
-import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketStatus } from '../../../services/ticketService';
+import { getAllTickets, getTicketDetail, replyTicket, updateTicketStatus, Ticket, TicketStatus, TICKET_STATUS_LABELS } from '../../../services/ticketService';
 import { ErrorAlert, InlineLoading } from '../common';
 import { formatDate } from '../../../utils/formatters';
+
+// 工单状态中文映射
+const getStatusLabel = (status: string): string => {
+    return TICKET_STATUS_LABELS[status as TicketStatus]?.label || status;
+};
+
+const getStatusColor = (status: string): string => {
+    return TICKET_STATUS_LABELS[status as TicketStatus]?.color || 'bg-gray-100 text-gray-600';
+};
 
 interface AdminTicketsProps {
     onGotoUser?: (userEmail: string) => void;
@@ -76,122 +85,124 @@ export const AdminTickets = ({ onGotoUser }: AdminTicketsProps) => {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm animate-fade-in-up">
+        <>
             <ErrorAlert message={error} onDismiss={() => setError('')} className="mb-4" />
+            <div className="flex flex-col lg:flex-row bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm animate-fade-in-up">
 
-            <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} lg:w-80 w-full border-r border-gray-100 dark:border-gray-800 flex-col min-h-[500px]`}>
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                    <h3 className="font-bold text-gray-900 dark:text-white">工单支持</h3>
-                    <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 text-xs">
-                        <button
-                            onClick={() => setTicketStatusFilter('all')}
-                            className={`px-2 py-1 rounded ${ticketStatusFilter === 'all' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
-                        >
-                            全部
-                        </button>
-                        <button
-                            onClick={() => setTicketStatusFilter('open')}
-                            className={`px-2 py-1 rounded ${ticketStatusFilter === 'open' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
-                        >
-                            待处理
-                        </button>
-                    </div>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    {loading && <InlineLoading />}
-                    {!loading && tickets.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">暂无工单</div>}
-                    {tickets.map(t => (
-                        <div
-                            key={t.id}
-                            onClick={() => loadTicketDetail(t.id)}
-                            className={`p-4 border-b border-gray-50 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${selectedTicket?.id === t.id ? 'bg-cream-50 dark:bg-cream-900/10 border-l-4 border-l-cream-500' : ''}`}
-                        >
-                            <div className="flex justify-between mb-1">
-                                <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate flex-1">{t.title}</h4>
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${t.status === 'open' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                                    {t.status}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-400">
-                                <span>{formatDate(t.created_at)}</span>
-                                {t.user_email && (
-                                    <>
-                                        <span>·</span>
-                                        <span className="truncate max-w-[120px]">{t.user_email}</span>
-                                    </>
-                                )}
-                            </div>
+                <div className={`${selectedTicket ? 'hidden lg:flex' : 'flex'} lg:w-80 w-full border-r border-gray-100 dark:border-gray-800 flex-col min-h-[500px]`}>
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                        <h3 className="font-bold text-gray-900 dark:text-white">工单支持</h3>
+                        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 text-xs">
+                            <button
+                                onClick={() => setTicketStatusFilter('all')}
+                                className={`px-2 py-1 rounded ${ticketStatusFilter === 'all' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                            >
+                                全部
+                            </button>
+                            <button
+                                onClick={() => setTicketStatusFilter('open')}
+                                className={`px-2 py-1 rounded ${ticketStatusFilter === 'open' ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                            >
+                                待处理
+                            </button>
                         </div>
-                    ))}
-                </div>
-            </div>
-            <div className={`${selectedTicket ? 'flex' : 'hidden lg:flex'} flex-1 flex-col bg-gray-50 dark:bg-gray-950`}>
-                {selectedTicket ? (
-                    <>
-                        <div className="p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-gray-900 dark:text-white truncate">{selectedTicket.title}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                    {selectedTicket.user_email && (
-                                        <button
-                                            onClick={() => onGotoUser?.(selectedTicket.user_email!)}
-                                            className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                                        >
-                                            <span className="truncate max-w-[150px]">{selectedTicket.user_email}</span>
-                                            <ExternalLink size={12} />
-                                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                        {loading && <InlineLoading />}
+                        {!loading && tickets.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">暂无工单</div>}
+                        {tickets.map(t => (
+                            <div
+                                key={t.id}
+                                onClick={() => loadTicketDetail(t.id)}
+                                className={`p-4 border-b border-gray-50 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${selectedTicket?.id === t.id ? 'bg-cream-50 dark:bg-cream-900/10 border-l-4 border-l-cream-500' : ''}`}
+                            >
+                                <div className="flex justify-between mb-1">
+                                    <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate flex-1">{t.title}</h4>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${getStatusColor(t.status)}`}>
+                                        {getStatusLabel(t.status)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <span>{formatDate(t.created_at)}</span>
+                                    {t.user_email && (
+                                        <>
+                                            <span>·</span>
+                                            <span className="truncate max-w-[120px]">{t.user_email}</span>
+                                        </>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                {selectedTicket.status === 'open' && (
-                                    <button
-                                        onClick={() => handleUpdateTicketStatus('closed')}
-                                        className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition"
-                                    >
-                                        关闭工单
-                                    </button>
-                                )}
-                                <button onClick={() => setSelectedTicket(null)} className="lg:hidden p-2"><X size={20} /></button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {selectedTicket.messages?.map(msg => (
-                                <div key={msg.id} className={`flex gap-3 ${msg.is_admin ? 'flex-row-reverse' : 'flex-row'}`}>
-                                    <div className={`p-3 rounded-2xl max-w-[80%] ${msg.is_admin ? 'bg-cream-500 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'}`}>
-                                        <p className="text-sm">{msg.content}</p>
+                        ))}
+                    </div>
+                </div>
+                <div className={`${selectedTicket ? 'flex' : 'hidden lg:flex'} flex-1 flex-col bg-gray-50 dark:bg-gray-950`}>
+                    {selectedTicket ? (
+                        <>
+                            <div className="p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-bold text-gray-900 dark:text-white truncate">{selectedTicket.title}</h3>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        {selectedTicket.user_email && (
+                                            <button
+                                                onClick={() => onGotoUser?.(selectedTicket.user_email!)}
+                                                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                                            >
+                                                <span className="truncate max-w-[150px]">{selectedTicket.user_email}</span>
+                                                <ExternalLink size={12} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                            ))}
-                            <div ref={messagesEndRef} />
+                                <div className="flex items-center gap-2">
+                                    {selectedTicket.status === 'open' && (
+                                        <button
+                                            onClick={() => handleUpdateTicketStatus('closed')}
+                                            className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition"
+                                        >
+                                            关闭工单
+                                        </button>
+                                    )}
+                                    <button onClick={() => setSelectedTicket(null)} className="lg:hidden p-2"><X size={20} /></button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                {selectedTicket.messages?.map(msg => (
+                                    <div key={msg.id} className={`flex gap-3 ${msg.is_admin ? 'flex-row-reverse' : 'flex-row'}`}>
+                                        <div className={`p-3 rounded-2xl max-w-[80%] ${msg.is_admin ? 'bg-cream-500 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'}`}>
+                                            <p className="text-sm">{msg.content}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div ref={messagesEndRef} />
+                            </div>
+                            <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-2">
+                                <input
+                                    value={adminReplyContent}
+                                    onChange={e => setAdminReplyContent(e.currentTarget.value)}
+                                    placeholder="输入回复..."
+                                    onKeyDown={e => e.key === 'Enter' && handleAdminReply()}
+                                    className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-cream-500"
+                                />
+                                <button
+                                    onClick={handleAdminReply}
+                                    disabled={!adminReplyContent.trim() || replying}
+                                    className="px-4 py-2 bg-cream-600 text-white rounded-xl hover:bg-cream-700 disabled:opacity-50"
+                                >
+                                    {replying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send size={20} />}
+                                    {replying ? '发送中' : '发送'}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-center text-gray-400">
+                            <div className="flex flex-col items-center gap-3">
+                                <MessageSquare className="w-12 h-12 opacity-20" />
+                                <p>选择工单查看详情</p>
+                            </div>
                         </div>
-                        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex gap-2">
-                            <input
-                                value={adminReplyContent}
-                                onChange={e => setAdminReplyContent(e.currentTarget.value)}
-                                placeholder="输入回复..."
-                                onKeyDown={e => e.key === 'Enter' && handleAdminReply()}
-                                className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:bg-gray-800 outline-none focus:ring-2 focus:ring-cream-500"
-                            />
-                            <button
-                                onClick={handleAdminReply}
-                                disabled={!adminReplyContent.trim() || replying}
-                                className="px-4 py-2 bg-cream-600 text-white rounded-xl hover:bg-cream-700 disabled:opacity-50"
-                            >
-                                {replying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send size={20} />}
-                                {replying ? '发送中' : '发送'}
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-400">
-                        <div className="flex flex-col items-center gap-3">
-                            <MessageSquare className="w-12 h-12 opacity-20" />
-                            <p>选择工单查看详情</p>
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
