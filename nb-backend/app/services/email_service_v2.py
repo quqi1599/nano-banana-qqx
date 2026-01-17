@@ -3,6 +3,7 @@
 支持: 阿里云、腾讯云、通用 SMTP、SendGrid、Mailgun、Amazon SES
 """
 import smtplib
+import asyncio
 import random
 import string
 import logging
@@ -16,7 +17,10 @@ import httpx
 from app.config import get_settings
 from app.services.email_service import (
     _email_wrapper, _container, _header, _content,
-    _code_box, _tips_box, _divider, _footer
+    _code_box, _tips_box, _divider, _footer,
+    build_ticket_reply_email,
+    build_new_ticket_notification_email,
+    build_ticket_user_reply_notification_email,
 )
 
 settings = get_settings()
@@ -496,7 +500,8 @@ async def send_email_v2(to_email: str, subject: str, html_content: str) -> Dict[
     logger.info(f"[邮件] 使用邮件提供商: 提供商={provider_name}({provider}), 收件人={sanitized_email}")
 
     sender = create_sender(config)
-    result = sender.send(to_email, subject, html_content)
+    # 发送过程包含阻塞 I/O，放到线程池避免卡住事件循环
+    result = await asyncio.to_thread(sender.send, to_email, subject, html_content)
 
     if result.get("success"):
         logger.info(f"[邮件] 发送成功: 收件人={sanitized_email}, 提供商={provider_name}")
@@ -586,6 +591,69 @@ async def send_password_reset_code_v2(to_email: str, code: str) -> bool:
     html = _email_wrapper(_container(content))
     result = await send_email_v2(to_email, subject, html)
     return result.get("success", False) if isinstance(result, dict) else result
+
+
+# ========= 工单通知（使用邮件配置中心） =========
+
+async def send_ticket_reply_notification_v2(
+    to_email: str,
+    ticket_title: str,
+    reply_content: str,
+) -> bool:
+    """发送工单回复通知（给用户）"""
+    subject, html = build_ticket_reply_email(ticket_title, reply_content)
+    result = await send_email_v2(to_email, subject, html)
+    return result.get("success", False) if isinstance(result, dict) else bool(result)
+
+
+async def send_new_ticket_notification_v2(
+    to_emails: list,
+    ticket_id: str,
+    ticket_title: str,
+    ticket_category: str,
+    ticket_priority: str,
+    user_email: str,
+    ticket_content: str,
+    user_credits: int = 0,
+    user_pro3: int = 0,
+    user_flash: int = 0,
+) -> bool:
+    """发送新工单通知（给管理员）"""
+    subject, html = build_new_ticket_notification_email(
+        ticket_id,
+        ticket_title,
+        ticket_category,
+        ticket_priority,
+        user_email,
+        ticket_content,
+        user_credits,
+        user_pro3,
+        user_flash,
+    )
+    for email in to_emails:
+        if email.strip():
+            await send_email_v2(email.strip(), subject, html)
+    return True
+
+
+async def send_ticket_user_reply_notification_v2(
+    to_emails: list,
+    ticket_id: str,
+    ticket_title: str,
+    user_email: str,
+    reply_content: str,
+) -> bool:
+    """发送用户回复工单通知（给管理员）"""
+    subject, html = build_ticket_user_reply_notification_email(
+        ticket_id,
+        ticket_title,
+        user_email,
+        reply_content,
+    )
+    for email in to_emails:
+        if email.strip():
+            await send_email_v2(email.strip(), subject, html)
+    return True
 
 
 def send_test_email(to_email: str, provider_name: str) -> Dict[str, Any]:

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, update
 from sqlalchemy.orm import selectinload
@@ -12,10 +13,11 @@ from app.schemas.ticket import (
     TicketMessageCreate, TicketUpdate, TicketResponse as TicketResponseSchema
 )
 from app.utils.security import get_current_user, get_admin_user as get_current_admin
-from app.services.email_service import (
-    send_ticket_reply_notification,
-    send_new_ticket_notification,
-    send_ticket_user_reply_notification
+# 使用新版邮件服务（支持数据库 SMTP 配置）
+from app.services.email_service_v2 import (
+    send_ticket_reply_notification_v2 as send_ticket_reply_notification,
+    send_new_ticket_notification_v2 as send_new_ticket_notification,
+    send_ticket_user_reply_notification_v2 as send_ticket_user_reply_notification,
 )
 from app.config import get_settings
 from app.models.notification_email import NotificationEmail

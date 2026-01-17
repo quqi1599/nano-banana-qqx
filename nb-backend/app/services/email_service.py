@@ -377,9 +377,11 @@ def send_password_reset_code(to_email: str, code: str) -> bool:
     return send_email(to_email, subject, html)
 
 
-def send_ticket_reply_notification(to_email: str, ticket_title: str, reply_content: str) -> bool:
-    """发送工单回复通知（给用户）"""
-    subject = f"【DEAI】您的工单有新回复"
+# ========= 工单通知邮件模板构建器（便于复用不同发送通道） =========
+
+def build_ticket_reply_email(ticket_title: str, reply_content: str) -> tuple[str, str]:
+    """构建工单回复通知邮件"""
+    subject = "【DEAI】您的工单有新回复"
 
     content = _header("💬", "工单有新回复", "", "#10b981")
     content += _content(f"""
@@ -418,11 +420,10 @@ def send_ticket_reply_notification(to_email: str, ticket_title: str, reply_conte
 """)
 
     html = _email_wrapper(_container(content, width=520))
-    return send_email(to_email, subject, html)
+    return subject, html
 
 
-def send_new_ticket_notification(
-    to_emails: list,
+def build_new_ticket_notification_email(
     ticket_id: str,
     ticket_title: str,
     ticket_category: str,
@@ -431,9 +432,9 @@ def send_new_ticket_notification(
     ticket_content: str,
     user_credits: int = 0,
     user_pro3: int = 0,
-    user_flash: int = 0
-) -> bool:
-    """发送新工单通知（给管理员）"""
+    user_flash: int = 0,
+) -> tuple[str, str]:
+    """构建新工单通知邮件"""
     priority_colors = {
         "low": ("#10b981", "低"),
         "normal": ("#f59e0b", "中"),
@@ -535,21 +536,16 @@ def send_new_ticket_notification(
 """
 
     html = _email_wrapper(_container(content, width=600))
-
-    for email in to_emails:
-        if email.strip():
-            send_email(email.strip(), subject, html)
-    return True
+    return subject, html
 
 
-def send_ticket_user_reply_notification(
-    to_emails: list,
+def build_ticket_user_reply_notification_email(
     ticket_id: str,
     ticket_title: str,
     user_email: str,
     reply_content: str
-) -> bool:
-    """发送用户回复工单通知（给管理员）"""
+) -> tuple[str, str]:
+    """构建用户回复工单通知邮件"""
     subject = f"【DEAI工单】用户回复了工单 - {ticket_title}"
 
     content = _header("💬", "用户有新回复", "用户回复了之前的工单", "#3b82f6")
@@ -584,7 +580,59 @@ def send_ticket_user_reply_notification(
 """)
 
     html = _email_wrapper(_container(content, width=600))
+    return subject, html
 
+
+def send_ticket_reply_notification(to_email: str, ticket_title: str, reply_content: str) -> bool:
+    """发送工单回复通知（给用户）"""
+    subject, html = build_ticket_reply_email(ticket_title, reply_content)
+    return send_email(to_email, subject, html)
+
+
+def send_new_ticket_notification(
+    to_emails: list,
+    ticket_id: str,
+    ticket_title: str,
+    ticket_category: str,
+    ticket_priority: str,
+    user_email: str,
+    ticket_content: str,
+    user_credits: int = 0,
+    user_pro3: int = 0,
+    user_flash: int = 0
+) -> bool:
+    """发送新工单通知（给管理员）"""
+    subject, html = build_new_ticket_notification_email(
+        ticket_id,
+        ticket_title,
+        ticket_category,
+        ticket_priority,
+        user_email,
+        ticket_content,
+        user_credits,
+        user_pro3,
+        user_flash,
+    )
+    for email in to_emails:
+        if email.strip():
+            send_email(email.strip(), subject, html)
+    return True
+
+
+def send_ticket_user_reply_notification(
+    to_emails: list,
+    ticket_id: str,
+    ticket_title: str,
+    user_email: str,
+    reply_content: str
+) -> bool:
+    """发送用户回复工单通知（给管理员）"""
+    subject, html = build_ticket_user_reply_notification_email(
+        ticket_id,
+        ticket_title,
+        user_email,
+        reply_content,
+    )
     for email in to_emails:
         if email.strip():
             send_email(email.strip(), subject, html)
