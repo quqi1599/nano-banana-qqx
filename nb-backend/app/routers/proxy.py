@@ -54,14 +54,14 @@ def _extract_error_message(payload: Any) -> str:
     if isinstance(payload, dict):
         error = payload.get("error")
         if isinstance(error, dict):
-            for key in ("message", "detail", "error", "status"):
+            for key in ("message", "detail", "error", "status", "msg"):
                 value = error.get(key)
                 if isinstance(value, str) and value.strip():
                     return value.strip()
             code = error.get("code")
             if code is not None:
                 return str(code)
-        for key in ("message", "detail", "error"):
+        for key in ("message", "detail", "error", "msg"):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()

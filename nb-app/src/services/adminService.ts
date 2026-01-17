@@ -683,6 +683,39 @@ export const deleteEmailWhitelist = async (id: string): Promise<void> => {
     });
 };
 
+// ========== 通知邮箱管理 ==========
+
+export interface NotificationEmailInfo {
+    id: string;
+    email: string;
+    remark: string | null;
+    is_active: boolean;
+    created_at: string;
+}
+
+export const getNotificationEmails = async (): Promise<NotificationEmailInfo[]> => {
+    return request('/notification-emails');
+};
+
+export const addNotificationEmail = async (email: string, remark?: string): Promise<NotificationEmailInfo> => {
+    return request('/notification-emails', {
+        method: 'POST',
+        body: JSON.stringify({ email, remark }),
+    });
+};
+
+export const deleteNotificationEmail = async (id: string): Promise<{ message: string }> => {
+    return request(`/notification-emails/${id}`, {
+        method: 'DELETE',
+    });
+};
+
+export const toggleNotificationEmail = async (id: string): Promise<{ message: string; is_active: boolean }> => {
+    return request(`/notification-emails/${id}/toggle`, {
+        method: 'PUT',
+    });
+};
+
 // ========== 队列监控管理 ==========
 
 export interface QueueStats {
@@ -904,9 +937,9 @@ export interface EmailSettingsSummary {
     providers: ProviderInfo[];
 }
 
-export interface SmtpConfigCreate extends Partial<SmtpConfigBase>, SmtpConfigRequired {}
+export interface SmtpConfigCreate extends Partial<SmtpConfigBase>, SmtpConfigRequired { }
 
-export interface SmtpConfigUpdate extends Partial<SmtpConfigBase> {}
+export interface SmtpConfigUpdate extends Partial<SmtpConfigBase> { }
 
 // 邮件配置使用不同的 API 基础路径
 const emailRequest = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {

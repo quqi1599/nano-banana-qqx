@@ -428,7 +428,10 @@ def send_new_ticket_notification(
     ticket_category: str,
     ticket_priority: str,
     user_email: str,
-    content: str
+    ticket_content: str,
+    user_credits: int = 0,
+    user_pro3: int = 0,
+    user_flash: int = 0
 ) -> bool:
     """发送新工单通知（给管理员）"""
     priority_colors = {
@@ -436,7 +439,6 @@ def send_new_ticket_notification(
         "normal": ("#f59e0b", "中"),
         "high": ("#ef4444", "高")
     }
-    priority_class = {"low": "low", "normal": "normal", "high": "high"}
     bg_color, label = priority_colors.get(ticket_priority, ("#6b7280", "中"))
 
     subject = f"【DEAI工单】新工单待处理 - {ticket_title}"
@@ -478,13 +480,37 @@ def send_new_ticket_notification(
         </td>
     </tr>
 </table>
+<!-- 用户积分信息 -->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 20px;">
+    <tr>
+        <td style="background-color: #eff6ff; border-radius: 10px; padding: 16px;">
+            <p style="margin: 0 0 10px 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #3b82f6; font-weight: 600;">用户积分余额</p>
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                    <td width="33%" style="text-align: center;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #6b7280;">通用积分</p>
+                        <p style="margin: 4px 0 0 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 700; color: #1f2937;">{user_credits}</p>
+                    </td>
+                    <td width="33%" style="text-align: center; border-left: 1px solid #dbeafe; border-right: 1px solid #dbeafe;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #6b7280;">Pro3 次数</p>
+                        <p style="margin: 4px 0 0 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 700; color: #1f2937;">{user_pro3}</p>
+                    </td>
+                    <td width="33%" style="text-align: center;">
+                        <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #6b7280;">Flash 次数</p>
+                        <p style="margin: 4px 0 0 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 700; color: #1f2937;">{user_flash}</p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin: 20px 0;">
     <tr>
         <td style="background-color: #f9fafb; border-radius: 10px; padding: 20px;">
             <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">工单标题</p>
             <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 22px; font-weight: 600; color: #1f2937; margin-bottom: 16px;">{ticket_title}</p>
             <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 16px; color: #6b7280; margin-bottom: 10px; font-weight: 600;">问题描述</p>
-            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #374151; white-space: pre-wrap;">{content[:500] if len(content) > 500 else content}{'...' if len(content) > 500 else ''}</p>
+            <p style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 20px; color: #374151; white-space: pre-wrap;">{ticket_content[:500] if len(ticket_content) > 500 else ticket_content}{'...' if len(ticket_content) > 500 else ''}</p>
         </td>
     </tr>
 </table>

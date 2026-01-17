@@ -21,6 +21,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { NotificationEmails } from './NotificationEmails';
 import {
   getEmailProviders,
   getEmailConfigs,
@@ -80,6 +81,7 @@ export const EmailSettings: React.FC = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'smtp' | 'notification'>('smtp');
 
   useEffect(() => {
     loadData();
@@ -268,584 +270,620 @@ export const EmailSettings: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">邮件配置</h2>
           <p className="text-sm text-gray-500 mt-1">
-            配置邮件服务提供商，支持阿里云、腾讯云、SendGrid、Mailgun 等
+            {activeTab === 'smtp' ? '配置邮件服务提供商，支持阿里云、腾讯云、SendGrid、Mailgun 等' : '管理接收工单通知的邮箱列表'}
           </p>
         </div>
+        {activeTab === 'smtp' && (
+          <button
+            onClick={() => {
+              resetForm();
+              setShowCreateModal(true);
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-medium hover:from-brand-600 hover:to-brand-700 transition-all flex items-center gap-2 shadow-lg shadow-brand-500/30"
+          >
+            <MailPlus size={18} />
+            添加配置
+          </button>
+        )}
+      </div>
+
+      {/* Tab 切换 */}
+      <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
         <button
-          onClick={() => {
-            resetForm();
-            setShowCreateModal(true);
-          }}
-          className="px-4 py-2 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-medium hover:from-brand-600 hover:to-brand-700 transition-all flex items-center gap-2 shadow-lg shadow-brand-500/30"
+          onClick={() => setActiveTab('smtp')}
+          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${activeTab === 'smtp'
+            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
         >
-          <MailPlus size={18} />
-          添加配置
+          <Settings size={16} />
+          邮件服务
+        </button>
+        <button
+          onClick={() => setActiveTab('notification')}
+          className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${activeTab === 'notification'
+            ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+        >
+          <Mail size={16} />
+          工单通知
         </button>
       </div>
 
-      {/* 概览卡片 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-              <Mail size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">总配置数</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary?.total_configs || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400">
-              <Check size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">已启用</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary?.enabled_configs || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-cream-100 dark:bg-cream-900/20 text-cream-600 dark:text-cream-400">
-              <Star size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">默认配置</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white truncate max-w-[150px]">
-                {summary?.default_config?.name || '未设置'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 工单通知 Tab */}
+      {activeTab === 'notification' && <NotificationEmails />}
 
-      {/* 配置列表 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white">邮件配置列表</h3>
-        </div>
-        {configs.length === 0 ? (
-          <div className="p-12 text-center">
-            <Mail className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-            <p className="text-gray-500">暂无邮件配置</p>
-            <button
-              onClick={() => {
-                resetForm();
-                setShowCreateModal(true);
-              }}
-              className="mt-4 px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors"
-            >
-              添加第一个配置
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {configs.map((config) => (
-              <div
-                key={config.id}
-                className={`p-5 transition-colors ${!config.is_enabled ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''
-                  }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">{config.name}</h4>
-                      {config.is_default && (
-                        <span className="px-2 py-0.5 bg-cream-100 dark:bg-cream-900/20 text-cream-600 dark:text-cream-400 text-xs font-medium rounded-full flex items-center gap-1">
-                          <Star size={10} />
-                          默认
-                        </span>
-                      )}
-                      {config.is_enabled ? (
-                        <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-medium rounded-full">
-                          已启用
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 text-xs font-medium rounded-full">
-                          已禁用
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 mb-3">{config.provider_name}</p>
-                    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
-                      <span>主机: {config.smtp_host}</span>
-                      <span>端口: {config.smtp_port}</span>
-                      <span>加密: {config.smtp_encryption.toUpperCase()}</span>
-                      {config.from_email && <span>发件人: {config.from_email}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggle(config.id)}
-                      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      title={config.is_enabled ? '禁用' : '启用'}
-                    >
-                      {config.is_enabled ? (
-                        <PowerOff size={18} className="text-green-500" />
-                      ) : (
-                        <Power size={18} className="text-gray-400" />
-                      )}
-                    </button>
-                    {!config.is_default && (
-                      <button
-                        onClick={() => handleSetDefault(config.id)}
-                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="设为默认"
-                      >
-                        <Star size={18} className="text-gray-400" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => openEditModal(config)}
-                      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      title="编辑"
-                    >
-                      <Edit size={18} className="text-gray-400" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(config.id)}
-                      className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
-                      title="删除"
-                    >
-                      <Trash2 size={18} className="text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
+      {/* SMTP 配置 Tab */}
+      {activeTab === 'smtp' && (
+        <>
+          {/* 概览卡片 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">总配置数</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary?.total_configs || 0}</p>
                 </div>
               </div>
-            ))}
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                  <Check size={20} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">已启用</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary?.enabled_configs || 0}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-cream-100 dark:bg-cream-900/20 text-cream-600 dark:text-cream-400">
+                  <Star size={20} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">默认配置</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white truncate max-w-[150px]">
+                    {summary?.default_config?.name || '未设置'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* 创建/编辑弹窗 */}
-      {(showCreateModal || showEditModal) && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => {
-              setShowCreateModal(false);
-              setShowEditModal(false);
-              setEditingConfig(null);
-            }}
-          />
-          <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* 头部 */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                {showEditModal ? '编辑邮件配置' : '添加邮件配置'}
-              </h3>
-              <button
+          {/* 配置列表 */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white">邮件配置列表</h3>
+            </div>
+            {configs.length === 0 ? (
+              <div className="p-12 text-center">
+                <Mail className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                <p className="text-gray-500">暂无邮件配置</p>
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowCreateModal(true);
+                  }}
+                  className="mt-4 px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-medium hover:bg-brand-600 transition-colors"
+                >
+                  添加第一个配置
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {configs.map((config) => (
+                  <div
+                    key={config.id}
+                    className={`p-5 transition-colors ${!config.is_enabled ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''
+                      }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-semibold text-gray-900 dark:text-white">{config.name}</h4>
+                          {config.is_default && (
+                            <span className="px-2 py-0.5 bg-cream-100 dark:bg-cream-900/20 text-cream-600 dark:text-cream-400 text-xs font-medium rounded-full flex items-center gap-1">
+                              <Star size={10} />
+                              默认
+                            </span>
+                          )}
+                          {config.is_enabled ? (
+                            <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs font-medium rounded-full">
+                              已启用
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 text-xs font-medium rounded-full">
+                              已禁用
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 mb-3">{config.provider_name}</p>
+                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
+                          <span>主机: {config.smtp_host}</span>
+                          <span>端口: {config.smtp_port}</span>
+                          <span>加密: {config.smtp_encryption.toUpperCase()}</span>
+                          {config.from_email && <span>发件人: {config.from_email}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggle(config.id)}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title={config.is_enabled ? '禁用' : '启用'}
+                        >
+                          {config.is_enabled ? (
+                            <PowerOff size={18} className="text-green-500" />
+                          ) : (
+                            <Power size={18} className="text-gray-400" />
+                          )}
+                        </button>
+                        {!config.is_default && (
+                          <button
+                            onClick={() => handleSetDefault(config.id)}
+                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="设为默认"
+                          >
+                            <Star size={18} className="text-gray-400" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openEditModal(config)}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="编辑"
+                        >
+                          <Edit size={18} className="text-gray-400" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(config.id)}
+                          className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                          title="删除"
+                        >
+                          <Trash2 size={18} className="text-gray-400 hover:text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 创建/编辑弹窗 */}
+          {(showCreateModal || showEditModal) && createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
                 onClick={() => {
                   setShowCreateModal(false);
                   setShowEditModal(false);
                   setEditingConfig(null);
                 }}
-                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <X size={20} className="text-gray-500" />
-              </button>
-            </div>
+              />
+              <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                {/* 头部 */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {showEditModal ? '编辑邮件配置' : '添加邮件配置'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setShowEditModal(false);
+                      setEditingConfig(null);
+                    }}
+                    className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <X size={20} className="text-gray-500" />
+                  </button>
+                </div>
 
-            {/* 内容 */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* 基本信息 */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-white">基本信息</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      配置名称
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: getInputValue(e) })}
-                      placeholder="如：阿里云主邮箱"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      邮件提供商
-                    </label>
-                    <select
-                      value={formData.provider}
-                      onChange={(e) => handleProviderChange(getInputValue(e))}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    >
-                      {summary?.providers.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    描述
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: getInputValue(e) })}
-                    placeholder="可选描述信息"
-                    className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* SMTP 配置 */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-white">SMTP 配置</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      SMTP 服务器
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.smtp_host}
-                      onChange={(e) => setFormData({ ...formData, smtp_host: getInputValue(e) })}
-                      placeholder="smtp.example.com"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      端口
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.smtp_port}
-                      onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(getInputValue(e)) || 465 })}
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    加密方式
-                  </label>
-                  <div className="flex gap-4">
-                    {(['ssl', 'tls', 'none'] as const).map((method) => (
-                      <label key={method} className="flex items-center gap-2 cursor-pointer">
+                {/* 内容 */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                  {/* 基本信息 */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900 dark:text-white">基本信息</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          配置名称
+                        </label>
                         <input
-                          type="radio"
-                          name="encryption"
-                          value={method}
-                          checked={formData.smtp_encryption === method}
-                          onChange={(e) => setFormData({ ...formData, smtp_encryption: getInputValue(e) })}
-                          className="w-4 h-4 text-brand-500 focus:ring-brand-500"
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: getInputValue(e) })}
+                          placeholder="如：阿里云主邮箱"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300 uppercase">{method}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      SMTP 用户名
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.smtp_user}
-                      onChange={(e) => setFormData({ ...formData, smtp_user: getInputValue(e) })}
-                      placeholder="user@example.com"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      SMTP 密码
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPassword.edit ? 'text' : 'password'}
-                        value={formData.smtp_password}
-                        onChange={(e) => setFormData({ ...formData, smtp_password: getInputValue(e) })}
-                        placeholder="••••••••"
-                        className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword({ ...showPassword, edit: !showPassword.edit })}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword.edit ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          邮件提供商
+                        </label>
+                        <select
+                          value={formData.provider}
+                          onChange={(e) => handleProviderChange(getInputValue(e))}
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        >
+                          {summary?.providers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 发件人配置 */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-white">发件人配置</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      发件人邮箱
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.from_email}
-                      onChange={(e) => setFormData({ ...formData, from_email: getInputValue(e) })}
-                      placeholder="noreply@example.com"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      发件人名称
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.from_name}
-                      onChange={(e) => setFormData({ ...formData, from_name: getInputValue(e) })}
-                      placeholder="NanoBanana"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    回复邮箱（可选）
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.reply_to}
-                    onChange={(e) => setFormData({ ...formData, reply_to: getInputValue(e) })}
-                    placeholder="support@example.com"
-                    className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* API 配置 (SendGrid, Mailgun 等) */}
-              {(formData.provider === 'sendgrid' || formData.provider === 'mailgun' || formData.provider === 'ses') && (
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900 dark:text-white">API 配置</h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      API 密钥
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.api_key}
-                      onChange={(e) => setFormData({ ...formData, api_key: getInputValue(e) })}
-                      placeholder="输入 API 密钥"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
-                  </div>
-                  {formData.provider === 'mailgun' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        API 端点 / 域名
+                        描述
                       </label>
                       <input
                         type="text"
-                        value={formData.api_url}
-                        onChange={(e) => setFormData({ ...formData, api_url: getInputValue(e) })}
-                        placeholder="https://api.mailgun.net/v3/"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: getInputValue(e) })}
+                        placeholder="可选描述信息"
                         className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
                     </div>
+                  </div>
+
+                  {/* SMTP 配置 */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900 dark:text-white">SMTP 配置</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          SMTP 服务器
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.smtp_host}
+                          onChange={(e) => setFormData({ ...formData, smtp_host: getInputValue(e) })}
+                          placeholder="smtp.example.com"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          端口
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.smtp_port}
+                          onChange={(e) => setFormData({ ...formData, smtp_port: parseInt(getInputValue(e)) || 465 })}
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        加密方式
+                      </label>
+                      <div className="flex gap-4">
+                        {(['ssl', 'tls', 'none'] as const).map((method) => (
+                          <label key={method} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="encryption"
+                              value={method}
+                              checked={formData.smtp_encryption === method}
+                              onChange={(e) => setFormData({ ...formData, smtp_encryption: getInputValue(e) })}
+                              className="w-4 h-4 text-brand-500 focus:ring-brand-500"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300 uppercase">{method}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          SMTP 用户名
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.smtp_user}
+                          onChange={(e) => setFormData({ ...formData, smtp_user: getInputValue(e) })}
+                          placeholder="user@example.com"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          SMTP 密码
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassword.edit ? 'text' : 'password'}
+                            value={formData.smtp_password}
+                            onChange={(e) => setFormData({ ...formData, smtp_password: getInputValue(e) })}
+                            placeholder="••••••••"
+                            className="w-full px-4 py-2 pr-10 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword({ ...showPassword, edit: !showPassword.edit })}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            {showPassword.edit ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 发件人配置 */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900 dark:text-white">发件人配置</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          发件人邮箱
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.from_email}
+                          onChange={(e) => setFormData({ ...formData, from_email: getInputValue(e) })}
+                          placeholder="noreply@example.com"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          发件人名称
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.from_name}
+                          onChange={(e) => setFormData({ ...formData, from_name: getInputValue(e) })}
+                          placeholder="NanoBanana"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        回复邮箱（可选）
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.reply_to}
+                        onChange={(e) => setFormData({ ...formData, reply_to: getInputValue(e) })}
+                        placeholder="support@example.com"
+                        className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* API 配置 (SendGrid, Mailgun 等) */}
+                  {(formData.provider === 'sendgrid' || formData.provider === 'mailgun' || formData.provider === 'ses') && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900 dark:text-white">API 配置</h4>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          API 密钥
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.api_key}
+                          onChange={(e) => setFormData({ ...formData, api_key: getInputValue(e) })}
+                          placeholder="输入 API 密钥"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                      {formData.provider === 'mailgun' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            API 端点 / 域名
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.api_url}
+                            onChange={(e) => setFormData({ ...formData, api_url: getInputValue(e) })}
+                            placeholder="https://api.mailgun.net/v3/"
+                            className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          />
+                        </div>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
 
-              {/* 限流配置 */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 dark:text-white">限流配置（可选）</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      每日限制
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.daily_limit || ''}
-                      onChange={(e) => setFormData({ ...formData, daily_limit: getInputValue(e) ? parseInt(getInputValue(e)) : null })}
-                      placeholder="无限制"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
+                  {/* 限流配置 */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900 dark:text-white">限流配置（可选）</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          每日限制
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.daily_limit || ''}
+                          onChange={(e) => setFormData({ ...formData, daily_limit: getInputValue(e) ? parseInt(getInputValue(e)) : null })}
+                          placeholder="无限制"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          每小时限制
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.hourly_limit || ''}
+                          onChange={(e) => setFormData({ ...formData, hourly_limit: getInputValue(e) ? parseInt(getInputValue(e)) : null })}
+                          placeholder="无限制"
+                          className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      每小时限制
+
+                  {/* 开关选项 */}
+                  <div className="flex flex-wrap gap-6">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_enabled}
+                        onChange={(e) => setFormData({ ...formData, is_enabled: getCheckboxValue(e) })}
+                        className="w-4 h-4 text-brand-500 focus:ring-brand-500 rounded"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">启用此配置</span>
                     </label>
-                    <input
-                      type="number"
-                      value={formData.hourly_limit || ''}
-                      onChange={(e) => setFormData({ ...formData, hourly_limit: getInputValue(e) ? parseInt(getInputValue(e)) : null })}
-                      placeholder="无限制"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                    />
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_default}
+                        onChange={(e) => setFormData({ ...formData, is_default: getCheckboxValue(e) })}
+                        className="w-4 h-4 text-brand-500 focus:ring-brand-500 rounded"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">设为默认</span>
+                    </label>
                   </div>
+                </div>
+
+                {/* 底部按钮 */}
+                <div className="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setShowEditModal(false);
+                      setEditingConfig(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={showEditModal ? handleUpdate : handleCreate}
+                    disabled={submitting}
+                    className="px-6 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-medium hover:from-brand-600 hover:to-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        保存中...
+                      </>
+                    ) : (
+                      <>
+                        <Check size={18} />
+                        {showEditModal ? '保存修改' : '创建配置'}
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
+            </div>,
+            document.body
+          )}
 
-              {/* 开关选项 */}
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_enabled}
-                    onChange={(e) => setFormData({ ...formData, is_enabled: getCheckboxValue(e) })}
-                    className="w-4 h-4 text-brand-500 focus:ring-brand-500 rounded"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">启用此配置</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_default}
-                    onChange={(e) => setFormData({ ...formData, is_default: getCheckboxValue(e) })}
-                    className="w-4 h-4 text-brand-500 focus:ring-brand-500 rounded"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">设为默认</span>
-                </label>
-              </div>
-            </div>
-
-            {/* 底部按钮 */}
-            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+          {/* 测试邮件 */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">发送测试邮件</h3>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="email"
+                value={testEmailAddress}
+                onChange={(e) => setTestEmailAddress(getInputValue(e))}
+                placeholder="输入测试邮箱地址"
+                className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              />
               <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setShowEditModal(false);
-                  setEditingConfig(null);
-                }}
-                className="px-4 py-2 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handleTestSend(null)}
+                disabled={testingEmail !== null || !testEmailAddress}
+                className="px-6 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium hover:from-green-600 hover:to-emerald-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                取消
-              </button>
-              <button
-                onClick={showEditModal ? handleUpdate : handleCreate}
-                disabled={submitting}
-                className="px-6 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-medium hover:from-brand-600 hover:to-brand-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {submitting ? (
+                {testingEmail === 'default' ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    保存中...
+                    发送中...
                   </>
                 ) : (
                   <>
-                    <Check size={18} />
-                    {showEditModal ? '保存修改' : '创建配置'}
+                    <Send size={18} />
+                    发送测试
                   </>
                 )}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+            <p className="text-xs text-gray-500 mt-2">使用默认配置发送测试邮件</p>
 
-      {/* 测试邮件 */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">发送测试邮件</h3>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="email"
-            value={testEmailAddress}
-            onChange={(e) => setTestEmailAddress(getInputValue(e))}
-            placeholder="输入测试邮箱地址"
-            className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-          />
-          <button
-            onClick={() => handleTestSend(null)}
-            disabled={testingEmail !== null || !testEmailAddress}
-            className="px-6 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium hover:from-green-600 hover:to-emerald-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {testingEmail === 'default' ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                发送中...
-              </>
-            ) : (
-              <>
-                <Send size={18} />
-                发送测试
-              </>
-            )}
-          </button>
-        </div>
-        <p className="text-xs text-gray-500 mt-2">使用默认配置发送测试邮件</p>
+            {/* 测试结果反馈 */}
+            {testResult && (
+              <div className={`mt-4 rounded-xl p-4 border ${testResult.success
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}>
+                <div className="flex items-start gap-3">
+                  {testResult.success ? (
+                    <Check size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <X size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium ${testResult.success
+                      ? 'text-green-800 dark:text-green-300'
+                      : 'text-red-800 dark:text-red-300'
+                      }`}>
+                      {testResult.message}
+                    </p>
 
-        {/* 测试结果反馈 */}
-        {testResult && (
-          <div className={`mt-4 rounded-xl p-4 border ${testResult.success
-            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-            }`}>
-            <div className="flex items-start gap-3">
-              {testResult.success ? (
-                <Check size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-              ) : (
-                <X size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className={`font-medium ${testResult.success
-                  ? 'text-green-800 dark:text-green-300'
-                  : 'text-red-800 dark:text-red-300'
-                  }`}>
-                  {testResult.message}
-                </p>
-
-                {/* 详细信息 */}
-                {testResult.details && (
-                  <div className="mt-3 space-y-2 text-sm">
-                    {testResult.details.provider && (
-                      <p className="text-gray-600 dark:text-gray-400">
-                        提供商: <span className="font-medium">{testResult.details.provider}</span>
-                      </p>
-                    )}
-                    {testResult.details.connection && (
-                      <div className="text-gray-600 dark:text-gray-400 space-y-1">
-                        <p>服务器: <span className="font-mono text-xs">{testResult.details.connection.host}</span></p>
-                        <p>端口: <span className="font-mono">{testResult.details.connection.port}</span></p>
-                        <p>加密: <span className="font-mono">{testResult.details.connection.encryption}</span></p>
+                    {/* 详细信息 */}
+                    {testResult.details && (
+                      <div className="mt-3 space-y-2 text-sm">
+                        {testResult.details.provider && (
+                          <p className="text-gray-600 dark:text-gray-400">
+                            提供商: <span className="font-medium">{testResult.details.provider}</span>
+                          </p>
+                        )}
+                        {testResult.details.connection && (
+                          <div className="text-gray-600 dark:text-gray-400 space-y-1">
+                            <p>服务器: <span className="font-mono text-xs">{testResult.details.connection.host}</span></p>
+                            <p>端口: <span className="font-mono">{testResult.details.connection.port}</span></p>
+                            <p>加密: <span className="font-mono">{testResult.details.connection.encryption}</span></p>
+                          </div>
+                        )}
+                        {testResult.details.timestamp && (
+                          <p className="text-gray-500 dark:text-gray-500 text-xs">
+                            发送时间: {testResult.details.timestamp}
+                          </p>
+                        )}
+                        {testResult.details.hint && (
+                          <p className="text-cream-700 dark:text-cream-400 mt-2 p-2 bg-cream-100 dark:bg-cream-900/30 rounded-lg">
+                            💡 {testResult.details.hint}
+                          </p>
+                        )}
                       </div>
                     )}
-                    {testResult.details.timestamp && (
-                      <p className="text-gray-500 dark:text-gray-500 text-xs">
-                        发送时间: {testResult.details.timestamp}
-                      </p>
-                    )}
-                    {testResult.details.hint && (
-                      <p className="text-cream-700 dark:text-cream-400 mt-2 p-2 bg-cream-100 dark:bg-cream-900/30 rounded-lg">
-                        💡 {testResult.details.hint}
-                      </p>
-                    )}
-                  </div>
-                )}
 
-                {/* 错误类型提示 */}
-                {testResult.error_type && !testResult.success && (
-                  <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      错误类型: <code className="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">{testResult.error_type}</code>
-                    </p>
-                    {testResult.error_type === 'authentication_error' && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        阿里云邮件推送需要使用 SMTP 密码，而非邮箱登录密码。
-                        请在阿里云控制台创建 SMTP 密码。
-                      </p>
+                    {/* 错误类型提示 */}
+                    {testResult.error_type && !testResult.success && (
+                      <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          错误类型: <code className="text-xs bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded">{testResult.error_type}</code>
+                        </p>
+                        {testResult.error_type === 'authentication_error' && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            阿里云邮件推送需要使用 SMTP 密码，而非邮箱登录密码。
+                            请在阿里云控制台创建 SMTP 密码。
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+    </>
+  )
+}
+    </div >
   );
 };
