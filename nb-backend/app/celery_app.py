@@ -23,6 +23,7 @@ celery_app = Celery(
     "nbnb",
     broker=redis_url,
     backend=redis_url,
+    broker_connection_retry_on_startup=True,
     include=[
         "app.tasks.email_tasks",
         "app.tasks.cleanup_tasks",
@@ -34,8 +35,6 @@ celery_app = Celery(
 
 # Celery 配置
 celery_app.conf.update(
-    # Broker 连接重试
-    broker_connection_retry_on_startup=True,
     # 任务结果过期时间（1天）
     result_expires=86400,
     # 任务结果序列化格式

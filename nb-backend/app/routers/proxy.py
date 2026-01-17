@@ -94,6 +94,54 @@ def _safe_error_detail_from_bytes(status_code: int, body: bytes) -> str:
     return _sanitize_error_detail(message)
 
 
+_QUOTA_ERROR_HINTS = (
+    "quota",
+    "insufficient",
+    "insufficient_quota",
+    "exceeded",
+    "billing",
+    "credit",
+    "credits",
+    "balance",
+    "余额",
+    "额度",
+    "次数不足",
+    "没有额度",
+    "账户余额不足",
+    "resource has been exhausted",
+    "exceeded your current quota",
+)
+
+_RATE_LIMIT_HINTS = (
+    "rate limit",
+    "too many requests",
+    "request limit",
+    "频率",
+    "请求过于频繁",
+)
+
+
+def _matches_any_hint(text: str, hints: tuple[str, ...]) -> bool:
+    for hint in hints:
+        if hint in text:
+            return True
+    return False
+
+
+def _is_quota_error(detail: str) -> bool:
+    if not detail:
+        return False
+    lowered = detail.lower()
+    return _matches_any_hint(lowered, _QUOTA_ERROR_HINTS)
+
+
+def _is_rate_limit_error(detail: str) -> bool:
+    if not detail:
+        return False
+    lowered = detail.lower()
+    return _matches_any_hint(lowered, _RATE_LIMIT_HINTS)
+
+
 def _build_key_updates(token: TokenPool, plain_key: str) -> dict[str, str]:
     if not settings.token_encryption_key or token.api_key.startswith("enc:"):
         return {}
@@ -121,11 +169,19 @@ async def _apply_token_update(
     mark_success: bool = False,
     key_updates: dict[str, str] | None = None,
     usage_log: UsageLog | None = None,
+    disable_token: bool = False,
+    remaining_quota: float | None = None,
 ) -> None:
     await db.refresh(token, with_for_update=True)
     if key_updates:
         for field, value in key_updates.items():
             setattr(token, field, value)
+    if remaining_quota is not None:
+        token.remaining_quota = remaining_quota
+        token.last_checked_at = now
+    if disable_token:
+        token.is_active = False
+        token.cooldown_until = None
     if update_request_counters:
         token.last_used_at = now
         token.last_checked_at = now
@@ -386,10 +442,15 @@ async def proxy_generate(
 
             error_detail = _safe_error_detail_from_response(response)
             last_error_detail = error_detail or f"HTTP {response.status_code}"
-            if response.status_code >= 500 or response.status_code in {401, 403, 429}:
-                mark_failure = True
-            else:
-                mark_failure = False
+            quota_error = response.status_code == 402 or _is_quota_error(last_error_detail)
+            rate_limit_error = _is_rate_limit_error(last_error_detail)
+            retryable_error = (
+                response.status_code >= 500
+                or response.status_code in {401, 403, 408, 429}
+                or quota_error
+                or rate_limit_error
+            )
+            disable_token = quota_error and not rate_limit_error
             usage_log = UsageLog(
                 user_id=current_user.id,
                 model_name=model_name,
@@ -405,12 +466,14 @@ async def proxy_generate(
                 token,
                 now,
                 update_request_counters=True,
-                mark_failure=mark_failure,
+                mark_failure=retryable_error,
                 key_updates=key_updates,
                 usage_log=usage_log,
+                disable_token=disable_token,
+                remaining_quota=0.0 if disable_token else None,
             )
 
-            if response.status_code == 400:
+            if response.status_code == 400 and not quota_error:
                 if reserved:
                     await refund_user_credits(
                         db,
@@ -578,10 +641,15 @@ async def proxy_generate_stream(
                     body_bytes = await response.aread()
                     error_detail = _safe_error_detail_from_bytes(status_code, body_bytes)
                     last_error_detail = error_detail or f"HTTP {status_code}"
-                    if status_code >= 500 or status_code in {401, 403, 429}:
-                        mark_failure = True
-                    else:
-                        mark_failure = False
+                    quota_error = status_code == 402 or _is_quota_error(last_error_detail)
+                    rate_limit_error = _is_rate_limit_error(last_error_detail)
+                    retryable_error = (
+                        status_code >= 500
+                        or status_code in {401, 403, 408, 429}
+                        or quota_error
+                        or rate_limit_error
+                    )
+                    disable_token = quota_error and not rate_limit_error
                     usage_log = UsageLog(
                         user_id=current_user.id,
                         model_name=model_name,
@@ -597,13 +665,15 @@ async def proxy_generate_stream(
                         token,
                         now,
                         update_request_counters=True,
-                        mark_failure=mark_failure,
+                        mark_failure=retryable_error,
                         key_updates=key_updates,
                         usage_log=usage_log,
+                        disable_token=disable_token,
+                        remaining_quota=0.0 if disable_token else None,
                     )
                     await response.aclose()
 
-                    if status_code == 400:
+                    if status_code == 400 and not quota_error:
                         if reserved:
                             await refund_user_credits(
                                 db,
