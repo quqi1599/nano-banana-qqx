@@ -18,13 +18,23 @@ from app.services.email_service import (
     send_ticket_user_reply_notification
 )
 from app.config import get_settings
+from app.models.notification_email import NotificationEmail
 
 settings = get_settings()
 router = APIRouter()
 
-# 获取管理员通知邮箱列表
-def get_admin_emails():
+# 获取管理员通知邮箱列表（从数据库优先，回退到环境变量）
+async def get_admin_emails(db: AsyncSession) -> List[str]:
     """获取管理员通知邮箱列表"""
+    # 优先从数据库读取已启用的通知邮箱
+    result = await db.execute(
+        select(NotificationEmail.email).where(NotificationEmail.is_active == True)
+    )
+    db_emails = [row[0] for row in result.fetchall()]
+    if db_emails:
+        return db_emails
+
+    # 回退到环境变量配置
     if settings.admin_notification_emails:
         return [e.strip() for e in settings.admin_notification_emails.split(',') if e.strip()]
     return settings.admin_emails_list
@@ -74,8 +84,8 @@ async def create_ticket(
     await db.commit()
     await db.refresh(new_ticket)
 
-    # 3. 通知管理员
-    admin_emails = get_admin_emails()
+    # 3. 通知管理员（包含用户积分信息）
+    admin_emails = await get_admin_emails(db)
     if admin_emails:
         background_tasks.add_task(
             send_new_ticket_notification,
@@ -85,7 +95,10 @@ async def create_ticket(
             new_ticket.category,
             new_ticket.priority,
             current_user.email,
-            ticket_in.content
+            ticket_in.content,
+            current_user.credit_balance,
+            current_user.pro3_balance,
+            current_user.flash_balance
         )
 
     return new_ticket
@@ -252,7 +265,7 @@ async def reply_ticket(
              ticket.status = 'open'
 
         # 通知管理员用户回复了工单
-        admin_emails = get_admin_emails()
+        admin_emails = await get_admin_emails(db)
         if admin_emails:
             background_tasks.add_task(
                 send_ticket_user_reply_notification,

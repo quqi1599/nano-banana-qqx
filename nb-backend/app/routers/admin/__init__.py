@@ -37,6 +37,7 @@ from .users import router as users_router
 from .email import router as email_router
 from .conversations import router as conversations_router
 from .visitors import router as visitors_router
+from .notification_email import router as notification_email_router
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ router.include_router(users_router, tags=["管理后台-用户"])
 router.include_router(email_router, tags=["管理后台-邮件"])
 router.include_router(conversations_router, tags=["管理后台-对话"])
 router.include_router(visitors_router, tags=["管理后台-游客"])
+router.include_router(notification_email_router, prefix="/notification-emails", tags=["管理后台-通知邮箱"])
 
 
 # ============ 兑换码管理 ============

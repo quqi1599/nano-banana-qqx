@@ -16,6 +16,7 @@ from app.models.smtp_config import SmtpConfig
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.conversation_cleanup import ConversationCleanup
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.notification_email import NotificationEmail
 
 __all__ = [
     "User",
@@ -35,4 +36,5 @@ __all__ = [
     "ConversationMessage",
     "ConversationCleanup",
     "AdminAuditLog",
+    "NotificationEmail",
 ]
