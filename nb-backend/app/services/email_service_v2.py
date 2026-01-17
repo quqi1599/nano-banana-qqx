@@ -6,6 +6,7 @@ import smtplib
 import random
 import string
 import logging
+import socket
 from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -206,6 +207,22 @@ class SmtpSender(EmailSender):
             result["message"] = "连接超时，请检查网络或稍后重试"
             result["error_type"] = "timeout_error"
             result["details"]["hint"] = "可能是网络延迟或服务器响应过慢"
+            return result
+
+        except socket.gaierror as e:
+            logger.error("DNS resolution failed for %s: %s", self.smtp_host, str(e))
+            result["message"] = f"DNS 解析失败: 无法解析服务器地址 '{self.smtp_host}'"
+            result["error_type"] = "dns_error"
+            result["details"]["smtp_host"] = self.smtp_host
+            result["details"]["hint"] = (
+                f"请检查 SMTP 服务器地址是否正确拼写。<br>"
+                f"常见正确地址：<br>"
+                f"- 阿里云: smtpdm.aliyun.com<br>"
+                f"- 腾讯云: smtp.cloud.tencent.com<br>"
+                f"- Gmail: smtp.gmail.com<br>"
+                f"- QQ邮箱: smtp.qq.com<br>"
+                f"- 163邮箱: smtp.163.com"
+            )
             return result
 
         except Exception as e:

@@ -11,6 +11,8 @@ import {
     logout as logoutApi,
 } from '../services/authService';
 
+const API_KEY_STORAGE = 'nbnb_api_key';
+
 interface AuthState {
     // 状态
     user: User | null;
@@ -34,6 +36,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     setUser: (user) => set({ user, isAuthenticated: !!user }),
 
     login: (_token, user) => {
+        // 登录后清除 API Key，使用 JWT cookie 认证
+        localStorage.removeItem(API_KEY_STORAGE);
         saveUser(user);
         set({ user, isAuthenticated: true });
     },
@@ -49,6 +53,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     refreshUser: async () => {
         try {
             const user = await getCurrentUser();
+            // 认证成功后清除 API Key，使用 JWT cookie 认证
+            localStorage.removeItem(API_KEY_STORAGE);
             saveUser(user);
             set({ user, isAuthenticated: true });
         } catch (error) {
@@ -78,6 +84,8 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         set({ isLoading: true });
         try {
             const user = await getCurrentUser();
+            // 认证成功后清除 API Key，使用 JWT cookie 认证
+            localStorage.removeItem(API_KEY_STORAGE);
             saveUser(user);
             set({ user, isAuthenticated: true });
         } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Loader2, User, Bot, Globe, Key } from 'lucide-react';
-import { AdminConversationDetail, AdminMessage } from '../../../services/conversationService';
+import { AdminConversationDetail, ConversationMessage } from '../../../services/conversationService';
 import { DEFAULT_API_ENDPOINT } from '../../../config/api';
 import { UserTypeBadge } from './utils/constants';
 import { formatDate, formatFullDate } from '../../../utils/formatters';
@@ -22,23 +22,21 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
         setImagePreview({ src: `data:${mimeType};base64,${base64}`, show: true });
     };
 
-    const renderMessage = (msg: AdminMessage, idx: number) => {
+    const renderMessage = (msg: ConversationMessage, idx: number) => {
         const isAdmin = msg.role === 'admin';
         return (
             <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    isAdmin
-                        ? 'bg-cream-100 text-cream-700'
-                        : 'bg-gray-100 text-gray-600'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAdmin
+                    ? 'bg-cream-100 text-cream-700'
+                    : 'bg-gray-100 text-gray-600'
+                    }`}>
                     {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                 </div>
                 <div className={`max-w-[80%] ${isAdmin ? 'flex flex-col items-end' : 'flex flex-col items-start'}`}>
-                    <div className={`p-3 rounded-2xl ${
-                        isAdmin
-                            ? 'bg-brand-500 text-white rounded-tr-none'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
-                    }`}>
+                    <div className={`p-3 rounded-2xl ${isAdmin
+                        ? 'bg-brand-500 text-white rounded-tr-none'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
+                        }`}>
                         {msg.content && (
                             <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                         )}
@@ -68,8 +66,8 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
                 {/* 头部 */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
                     <div>
@@ -131,7 +129,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                 {/* 图片预览弹窗 */}
                 {imagePreview && (
                     <div
-                        className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
+                        className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
                         onClick={() => setImagePreview(null)}
                     >
                         <div

@@ -43,7 +43,7 @@ export const TokenDrawer: React.FC<TokenDrawerProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[100]">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="absolute right-0 top-0 h-full w-full sm:max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                 <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-800">

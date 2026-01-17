@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Activity, AlertCircle, CheckCircle, Clock, Download, Layers,
-    PauseCircle, Play, RefreshCw, Server, Trash2, XCircle, Zap
+    PauseCircle, Play, RefreshCw, Server, Trash2, XCircle, Zap, TrendingUp,
+    AlertTriangle, ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
 import {
     DashboardData, getQueueDashboard, getQueueTasks, getQueueWorkers,
@@ -60,6 +61,16 @@ const TaskStatusBadge: React.FC<TaskStatusBadgeProps> = ({ status }) => {
     );
 };
 
+// 格式化执行时长
+const formatDuration = (startTime?: number): string => {
+    if (!startTime) return '--';
+    const seconds = Math.floor((Date.now() - startTime) / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainSeconds = seconds % 60;
+    return `${minutes}m ${remainSeconds}s`;
+};
+
 // 任务列表项
 interface TaskItemProps {
     task: TaskInfo;
@@ -73,48 +84,56 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onRetry, onCancel }) => {
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
             <div
-                className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                className="p-3 sm:p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors gap-2"
                 onClick={() => setExpanded(!expanded)}
             >
-                <div className="flex items-center gap-4 min-w-0 flex-1">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                     <TaskStatusBadge status={task.status} />
                     <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {task.name}
                         </p>
-                        <p className="text-xs text-gray-500 font-mono">
-                            ID: {task.id.slice(0, 12)}...
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-xs text-gray-500 font-mono truncate">
+                                ID: {task.id.slice(0, 8)}...
+                            </p>
+                            {task.time_start && (
+                                <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Clock size={10} />
+                                    {formatDuration(task.time_start)}
+                                </span>
+                            )}
+                        </div>
                     </div>
                     {task.worker && (
-                        <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                        <span className="hidden sm:inline-flex text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                             {task.worker.split('@')[0]}
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-1.5 sm:gap-2 ml-2">
                     {task.status === 'failed' && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onRetry(task.id); }}
-                            className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                            className="p-1.5 sm:p-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
                             title="重试"
                         >
-                            <RefreshCw size={16} />
+                            <RefreshCw size={14} className="sm:w-4 sm:h-4" />
                         </button>
                     )}
                     {(task.status === 'pending' || task.status === 'active') && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onCancel(task.id); }}
-                            className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                            className="p-1.5 sm:p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                             title="取消"
                         >
-                            <XCircle size={16} />
+                            <XCircle size={14} className="sm:w-4 sm:h-4" />
                         </button>
                     )}
                     <button
-                        className={`p-2 rounded-lg transition-transform ${expanded ? 'rotate-180' : ''}`}
+                        className={`p-1.5 sm:p-2 rounded-lg transition-transform ${expanded ? 'rotate-180' : ''}`}
                     >
-                        <Layers size={16} className="text-gray-400" />
+                        <Layers size={14} className="sm:w-4 sm:h-4 text-gray-400" />
                     </button>
                 </div>
             </div>
@@ -362,6 +381,12 @@ export const QueueMonitor: React.FC = () => {
     const totalActive = dashboard?.overview?.tasks?.active || 0;
     const onlineWorkers = dashboard?.overview?.workers?.online || 0;
     const totalWorkers = dashboard?.overview?.workers?.total || 0;
+    const throughputHour = dashboard?.throughput?.last_hour || 0;
+    const throughputDay = dashboard?.throughput?.last_day || 0;
+
+    // 从任务列表计算成功/失败数
+    const failedCount = tasks.filter(t => t.status === 'failed').length;
+    const succeededCount = tasks.filter(t => t.status === 'succeeded').length;
 
     if (loading) {
         return (
@@ -372,49 +397,50 @@ export const QueueMonitor: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6 animate-fade-in-up">
+        <div className="space-y-4 lg:space-y-6 animate-fade-in-up">
             {/* 顶部操作栏 */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">队列监控中心</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">队列监控中心</h2>
                     <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-600 text-xs font-medium rounded-full flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                         实时
                     </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                     <button
                         onClick={() => setAutoRefresh(!autoRefresh)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${autoRefresh
+                        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${autoRefresh
                                 ? 'bg-green-100 dark:bg-green-900/20 text-green-600'
                                 : 'bg-gray-100 dark:bg-gray-800 text-gray-600'
                             }`}
                     >
-                        <Play size={16} />
-                        自动刷新
+                        <Play size={14} className="sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">自动刷新</span>
+                        <span className="sm:hidden">自动</span>
                     </button>
                     <button
                         onClick={handleRefresh}
                         disabled={refreshing}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm font-medium transition-all disabled:opacity-50"
+                        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs sm:text-sm font-medium transition-all disabled:opacity-50"
                     >
-                        <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        刷新
+                        <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                        <span className="hidden sm:inline">刷新</span>
                     </button>
                     <button
                         onClick={handleRestartWorkers}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cream-100 dark:bg-cream-900/20 hover:bg-cream-200 dark:hover:bg-cream-900/30 text-cream-600 text-sm font-medium transition-all"
+                        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-cream-100 dark:bg-cream-900/20 hover:bg-cream-200 dark:hover:bg-cream-900/30 text-cream-600 text-xs sm:text-sm font-medium transition-all"
                     >
-                        <Zap size={16} />
-                        重启 Workers
+                        <Zap size={14} className="sm:w-4 sm:h-4" />
+                        <span className="hidden sm:inline">重启</span>
                     </button>
                 </div>
             </div>
 
-            {/* 状态卡片 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 状态卡片 - 增强版 */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
                 <QueueStatCard
-                    name="等待任务"
+                    name="等待"
                     count={totalPending}
                     icon={Clock}
                     color="text-yellow-600"
@@ -428,18 +454,61 @@ export const QueueMonitor: React.FC = () => {
                     onClick={() => setSelectedStatus(selectedStatus === 'active' ? null : 'active')}
                 />
                 <QueueStatCard
-                    name="在线 Workers"
+                    name="成功"
+                    count={succeededCount}
+                    icon={CheckCircle}
+                    color="text-emerald-600"
+                    onClick={() => setSelectedStatus(selectedStatus === 'succeeded' ? null : 'succeeded')}
+                />
+                <QueueStatCard
+                    name="失败"
+                    count={failedCount}
+                    icon={XCircle}
+                    color="text-red-600"
+                    onClick={() => setSelectedStatus(selectedStatus === 'failed' ? null : 'failed')}
+                />
+                <QueueStatCard
+                    name="在线 Worker"
                     count={onlineWorkers}
                     icon={Server}
                     color="text-green-600"
                 />
                 <QueueStatCard
-                    name="总 Workers"
+                    name="总 Worker"
                     count={totalWorkers}
                     icon={Layers}
                     color="text-gray-600"
                 />
             </div>
+
+            {/* 吞吐量卡片 */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">过去 1 小时处理</p>
+                            <p className="text-xl sm:text-2xl font-bold text-blue-700 dark:text-blue-300">{throughputHour.toLocaleString()}</p>
+                        </div>
+                        <div className="p-2.5 sm:p-3 rounded-xl bg-blue-500/20 text-blue-600">
+                            <TrendingUp size={18} className="sm:w-5 sm:h-5" />
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-4 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">过去 24 小时处理</p>
+                            <p className="text-xl sm:text-2xl font-bold text-purple-700 dark:text-purple-300">{throughputDay.toLocaleString()}</p>
+                        </div>
+                        <div className="p-2.5 sm:p-3 rounded-xl bg-purple-500/20 text-purple-600">
+                            <Activity size={18} className="sm:w-5 sm:h-5" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 队列详情 */}
+            <div className="grid lg:grid-cols-3 gap-4 lg:gap-6">
 
             {/* 队列详情 */}
             <div className="grid lg:grid-cols-3 gap-6">

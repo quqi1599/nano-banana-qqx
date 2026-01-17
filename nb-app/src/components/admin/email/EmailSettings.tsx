@@ -135,10 +135,10 @@ export const EmailSettings: React.FC = () => {
       Object.keys(updateData).forEach(key => {
         if (updateData[key] === '' || updateData[key] === null) {
           if (
-![
-'smtp_password', 'api_key', 'reply_to', 'daily_limit', 'hourly_limit', 'description'
-].includes(key)
-) {
+            ![
+              'smtp_password', 'api_key', 'reply_to', 'daily_limit', 'hourly_limit', 'description'
+            ].includes(key)
+          ) {
             delete updateData[key];
           }
         }
@@ -345,9 +345,8 @@ export const EmailSettings: React.FC = () => {
             {configs.map((config) => (
               <div
                 key={config.id}
-                className={`p-5 transition-colors ${
-                  !config.is_enabled ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''
-                }`}
+                className={`p-5 transition-colors ${!config.is_enabled ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''
+                  }`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
@@ -422,7 +421,7 @@ export const EmailSettings: React.FC = () => {
 
       {/* 创建/编辑弹窗 */}
       {(showCreateModal || showEditModal) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => {
@@ -780,11 +779,10 @@ export const EmailSettings: React.FC = () => {
 
         {/* 测试结果反馈 */}
         {testResult && (
-          <div className={`mt-4 rounded-xl p-4 border ${
-            testResult.success
+          <div className={`mt-4 rounded-xl p-4 border ${testResult.success
               ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
               : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-          }`}>
+            }`}>
             <div className="flex items-start gap-3">
               {testResult.success ? (
                 <Check size={20} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
@@ -792,11 +790,10 @@ export const EmailSettings: React.FC = () => {
                 <X size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               )}
               <div className="flex-1 min-w-0">
-                <p className={`font-medium ${
-                  testResult.success
+                <p className={`font-medium ${testResult.success
                     ? 'text-green-800 dark:text-green-300'
                     : 'text-red-800 dark:text-red-300'
-                }`}>
+                  }`}>
                   {testResult.message}
                 </p>
 

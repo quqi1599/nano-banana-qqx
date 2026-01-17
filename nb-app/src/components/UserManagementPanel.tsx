@@ -982,7 +982,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
             {/* 批量操作确认模态框 */}
             {batchAction && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
@@ -1059,8 +1059,8 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             )}
 
             {activeUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-200 dark:border-gray-800">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 border border-gray-200 dark:border-gray-800">
                         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
                             <div className="flex items-center gap-3 sm:gap-4">
                                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center font-bold text-white text-base sm:text-lg shadow-sm">
@@ -1085,7 +1085,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                             </button>
                         </div>
 
-                        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-80px)]">
+                        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
                             {/* 当前余额显示 */}
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
@@ -1274,7 +1274,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
             {/* 创建用户模态框 */}
             {showCreateUserModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-6">
@@ -1431,7 +1431,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
             {/* 修改密码模态框 */}
             {showPasswordModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-6">

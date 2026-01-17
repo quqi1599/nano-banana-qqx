@@ -39,6 +39,26 @@ const buildRequestWithAuth = (options: RequestInit = {}): RequestInit => {
     };
 };
 
+// 管理员 API 请求 - 只使用 JWT cookie 认证，不使用 API Key
+const buildAdminRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const requestOptions = buildRequestOptions(options);
+    const headers = new Headers(requestOptions.headers || {});
+
+    // 匿名游客标识（保留用于访客会话）
+    const visitorId = localStorage.getItem(VISITOR_ID_STORAGE);
+    if (visitorId && !headers.has('X-Visitor-Id')) {
+        headers.set('X-Visitor-Id', visitorId);
+    }
+
+    // 注意：不添加 X-API-Key 头，让后端使用 JWT cookie 认证
+    // 这样可以正确识别管理员用户
+
+    return {
+        ...requestOptions,
+        headers,
+    };
+};
+
 // 通用请求处理
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE}${url}`, {
@@ -80,7 +100,7 @@ export interface MessageImage {
 
 export interface ConversationMessage {
     id: string;
-    role: 'user' | 'assistant' | 'system' | 'model';
+    role: 'user' | 'assistant' | 'system' | 'model' | 'admin';
     content: string;
     images?: MessageImage[];
     is_thought: boolean;
@@ -277,6 +297,20 @@ export async function clearConversationMessages(id: string): Promise<void> {
 
 // ============ 管理员 API ============
 
+// 管理员专用请求函数 - 使用 JWT cookie 认证
+async function adminRequest<T>(url: string, options?: RequestInit): Promise<T> {
+    const response = await fetch(`${API_BASE}${url}`, {
+        ...buildAdminRequestOptions(options || {}),
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(error.detail || '请求失败');
+    }
+
+    return response.json();
+}
+
 /**
  * 管理员获取所有对话列表
  */
@@ -293,21 +327,21 @@ export async function adminGetConversations(
     if (userId) params.append('user_id', userId);
     if (search) params.append('search', search);
 
-    return request<AdminConversation[]>(`/api/admin/conversations?${params}`);
+    return adminRequest<AdminConversation[]>(`/api/admin/conversations?${params}`);
 }
 
 /**
  * 管理员获取对话详情
  */
 export async function adminGetConversation(id: string): Promise<AdminConversationDetail> {
-    return request<AdminConversationDetail>(`/api/admin/conversations/${id}`);
+    return adminRequest<AdminConversationDetail>(`/api/admin/conversations/${id}`);
 }
 
 /**
  * 管理员删除对话
  */
 export async function adminDeleteConversation(id: string): Promise<{ message: string }> {
-    return request<{ message: string }>(`/api/admin/conversations/${id}`, {
+    return adminRequest<{ message: string }>(`/api/admin/conversations/${id}`, {
         method: 'DELETE',
     });
 }
@@ -332,14 +366,14 @@ export async function adminGetConversationsFiltered(
     if (filters.min_messages !== undefined) params.append('min_messages', String(filters.min_messages));
     if (filters.max_messages !== undefined) params.append('max_messages', String(filters.max_messages));
 
-    return request<ConversationListWithTotal>(`/api/admin/conversations?${params}`);
+    return adminRequest<ConversationListWithTotal>(`/api/admin/conversations?${params}`);
 }
 
 /**
  * 管理员获取用户对话统计
  */
 export async function adminGetUserConversationStats(userId: string): Promise<UserConversationStats> {
-    return request<UserConversationStats>(`/api/admin/users/${userId}/conversation-stats`);
+    return adminRequest<UserConversationStats>(`/api/admin/users/${userId}/conversation-stats`);
 }
 
 /**
@@ -354,5 +388,5 @@ export async function adminGetUserConversationTimeline(
         page: String(page),
         page_size: String(pageSize),
     });
-    return request<ConversationTimelineResponse>(`/api/admin/users/${userId}/conversation-timeline?${params}`);
+    return adminRequest<ConversationTimelineResponse>(`/api/admin/users/${userId}/conversation-timeline?${params}`);
 }
