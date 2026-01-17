@@ -34,7 +34,7 @@ from app.utils.captcha import verify_captcha_ticket, hash_captcha_ticket
 from app.utils.rate_limiter import RateLimiter
 from app.utils.cache import get_cached_json, set_cached_json
 from app.utils.redis_client import redis_client
-from app.services.email_service import generate_code, send_verification_code
+from app.services.email_service_v2 import generate_code, send_verification_code_v2 as send_verification_code
 
 router = APIRouter()
 settings = get_settings()
