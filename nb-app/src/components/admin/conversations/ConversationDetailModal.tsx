@@ -66,7 +66,6 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
         );
     };
 
-    return (
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
@@ -150,6 +149,5 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
             </div>
         </div>,
         document.body
-    );
     );
 };

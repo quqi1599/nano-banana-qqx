@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export interface NewTokenForm {
@@ -42,7 +43,7 @@ export const TokenDrawer: React.FC<TokenDrawerProps> = ({
         await onSubmit({ name, apiKey, baseUrl: apiBaseUrl, priority });
     };
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100]">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="absolute right-0 top-0 h-full w-full sm:max-w-md bg-white dark:bg-gray-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
@@ -99,6 +100,7 @@ export const TokenDrawer: React.FC<TokenDrawerProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

@@ -3,6 +3,7 @@
  * 功能：高级筛选、批量操作、标签管理、实时搜索、移动端适配、创建用户、修改密码
  */
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Users, Search, Filter, X, CheckSquare, Square, Ban, Unlock, CreditCard, Tag, Download, ChevronDown, MessageSquare, List, Clock, Plus, Key, Eye, EyeOff, Edit3 } from 'lucide-react';
 import {
     getUsersAdvanced,
@@ -981,7 +982,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             </div>
 
             {/* 批量操作确认模态框 */}
-            {batchAction && (
+            {batchAction && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
                         <div className="p-6">
@@ -1055,10 +1056,11 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {activeUser && (
+            {activeUser && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200 border border-gray-200 dark:border-gray-800">
                         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
@@ -1269,11 +1271,12 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* 创建用户模态框 */}
-            {showCreateUserModal && (
+            {showCreateUserModal && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
                         <div className="p-6">
@@ -1426,11 +1429,12 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* 修改密码模态框 */}
-            {showPasswordModal && (
+            {showPasswordModal && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm animate-in zoom-in-95 duration-200">
                         <div className="p-6">
@@ -1502,7 +1506,8 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

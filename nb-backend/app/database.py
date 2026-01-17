@@ -58,6 +58,11 @@ async def get_db():
             await session.close()
 
 
+def get_db_session():
+    """获取数据库会话 (用于后台任务等非依赖注入场景)"""
+    return AsyncSessionLocal()
+
+
 async def init_db():
     """初始化数据库表"""
     print("🔧 Initializing database...")

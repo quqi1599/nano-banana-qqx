@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import time
 import re
 import secrets
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks, Response
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,10 +34,12 @@ from app.utils.captcha import verify_captcha_ticket, hash_captcha_ticket
 from app.utils.rate_limiter import RateLimiter
 from app.utils.cache import get_cached_json, set_cached_json
 from app.utils.redis_client import redis_client
-from app.services.email_service import generate_code, send_verification_code
+from app.services.email_service import generate_code
+from app.services.email_service_v2 import send_verification_code_v2
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 # 限制发送验证码：每邮箱每分钟 5 次
 send_code_limiter = RateLimiter(times=5, seconds=60)
@@ -413,6 +416,8 @@ async def send_code(
     code = generate_code()
     expires_at = now + timedelta(minutes=settings.email_code_expire_minutes)
 
+    logger.info(f"[验证码] 生成验证码成功: 邮箱={data.email}, 用途={data.purpose}, 验证码={code}, 过期时间={expires_at}")
+
     # 保存验证码（同时作废历史未使用验证码）
     email_code = EmailCode(
         email=data.email,
@@ -432,9 +437,12 @@ async def send_code(
         .values(is_used=True)
     )
     db.add(email_code)
-    
-    # 后台发送邮件
-    background_tasks.add_task(send_verification_code, data.email, code, data.purpose)
+
+    logger.info(f"[验证码] 验证码已保存到数据库: 邮箱={data.email}, 用途={data.purpose}")
+
+    # 后台发送邮件 (使用数据库配置的 SMTP)
+    background_tasks.add_task(send_verification_code_v2, data.email, code, data.purpose)
+    logger.info(f"[邮件] 邮件发送任务已加入后台队列: 邮箱={data.email}, 用途={data.purpose}")
 
     # 重置密码时增加计数
     if data.purpose == "reset":
@@ -456,18 +464,23 @@ async def register(
     """用户注册（需验证码）"""
     client_ip = _get_client_ip(request)
     ip_key = f"register_ip:{client_ip}"
-    
+    email_key = f"register_email:{data.email}"
+
+    # [注册] 开始注册流程
+    logger.info(f"[注册] 收到注册请求: 邮箱={data.email}, 昵称={data.nickname}, IP={client_ip}")
+
     # 检查 IP 注册次数限制
     ip_count = await redis_client.get(ip_key)
     if ip_count and int(ip_count) >= IP_REGISTER_LIMIT:
+        logger.warning(f"[注册] IP 注册次数超限: IP={client_ip}, 次数={ip_count}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"该 IP 今日注册次数已达上限 ({IP_REGISTER_LIMIT} 次)，请 24 小时后重试",
         )
 
-    email_key = f"register_email:{data.email}"
     email_count = await redis_client.get(email_key)
     if email_count and int(email_count) >= EMAIL_REGISTER_LIMIT:
+        logger.warning(f"[注册] 邮箱注册次数超限: 邮箱={data.email}, 次数={email_count}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"该邮箱今日注册次数已达上限 ({EMAIL_REGISTER_LIMIT} 次)，请 24 小时后重试",
@@ -475,26 +488,33 @@ async def register(
 
     # 验证滑块验证码（如果提供了）
     if data.captcha_ticket:
+        logger.info(f"[注册] 验证滑块验证码: 邮箱={data.email}")
         await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
+        logger.info(f"[注册] 滑块验证码验证通过: 邮箱={data.email}")
 
     # 验证密码强度
+    logger.info(f"[注册] 验证密码强度: 邮箱={data.email}")
     validate_password_strength(data.password)
+    logger.info(f"[注册] 密码强度验证通过: 邮箱={data.email}")
 
     # 检查邮箱白名单
     whitelist = await get_active_email_whitelist(db)
+    logger.info(f"[注册] 邮箱白名单检查: 邮箱={data.email}, 白名单数量={len(whitelist)}")
     enforce_email_whitelist(data.email, whitelist)
 
     # 检查邮箱是否已存在
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():
+        logger.warning(f"[注册] 邮箱已存在: 邮箱={data.email}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="该邮箱已被注册",
         )
-    
+
     # 检查是否是第一个用户
     first_user_check = await db.execute(select(User).limit(1))
     is_first_user = first_user_check.scalar_one_or_none() is None
+    logger.info(f"[注册] 检查是否首用户: 邮箱={data.email}, is_first_user={is_first_user}")
 
     # 创建用户
     user = User(
@@ -506,6 +526,7 @@ async def register(
     )
     try:
         # 验证并消费验证码
+        logger.info(f"[注册] 验证邮箱验证码: 邮箱={data.email}, 验证码={data.code[:2]}****")
         now = datetime.utcnow()
         update_result = await db.execute(
             update(EmailCode)
@@ -519,18 +540,23 @@ async def register(
             .values(is_used=True)
         )
         if update_result.rowcount != 1:
+            logger.warning(f"[注册] 邮箱验证码无效或已过期: 邮箱={data.email}, rowcount={update_result.rowcount}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="验证码无效或已过期",
             )
+        logger.info(f"[注册] 邮箱验证码验证通过: 邮箱={data.email}")
+
         db.add(user)
+        logger.info(f"[注册] 用户已添加到数据库: 邮箱={data.email}, 昵称={user.nickname}, is_admin={user.is_admin}")
     except IntegrityError:
+        logger.warning(f"[注册] 数据库完整性错误: 邮箱={data.email}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="该邮箱已被注册",
         )
     await db.refresh(user)
-    
+
     # 增加 IP 注册计数
     await redis_client.incr(ip_key)
     await redis_client.expire(ip_key, LIMIT_EXPIRE_SECONDS)
@@ -538,11 +564,14 @@ async def register(
     # 增加邮箱注册计数
     await redis_client.incr(email_key)
     await redis_client.expire(email_key, LIMIT_EXPIRE_SECONDS)
-    
+
     # 生成 Token
+    logger.info(f"[注册] 生成访问令牌: 用户ID={user.id}")
     access_token = create_access_token(data={"sub": user.id})
     _set_auth_cookies(response, access_token)
-    
+
+    logger.info(f"[注册] 注册成功: 邮箱={data.email}, 用户ID={user.id}, is_admin={user.is_admin}")
+
     return TokenResponse(
         access_token=access_token,
         user=UserResponse.model_validate(user),

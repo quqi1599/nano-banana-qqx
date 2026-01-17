@@ -419,11 +419,44 @@ def create_sender(config: Dict[str, Any]) -> EmailSender:
 # 统一发送接口
 # ============================================================================
 
-def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
-    """从环境变量获取 SMTP 配置
-    注意：当前版本使用环境变量配置，未来可扩展为从数据库读取
+async def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
+    """从数据库或环境变量获取 SMTP 配置
+    优先使用数据库配置，如果不存在则回退到环境变量
     """
-    # 使用环境变量配置
+    from sqlalchemy import select
+    from app.database import get_db_session
+    from app.models.smtp_config import SmtpConfig
+
+    # 尝试从数据库读取默认配置
+    async with get_db_session() as db:
+        try:
+            result = await db.execute(
+                select(SmtpConfig).where(
+                    SmtpConfig.is_enabled == True,
+                    SmtpConfig.is_default == True
+                )
+            )
+            config = result.scalar_one_or_none()
+
+            if config:
+                return {
+                    "provider": config.provider,
+                    "name": config.name,
+                    "smtp_host": config.smtp_host,
+                    "smtp_port": config.smtp_port,
+                    "smtp_encryption": config.smtp_encryption,
+                    "smtp_user": config.smtp_user,
+                    "smtp_password": config.smtp_password,
+                    "from_email": config.from_email or config.smtp_user,
+                    "from_name": config.from_name,
+                    "reply_to": config.reply_to,
+                    "api_key": config.api_key,
+                    "api_url": config.api_url,
+                }
+        except Exception as e:
+            logger.warning("Failed to read SMTP config from database: %s", e)
+
+    # 回退到环境变量配置
     if settings.aliyun_smtp_user and settings.aliyun_smtp_password:
         return {
             "provider": "aliyun",
@@ -441,30 +474,44 @@ def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
     return None
 
 
-def send_email_v2(to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
+async def send_email_v2(to_email: str, subject: str, html_content: str) -> Dict[str, Any]:
     """
-    发送邮件 (V2 版本，支持多提供商)
+    发送邮件 (V2 版本，支持多提供商，从数据库读取配置)
     返回详细结果字典
     """
-    config = get_smtp_config_from_db()
+    sanitized_email = _sanitize_log_input(to_email)
+    logger.info(f"[邮件] 准备发送邮件: 收件人={sanitized_email}, 主题={subject}")
+
+    config = await get_smtp_config_from_db()
     if not config:
-        logger.warning("Email service not configured, skipping send")
+        logger.error(f"[邮件] 邮件服务未配置: 收件人={sanitized_email}")
         return {
             "success": False,
             "message": "邮件服务未配置",
             "error_type": "config_error"
         }
 
+    provider = config.get("provider", "unknown")
+    provider_name = config.get("name", provider)
+    logger.info(f"[邮件] 使用邮件提供商: 提供商={provider_name}({provider}), 收件人={sanitized_email}")
+
     sender = create_sender(config)
-    return sender.send(to_email, subject, html_content)
+    result = sender.send(to_email, subject, html_content)
+
+    if result.get("success"):
+        logger.info(f"[邮件] 发送成功: 收件人={sanitized_email}, 提供商={provider_name}")
+    else:
+        logger.error(f"[邮件] 发送失败: 收件人={sanitized_email}, 提供商={provider_name}, 错误={result.get('message', 'unknown')}, 错误类型={result.get('error_type', 'unknown')}")
+
+    return result
 
 
 # ============================================================================
 # 邮件模板函数
 # ============================================================================
 
-def send_verification_code_v2(to_email: str, code: str, purpose: str = "register") -> bool:
-    """发送验证码邮件"""
+async def send_verification_code_v2(to_email: str, code: str, purpose: str = "register") -> bool:
+    """发送验证码邮件 (从数据库读取 SMTP 配置)"""
     expire_minutes = settings.email_code_expire_minutes
 
     if purpose == "register":
@@ -474,7 +521,7 @@ def send_verification_code_v2(to_email: str, code: str, purpose: str = "register
         icon = ""
         bg_color = "#f59e0b"
     else:
-        result = send_password_reset_code_v2(to_email, code)
+        result = await send_password_reset_code_v2(to_email, code)
         return result.get("success", False) if isinstance(result, dict) else result
 
     content = _header(icon, title, "从一句话开始的图像创作", bg_color)
@@ -492,12 +539,12 @@ def send_verification_code_v2(to_email: str, code: str, purpose: str = "register
 """)
 
     html = _email_wrapper(_container(content))
-    result = send_email_v2(to_email, subject, html)
+    result = await send_email_v2(to_email, subject, html)
     return result.get("success", False) if isinstance(result, dict) else result
 
 
-def send_password_reset_code_v2(to_email: str, code: str) -> bool:
-    """发送密码重置验证码邮件"""
+async def send_password_reset_code_v2(to_email: str, code: str) -> bool:
+    """发送密码重置验证码邮件 (从数据库读取 SMTP 配置)"""
     subject = "【NanoBanana】密码重置验证码"
     expire_minutes = settings.email_code_expire_minutes
 
@@ -537,7 +584,7 @@ def send_password_reset_code_v2(to_email: str, code: str) -> bool:
 """
 
     html = _email_wrapper(_container(content))
-    result = send_email_v2(to_email, subject, html)
+    result = await send_email_v2(to_email, subject, html)
     return result.get("success", False) if isinstance(result, dict) else result
 
 

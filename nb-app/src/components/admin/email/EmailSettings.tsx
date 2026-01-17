@@ -20,6 +20,7 @@ import {
   Plus,
   Loader2,
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import {
   getEmailProviders,
   getEmailConfigs,
@@ -420,7 +421,7 @@ export const EmailSettings: React.FC = () => {
       </div>
 
       {/* 创建/编辑弹窗 */}
-      {(showCreateModal || showEditModal) && (
+      {(showCreateModal || showEditModal) && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -743,7 +744,8 @@ export const EmailSettings: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 测试邮件 */}
@@ -780,8 +782,8 @@ export const EmailSettings: React.FC = () => {
         {/* 测试结果反馈 */}
         {testResult && (
           <div className={`mt-4 rounded-xl p-4 border ${testResult.success
-              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-              : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
             }`}>
             <div className="flex items-start gap-3">
               {testResult.success ? (
@@ -791,8 +793,8 @@ export const EmailSettings: React.FC = () => {
               )}
               <div className="flex-1 min-w-0">
                 <p className={`font-medium ${testResult.success
-                    ? 'text-green-800 dark:text-green-300'
-                    : 'text-red-800 dark:text-red-300'
+                  ? 'text-green-800 dark:text-green-300'
+                  : 'text-red-800 dark:text-red-300'
                   }`}>
                   {testResult.message}
                 </p>
