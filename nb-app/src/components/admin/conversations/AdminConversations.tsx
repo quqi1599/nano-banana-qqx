@@ -81,10 +81,10 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
     }, [viewMode, loadConversations]);
 
     // Handle viewing conversation detail
-    const handleViewDetail = useCallback((id: string) => {
-        loadConversationDetail(id);
+    const handleViewDetail = useCallback(async (id: string) => {
+        await loadConversationDetail(id);
         setShowDetailModal(true);
-    }, [loadConversationDetail]);
+    }, [loadConversationDetail, setShowDetailModal]);
 
     // Handle closing modal
     const handleCloseModal = useCallback(() => {
@@ -428,9 +428,9 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
             </div>
 
             {/* 对话详情弹窗 */}
-            {showDetailModal && selectedConversation && (
+            {showDetailModal && (selectedConversation || loadingDetail) && (
                 <ConversationDetailModal
-                    conversation={selectedConversation}
+                    conversation={selectedConversation || ({} as AdminConversationDetail)}
                     loading={loadingDetail}
                     onClose={handleCloseModal}
                 />

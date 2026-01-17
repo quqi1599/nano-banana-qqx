@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2, User, Bot, Globe, Key } from 'lucide-react';
 import { AdminConversationDetail, ConversationMessage } from '../../../services/conversationService';
 import { DEFAULT_API_ENDPOINT } from '../../../config/api';
@@ -66,6 +67,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     };
 
     return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
                 {/* 头部 */}
@@ -127,7 +129,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                 </div>
 
                 {/* 图片预览弹窗 */}
-                {imagePreview && (
+                {imagePreview && createPortal(
                     <div
                         className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
                         onClick={() => setImagePreview(null)}
@@ -142,9 +144,12 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                                 className="max-w-full max-h-full object-contain rounded-lg"
                             />
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
+    );
     );
 };
