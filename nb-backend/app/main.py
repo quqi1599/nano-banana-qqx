@@ -5,6 +5,7 @@ import logging
 import time
 import uuid
 import secrets
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Response, HTTPException, Request, status, Depends
 from fastapi.exceptions import RequestValidationError
@@ -26,15 +27,47 @@ from app.utils.security import verify_metrics_basic_auth
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+# 系统监控任务句柄
+_monitor_task: asyncio.Task | None = None
+
+
+async def _system_monitor_loop():
+    """系统资源监控后台任务（每5分钟检查一次）"""
+    from app.services.system_monitor import check_and_alert
+    
+    while True:
+        try:
+            await asyncio.sleep(300)  # 5分钟
+            check_and_alert()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"系统监控任务异常: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    global _monitor_task
+    
     # 启动时初始化数据库
     settings.validate_secrets()
     await init_db()
+    
+    # 启动系统监控后台任务
+    _monitor_task = asyncio.create_task(_system_monitor_loop())
+    logger.info("系统资源监控任务已启动")
+    
     yield
+    
     # 关闭时清理资源
+    if _monitor_task:
+        _monitor_task.cancel()
+        try:
+            await _monitor_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("系统资源监控任务已停止")
 
 
 app = FastAPI(

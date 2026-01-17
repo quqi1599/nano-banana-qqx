@@ -28,6 +28,7 @@ from app.services.credit_service import (
     reserve_user_credits,
     refund_user_credits,
 )
+from app.services.alert_service import send_token_exhausted_alert, send_token_failed_alert
 
 router = APIRouter()
 settings = get_settings()
@@ -171,6 +172,8 @@ async def _apply_token_update(
     usage_log: UsageLog | None = None,
     disable_token: bool = False,
     remaining_quota: float | None = None,
+    error_message: str = "",
+    is_auth_failure: bool = False,
 ) -> None:
     await db.refresh(token, with_for_update=True)
     if key_updates:
@@ -192,6 +195,28 @@ async def _apply_token_update(
         mark_token_success(token)
     if usage_log:
         db.add(usage_log)
+    
+    # 触发 Token 告警
+    if disable_token:
+        # 额度耗尽告警
+        try:
+            send_token_exhausted_alert(
+                token_name=token.name or "未命名Token",
+                token_id=token.id,
+                error_msg=error_message
+            )
+        except Exception as e:
+            logger.error(f"发送Token额度告警失败: {e}")
+    elif is_auth_failure:
+        # 认证失败告警
+        try:
+            send_token_failed_alert(
+                token_name=token.name or "未命名Token",
+                token_id=token.id,
+                error_msg=error_message
+            )
+        except Exception as e:
+            logger.error(f"发送Token认证失败告警失败: {e}")
 
 
 def validate_model_name(model_name: str) -> None:
@@ -471,6 +496,8 @@ async def proxy_generate(
                 usage_log=usage_log,
                 disable_token=disable_token,
                 remaining_quota=0.0 if disable_token else None,
+                error_message=last_error_detail,
+                is_auth_failure=response.status_code in {401, 403},
             )
 
             if response.status_code == 400 and not quota_error:
@@ -670,6 +697,8 @@ async def proxy_generate_stream(
                         usage_log=usage_log,
                         disable_token=disable_token,
                         remaining_quota=0.0 if disable_token else None,
+                        error_message=last_error_detail,
+                        is_auth_failure=status_code in {401, 403},
                     )
                     await response.aclose()
 
