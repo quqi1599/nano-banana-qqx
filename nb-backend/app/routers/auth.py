@@ -215,7 +215,7 @@ class SendCodeRequest(BaseModel):
     """发送验证码请求"""
     email: EmailStr
     purpose: str = "register"  # register 或 reset
-    captcha_ticket: str  # 滑块验证票据
+    captcha_ticket: Optional[str] = None  # 滑块验证票据（可选）
 
 
 class UserRegisterWithCode(BaseModel):
@@ -224,7 +224,7 @@ class UserRegisterWithCode(BaseModel):
     password: str
     nickname: Optional[str] = None
     code: str
-    captcha_ticket: str
+    captcha_ticket: Optional[str] = None
 
 
 class ResetPasswordRequest(BaseModel):
@@ -232,7 +232,7 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     code: str
     new_password: str
-    captcha_ticket: str
+    captcha_ticket: Optional[str] = None
 
 
 async def consume_captcha_ticket(
@@ -354,8 +354,9 @@ async def send_code(
             detail="验证码用途无效",
         )
 
-    # 验证滑块验证码
-    await consume_captcha_ticket(data.captcha_ticket, data.purpose, redis_client)
+    # 验证滑块验证码（如果提供了）
+    if data.captcha_ticket:
+        await consume_captcha_ticket(data.captcha_ticket, data.purpose, redis_client)
 
     client_ip = _get_client_ip(request)
     
@@ -472,8 +473,9 @@ async def register(
             detail=f"该邮箱今日注册次数已达上限 ({EMAIL_REGISTER_LIMIT} 次)，请 24 小时后重试",
         )
 
-    # 验证滑块验证码
-    await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
+    # 验证滑块验证码（如果提供了）
+    if data.captcha_ticket:
+        await consume_captcha_ticket(data.captcha_ticket, "register", redis_client)
 
     # 验证密码强度
     validate_password_strength(data.password)
@@ -639,8 +641,9 @@ async def reset_password(
     redis_client: redis.Redis = Depends(get_redis)
 ):
     """通过验证码重置密码"""
-    # 验证滑块验证码
-    await consume_captcha_ticket(data.captcha_ticket, "reset", redis_client)
+    # 验证滑块验证码（如果提供了）
+    if data.captcha_ticket:
+        await consume_captcha_ticket(data.captcha_ticket, "reset", redis_client)
 
     # 验证密码强度
     validate_password_strength(data.new_password)

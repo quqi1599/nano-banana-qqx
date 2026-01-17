@@ -1,10 +1,7 @@
 """
 数据库连接模块
 """
-import asyncio
 from pathlib import Path
-from alembic import command
-from alembic.config import Config
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.config import get_settings
@@ -61,13 +58,6 @@ async def get_db():
             await session.close()
 
 
-def run_migrations() -> None:
-    """运行 Alembic 数据库迁移"""
-    config_path = Path(__file__).resolve().parents[1] / "alembic.ini"
-    alembic_cfg = Config(str(config_path))
-    command.upgrade(alembic_cfg, "head")
-
-
 async def init_db():
     """初始化数据库表"""
     print("🔧 Initializing database...")
@@ -84,16 +74,7 @@ async def init_db():
     except Exception as e:
         print(f"❌ Failed to create tables: {e}")
         raise
-    
-    # 运行 Alembic 迁移（处理增量变更）
-    print("📦 Running migrations...")
-    try:
-        await asyncio.to_thread(run_migrations)
-        print("✅ Migrations completed")
-    except Exception as e:
-        print(f"⚠️ Migration warning (may be normal on fresh DB): {e}")
-        # 不抛出异常，因为在新数据库上某些迁移可能会失败（表已通过 create_all 创建）
-    
+
     print("💰 Seeding model pricing...")
     try:
         await seed_model_pricing()

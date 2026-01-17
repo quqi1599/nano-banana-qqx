@@ -29,7 +29,7 @@ class UserLogin(BaseModel):
     """用户登录请求"""
     email: EmailStr
     password: str
-    captcha_ticket: str
+    captcha_ticket: Optional[str] = None
 
 
 class UserResponse(BaseModel):
