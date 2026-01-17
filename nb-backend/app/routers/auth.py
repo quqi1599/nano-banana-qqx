@@ -6,7 +6,7 @@ import time
 import re
 import secrets
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, update
@@ -35,7 +35,7 @@ from app.utils.rate_limiter import RateLimiter
 from app.utils.cache import get_cached_json, set_cached_json
 from app.utils.redis_client import redis_client
 from app.services.email_service import generate_code
-from app.services.email_service_v2 import send_verification_code_v2_sync
+from app.services.email_service_v2 import send_verification_code_v2
 
 router = APIRouter()
 settings = get_settings()
@@ -346,7 +346,6 @@ def enforce_email_whitelist(email: str, whitelist: List[str]) -> None:
 async def send_code(
     data: SendCodeRequest,
     request: Request,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis_client: redis.Redis = Depends(get_redis)
 ):
@@ -441,9 +440,9 @@ async def send_code(
 
     logger.info(f"[验证码] 验证码已保存到数据库: 邮箱={data.email}, 用途={data.purpose}")
 
-    # 后台发送邮件 (使用数据库配置的 SMTP)
-    background_tasks.add_task(send_verification_code_v2_sync, data.email, code, data.purpose)
-    logger.info(f"[邮件] 邮件发送任务已加入后台队列: 邮箱={data.email}, 用途={data.purpose}")
+    # 直接发送邮件 (不用后台任务，避免事件循环问题)
+    email_sent = await send_verification_code_v2(data.email, code, data.purpose)
+    logger.info(f"[邮件] 邮件发送结果: 邮箱={data.email}, 成功={email_sent}")
 
     # 重置密码时增加计数
     if data.purpose == "reset":
