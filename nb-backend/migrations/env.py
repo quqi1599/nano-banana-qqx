@@ -38,10 +38,12 @@ config = context.config
 
 # 从配置获取数据库 URL
 settings = get_settings()
-# 将 postgresql:// 转换为 postgresql+asyncpg:// 供 Alembic 使用
-database_url = settings.database_url.replace(
-    "postgresql://", "postgresql+asyncpg://"
-)
+# 将 postgresql:// 或 postgres:// 转换为 postgresql+asyncpg:// 供 Alembic 使用
+database_url = settings.database_url
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
 config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
