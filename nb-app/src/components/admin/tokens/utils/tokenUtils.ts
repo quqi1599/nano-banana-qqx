@@ -1,4 +1,5 @@
 import { TokenInfo } from '../../../../services/adminService';
+import { formatBalance } from '../../../../services/balanceService';
 
 const lowBalanceThreshold = 10;
 
@@ -11,7 +12,6 @@ export const formatQuota = (quota?: number | null): string => {
     if (quota === null || quota === undefined || Number.isNaN(Number(quota))) return '--';
     const value = Number(quota);
     const isUnlimited = !Number.isFinite(value) || value === Infinity;
-    const { formatBalance } = require('../../../../services/balanceService');
     return formatBalance(value, isUnlimited);
 };
 

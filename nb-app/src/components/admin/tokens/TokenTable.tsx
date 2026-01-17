@@ -41,9 +41,8 @@ export const TokenTable: React.FC<TokenTableProps> = ({
     revealedTokenIds,
 }) => {
     return (
-        <div className="hidden md:block">
-            <div className="overflow-x-auto">
-                <div className="overflow-auto max-h-[60vh]">
+        <div className="overflow-x-auto hidden md:block">
+            <div className="overflow-auto max-h-[60vh]">
                     <table className="w-full text-left text-sm border-collapse">
                         <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800 shadow-sm">
                             <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -214,6 +213,5 @@ export const TokenTable: React.FC<TokenTableProps> = ({
                     </table>
                 </div>
             </div>
-        </div>
     );
 };

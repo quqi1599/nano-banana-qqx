@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Key } from 'lucide-react';
 import { getTokens, addToken, refreshAllTokensQuota, type TokenInfo } from '../../../services/adminService';
 import { getBackendUrl } from '../../../utils/backendUrl';
 import { TokenSummaryCard } from './TokenSummaryCard';
 import { useTokenSorting } from './hooks/useTokenSorting';
 import { useTokenActions } from './hooks/useTokenActions';
+import { isCooling } from './utils/tokenUtils';
 import { TokenTable } from './TokenTable';
 import { TokenMobileCard } from './TokenMobileCard';
 import { TokenDrawer } from './TokenDrawer';
@@ -192,14 +193,8 @@ export const AdminTokens = () => {
     // Calculate summary
     const tokenSummary = {
         total: tokens.length,
-        available: tokens.filter((t) => t.is_active && !tokens.filter(x => {
-            if (!x.cooldown_until || !x.is_active) return false;
-            return new Date(x.cooldown_until).getTime() > Date.now();
-        }).some(x => x.id === t.id)).length,
-        cooling: tokens.filter(t => {
-            if (!t.cooldown_until || !t.is_active) return false;
-            return new Date(t.cooldown_until).getTime() > Date.now();
-        }).length,
+        available: tokens.filter((t) => t.is_active && !isCooling(t)).length,
+        cooling: tokens.filter(isCooling).length,
         lowBalance: tokens.filter(t => {
             const value = Number(t.remaining_quota);
             return !Number.isNaN(value) && value !== null && value <= ADMIN_CONFIG.LOW_BALANCE_THRESHOLD;
@@ -277,15 +272,22 @@ export const AdminTokens = () => {
                 />
 
                 <div className="md:hidden p-3 space-y-3">
-                    {sortedTokens.map((token) => (
-                        <TokenMobileCard
-                            key={token.id}
-                            token={token}
-                            onCheckQuota={onCheckQuota}
-                            onToggleToken={handleToggle}
-                            checkingQuotaTokenId={checkingQuotaTokenId}
-                        />
-                    ))}
+                    {sortedTokens.length === 0 ? (
+                        <div className="py-16 text-center text-gray-400">
+                            <Key className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <p className="text-sm">暂无 Token，点击上方按钮创建。</p>
+                        </div>
+                    ) : (
+                        sortedTokens.map((token) => (
+                            <TokenMobileCard
+                                key={token.id}
+                                token={token}
+                                onCheckQuota={onCheckQuota}
+                                onToggleToken={handleToggle}
+                                checkingQuotaTokenId={checkingQuotaTokenId}
+                            />
+                        ))
+                    )}
                 </div>
             </div>
 
