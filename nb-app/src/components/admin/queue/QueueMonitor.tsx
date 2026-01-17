@@ -15,7 +15,7 @@ import { LoadingState } from '../common';
 interface QueueStatCardProps {
     name: string;
     count: number;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: React.ComponentType<any>;
     color: string;
     onClick?: () => void;
 }
@@ -23,16 +23,16 @@ interface QueueStatCardProps {
 const QueueStatCard: React.FC<QueueStatCardProps> = ({ name, count, icon: Icon, color, onClick }) => (
     <button
         onClick={onClick}
-        className={`bg-white dark:bg-gray-900 rounded-2xl p-5 border border-cream-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all ${onClick ? 'cursor-pointer hover:border-cream-200 dark:hover:border-gray-700' : ''
+        className={`bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-all ${onClick ? 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-700' : ''
             }`}
     >
-        <div className="flex items-center justify-between">
-            <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{name}</p>
-                <p className={`text-2xl font-bold ${color}`}>{count.toLocaleString()}</p>
+        <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider mb-0.5 sm:mb-1 truncate">{name}</p>
+                <p className={`text-lg sm:text-2xl font-bold ${color} tabular-nums`}>{count.toLocaleString()}</p>
             </div>
-            <div className={`p-3 rounded-xl ${color.replace('text-', 'bg-').replace('-600', '/20')} ${color}`}>
-                <Icon size={22} />
+            <div className={`p-2 sm:p-3 rounded-xl flex-shrink-0 ${color.replace('text-', 'bg-').replace('-600', '/20').replace('-500', '/20')} ${color}`}>
+                <Icon size={18} className="sm:w-[22px] sm:h-[22px]" />
             </div>
         </div>
     </button>
@@ -44,19 +44,20 @@ interface TaskStatusBadgeProps {
 }
 
 const TaskStatusBadge: React.FC<TaskStatusBadgeProps> = ({ status }) => {
-    const config: Record<string, { color: string; icon: React.ComponentType<{ size?: number }>; label: string }> = {
+    const config: Record<string, { color: string; icon: React.ComponentType<any>; label: string }> = {
         pending: { color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20', icon: Clock, label: '等待中' },
         active: { color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20', icon: Play, label: '执行中' },
-        succeeded: { color: 'text-green-600 bg-green-50 dark:bg-green-900/20', icon: CheckCircle, label: '成功' },
+        succeeded: { color: 'text-green-600 bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle, label: '成功' },
         failed: { color: 'text-red-600 bg-red-50 dark:bg-red-900/20', icon: XCircle, label: '失败' },
     };
 
     const { color, icon: Icon, label } = config[status] || config.pending;
 
     return (
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${color}`}>
-            <Icon size={12} />
-            {label}
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium ${color} flex-shrink-0`}>
+            <Icon size={10} className="w-3 h-3 sm:w-3 sm:h-3" />
+            <span className="hidden sm:inline">{label}</span>
+            <span className="sm:hidden">{label.slice(0, 2)}</span>
         </span>
     );
 };
@@ -173,33 +174,41 @@ interface WorkerCardProps {
     worker: WorkerInfo;
 }
 
-const WorkerCard: React.FC<WorkerCardProps> = ({ worker }) => (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${worker.status === 'online'
-            ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
-            : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-        }`}>
-        <div className={`p-2 rounded-lg ${worker.status === 'online'
-                ? 'bg-green-500'
-                : 'bg-gray-400'
+const WorkerCard: React.FC<WorkerCardProps> = ({ worker }) => {
+    const isOnline = worker.status === 'online';
+    return (
+        <div className={`flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl border ${isOnline
+                ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+                : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
             }`}>
-            <Server size={16} className="text-white" />
+            <div className={`p-1.5 sm:p-2 rounded-lg ${isOnline
+                    ? 'bg-green-500'
+                    : 'bg-gray-400'
+                }`}>
+                <Server size={12} className="sm:w-4 sm:h-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {worker.name}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${isOnline ? 'bg-green-100 dark:bg-green-900/30 text-green-600' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'}`}>
+                        {isOnline ? '在线' : '离线'}
+                    </span>
+                    {isOnline && worker.active_tasks !== undefined && (
+                        <span className="text-xs text-gray-500">
+                            {worker.active_tasks} 任务
+                        </span>
+                    )}
+                </div>
+            </div>
+            <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${isOnline
+                    ? 'bg-green-500 animate-pulse'
+                    : 'bg-gray-400'
+                }`} />
         </div>
-        <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {worker.name}
-            </p>
-            <p className="text-xs text-gray-500">
-                {worker.status === 'online' && worker.active_tasks !== undefined
-                    ? `${worker.active_tasks} 个活跃任务`
-                    : '离线'}
-            </p>
-        </div>
-        <div className={`w-2.5 h-2.5 rounded-full ${worker.status === 'online'
-                ? 'bg-green-500 animate-pulse'
-                : 'bg-gray-400'
-            }`} />
-    </div>
-);
+    );
+};
 
 // 日志条目
 interface LogEntry {
@@ -211,26 +220,28 @@ interface LogEntry {
 }
 
 const LogViewer: React.FC<{ logs: LogEntry[]; onClear: () => void }> = ({ logs, onClear }) => {
-    const levelConfig: Record<string, { color: string; icon: React.ComponentType<{ size?: number }> }> = {
-        info: { color: 'text-blue-600', icon: Activity },
-        warning: { color: 'text-yellow-600', icon: AlertCircle },
-        error: { color: 'text-red-600', icon: XCircle },
-        success: { color: 'text-green-600', icon: CheckCircle },
+    const levelConfig: Record<string, { color: string; icon: React.ComponentType<any> }> = {
+        info: { color: 'text-blue-400', icon: Activity },
+        warning: { color: 'text-yellow-400', icon: AlertCircle },
+        error: { color: 'text-red-400', icon: XCircle },
+        success: { color: 'text-green-400', icon: CheckCircle },
     };
 
     return (
-        <div className="bg-gray-900 rounded-xl p-4 font-mono text-sm">
-            <div className="flex items-center justify-between mb-3">
-                <span className="text-gray-400 text-xs">实时日志</span>
-                <button
-                    onClick={onClear}
-                    className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1"
-                >
-                    <Trash2 size={12} />
-                    清空
-                </button>
+        <div className="bg-gray-900 dark:bg-gray-950 rounded-xl p-3 sm:p-4 font-mono text-xs">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <span className="text-gray-400 text-xs">实时日志 ({logs.length})</span>
+                {logs.length > 0 && (
+                    <button
+                        onClick={onClear}
+                        className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1 transition-colors"
+                    >
+                        <Trash2 size={12} />
+                        <span className="hidden sm:inline">清空</span>
+                    </button>
+                )}
             </div>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            <div className="space-y-1 max-h-40 sm:max-h-48 overflow-y-auto">
                 {logs.length === 0 ? (
                     <p className="text-gray-600 text-xs text-center py-4">暂无日志</p>
                 ) : (
@@ -238,9 +249,9 @@ const LogViewer: React.FC<{ logs: LogEntry[]; onClear: () => void }> = ({ logs, 
                         const { color, icon: Icon } = levelConfig[log.level] || levelConfig.info;
                         return (
                             <div key={log.id} className="flex items-start gap-2 text-gray-300">
-                                <Icon size={12} className={color + ' mt-0.5 flex-shrink-0'} />
-                                <span className="text-gray-600 text-xs flex-shrink-0">{log.timestamp}</span>
-                                <span className="flex-1">{log.message}</span>
+                                <Icon size={10} className={color + ' mt-0.5 flex-shrink-0'} />
+                                <span className="text-gray-600 text-[10px] sm:text-xs flex-shrink-0">{log.timestamp}</span>
+                                <span className="flex-1 break-all">{log.message}</span>
                             </div>
                         );
                     })
@@ -509,17 +520,14 @@ export const QueueMonitor: React.FC = () => {
 
             {/* 队列详情 */}
             <div className="grid lg:grid-cols-3 gap-4 lg:gap-6">
-
-            {/* 队列详情 */}
-            <div className="grid lg:grid-cols-3 gap-6">
                 {/* 任务列表 */}
-                <div className="lg:col-span-2 space-y-4">
+                <div className="lg:col-span-2 space-y-3 sm:space-y-4">
                     {/* 过滤器 */}
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <select
                             value={selectedQueue || ''}
-                            onChange={(e) => setSelectedQueue(e.target.value || null)}
-                            className="px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm"
+                            onChange={(e) => setSelectedQueue((e.currentTarget.value || null) as string | null)}
+                            className="px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm"
                         >
                             <option value="">全部队列</option>
                             <option value="default">default</option>
@@ -531,8 +539,8 @@ export const QueueMonitor: React.FC = () => {
                         </select>
                         <select
                             value={selectedStatus || ''}
-                            onChange={(e) => setSelectedStatus(e.target.value || null)}
-                            className="px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm"
+                            onChange={(e) => setSelectedStatus((e.currentTarget.value || null) as string | null)}
+                            className="px-3 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm"
                         >
                             <option value="">全部状态</option>
                             <option value="pending">等待中</option>
@@ -542,37 +550,41 @@ export const QueueMonitor: React.FC = () => {
                         </select>
                         <button
                             onClick={handleExportTasks}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm transition-all"
+                            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs sm:text-sm transition-all"
                         >
-                            <Download size={14} />
-                            导出
+                            <Download size={12} className="sm:w-3.5 sm:h-3.5" />
+                            <span>导出</span>
                         </button>
                     </div>
 
                     {/* 任务列表 */}
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-cream-100 dark:border-gray-800 shadow-sm">
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                            <h3 className="font-bold text-gray-900 dark:text-white">
-                                任务列表 ({tasks.length})
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
+                            <h3 className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
+                                任务列表 <span className="text-gray-400 font-normal">({tasks.length})</span>
                             </h3>
+                            {/* 队列快速统计 */}
                             {dashboard?.overview?.queues && Object.keys(dashboard.overview.queues).length > 0 && (
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                     {Object.entries(dashboard.overview.queues).map(([name, count]) => (
-                                        count > 0 && (
-                                            <button
-                                                key={name}
-                                                onClick={() => handlePurgeQueue(name)}
-                                                className="text-xs px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center gap-1"
-                                            >
-                                                <Trash2 size={10} />
-                                                {name}: {count}
-                                            </button>
-                                        )
+                                        <button
+                                            key={name}
+                                            onClick={() => count > 0 && handlePurgeQueue(name)}
+                                            className={`text-xs px-2 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                                                count > 0
+                                                    ? 'bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30'
+                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                                            }`}
+                                            title={count > 0 ? `清空 ${name} 队列` : `${name} 队列为空`}
+                                        >
+                                            {count > 0 && <Trash2 size={10} />}
+                                            {name}: {count}
+                                        </button>
                                     ))}
                                 </div>
                             )}
                         </div>
-                        <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                        <div className="p-3 sm:p-4 space-y-2 sm:space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
                             {tasks.length === 0 ? (
                                 <div className="text-center py-8 text-gray-400">
                                     <Layers className="w-10 h-10 mx-auto mb-2 opacity-20" />
@@ -593,18 +605,18 @@ export const QueueMonitor: React.FC = () => {
                 </div>
 
                 {/* 右侧边栏 */}
-                <div className="space-y-6">
+                <div className="space-y-4 lg:space-y-6">
                     {/* Workers 状态 */}
-                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-cream-100 dark:border-gray-800 shadow-sm">
-                        <div className="p-4 border-b border-gray-100 dark:border-gray-800">
-                            <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Server size={18} className="text-cream-500" />
-                                Workers ({workers.length})
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-800">
+                            <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-sm sm:text-base">
+                                <Server size={16} className="text-amber-500" />
+                                Workers <span className="text-gray-400 font-normal">({workers.length})</span>
                             </h3>
                         </div>
-                        <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+                        <div className="p-3 sm:p-4 space-y-2 sm:space-y-3 max-h-60 overflow-y-auto">
                             {workers.length === 0 ? (
-                                <p className="text-center text-gray-400 text-sm py-4">暂无 Worker</p>
+                                <p className="text-center text-gray-400 text-xs sm:text-sm py-4">暂无 Worker</p>
                             ) : (
                                 workers.map((worker, idx) => (
                                     <WorkerCard key={idx} worker={worker} />

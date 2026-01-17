@@ -122,21 +122,20 @@ async def _apply_token_update(
     key_updates: dict[str, str] | None = None,
     usage_log: UsageLog | None = None,
 ) -> None:
-    async with db.begin():
-        await db.refresh(token, with_for_update=True)
-        if key_updates:
-            for field, value in key_updates.items():
-                setattr(token, field, value)
-        if update_request_counters:
-            token.last_used_at = now
-            token.last_checked_at = now
-            token.total_requests += 1
-        if mark_failure:
-            mark_token_failure(token, now)
-        elif mark_success:
-            mark_token_success(token)
-        if usage_log:
-            db.add(usage_log)
+    await db.refresh(token, with_for_update=True)
+    if key_updates:
+        for field, value in key_updates.items():
+            setattr(token, field, value)
+    if update_request_counters:
+        token.last_used_at = now
+        token.last_checked_at = now
+        token.total_requests += 1
+    if mark_failure:
+        mark_token_failure(token, now)
+    elif mark_success:
+        mark_token_success(token)
+    if usage_log:
+        db.add(usage_log)
 
 
 def validate_model_name(model_name: str) -> None:

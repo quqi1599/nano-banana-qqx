@@ -420,18 +420,18 @@ async def send_code(
         purpose=data.purpose,
         expires_at=expires_at,
     )
-    async with db.begin():
-        await db.execute(
-            update(EmailCode)
-            .where(
-                EmailCode.email == data.email,
-                EmailCode.purpose == data.purpose,
-                EmailCode.is_used == False,
-                EmailCode.expires_at > now,
-            )
-            .values(is_used=True)
+    # 作废历史未使用验证码
+    await db.execute(
+        update(EmailCode)
+        .where(
+            EmailCode.email == data.email,
+            EmailCode.purpose == data.purpose,
+            EmailCode.is_used == False,
+            EmailCode.expires_at > now,
         )
-        db.add(email_code)
+        .values(is_used=True)
+    )
+    db.add(email_code)
     
     # 后台发送邮件
     background_tasks.add_task(send_verification_code, data.email, code, data.purpose)
@@ -505,26 +505,25 @@ async def register(
         is_admin=is_first_user,  # 第一个注册的用户自动成为管理员
     )
     try:
-        async with db.begin():
-            # 验证并消费验证码
-            now = datetime.utcnow()
-            update_result = await db.execute(
-                update(EmailCode)
-                .where(
-                    EmailCode.email == data.email,
-                    EmailCode.code == data.code,
-                    EmailCode.purpose == "register",
-                    EmailCode.is_used == False,
-                    EmailCode.expires_at > now,
-                )
-                .values(is_used=True)
+        # 验证并消费验证码
+        now = datetime.utcnow()
+        update_result = await db.execute(
+            update(EmailCode)
+            .where(
+                EmailCode.email == data.email,
+                EmailCode.code == data.code,
+                EmailCode.purpose == "register",
+                EmailCode.is_used == False,
+                EmailCode.expires_at > now,
             )
-            if update_result.rowcount != 1:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="验证码无效或已过期",
-                )
-            db.add(user)
+            .values(is_used=True)
+        )
+        if update_result.rowcount != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="验证码无效或已过期",
+            )
+        db.add(user)
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -667,25 +666,24 @@ async def reset_password(
 
     # 更新密码并消费验证码
     try:
-        async with db.begin():
-            now = datetime.utcnow()
-            update_result = await db.execute(
-                update(EmailCode)
-                .where(
-                    EmailCode.email == data.email,
-                    EmailCode.code == data.code,
-                    EmailCode.purpose == "reset",
-                    EmailCode.is_used == False,
-                    EmailCode.expires_at > now,
-                )
-                .values(is_used=True)
+        now = datetime.utcnow()
+        update_result = await db.execute(
+            update(EmailCode)
+            .where(
+                EmailCode.email == data.email,
+                EmailCode.code == data.code,
+                EmailCode.purpose == "reset",
+                EmailCode.is_used == False,
+                EmailCode.expires_at > now,
             )
-            if update_result.rowcount != 1:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="验证码无效或已过期",
-                )
-            user.password_hash = get_password_hash(data.new_password)
+            .values(is_used=True)
+        )
+        if update_result.rowcount != 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="验证码无效或已过期",
+            )
+        user.password_hash = get_password_hash(data.new_password)
     except HTTPException:
         raise
 

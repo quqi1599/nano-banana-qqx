@@ -237,22 +237,21 @@ async def refund_user_credits(
         model_name: 模型名称（用于记录）
         reason: 退款原因
     """
-    async with db.begin():
-        result = await db.execute(
-            update(User)
-            .where(User.id == user_id)
-            .values(credit_balance=User.credit_balance + credits_to_refund)
-            .returning(User.credit_balance)
-        )
-        balance_after = result.scalar_one_or_none()
-        if balance_after is not None:
-            db.add(CreditTransaction(
-                user_id=user_id,
-                amount=credits_to_refund,
-                type=TransactionType.BONUS.value,
-                description=f"{reason}: {model_name}",
-                balance_after=balance_after,
-            ))
+    result = await db.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(credit_balance=User.credit_balance + credits_to_refund)
+        .returning(User.credit_balance)
+    )
+    balance_after = result.scalar_one_or_none()
+    if balance_after is not None:
+        db.add(CreditTransaction(
+            user_id=user_id,
+            amount=credits_to_refund,
+            type=TransactionType.BONUS.value,
+            description=f"{reason}: {model_name}",
+            balance_after=balance_after,
+        ))
 
 
 async def record_usage(

@@ -762,40 +762,39 @@ async def batch_set_user_status(
     updated_count = 0
     updated_ids: list[str] = []
     skipped_ids: list[str] = []
-    async with db.begin():
-        for user in users:
-            # 防止管理员禁用自己
-            if user.id == admin.id and not data.is_active:
-                skipped_ids.append(user.id)
-                continue
+    for user in users:
+        # 防止管理员禁用自己
+        if user.id == admin.id and not data.is_active:
+            skipped_ids.append(user.id)
+            continue
 
-            # 防止禁用其他管理员
-            if user.is_admin and user.id != admin.id:
-                logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
-                skipped_ids.append(user.id)
-                continue
+        # 防止禁用其他管理员
+        if user.is_admin and user.id != admin.id:
+            logger.warning(f"Admin {admin.email} attempted to disable admin {user.email}")
+            skipped_ids.append(user.id)
+            continue
 
-            user.is_active = data.is_active
-            updated_count += 1
-            updated_ids.append(user.id)
+        user.is_active = data.is_active
+        updated_count += 1
+        updated_ids.append(user.id)
 
-        _record_admin_audit(
-            db=db,
-            admin=admin,
-            action="batch_set_user_status",
-            target_type="user",
-            target_ids=updated_ids,
-            reason=reason,
-            status_text="partial" if skipped_ids else "success",
-            request=request,
-            details={
-                "requested_count": len(data.user_ids),
-                "updated_count": updated_count,
-                "skipped_count": len(skipped_ids),
-                "skipped_ids": skipped_ids,
-                "is_active": data.is_active,
-            },
-        )
+    _record_admin_audit(
+        db=db,
+        admin=admin,
+        action="batch_set_user_status",
+        target_type="user",
+        target_ids=updated_ids,
+        reason=reason,
+        status_text="partial" if skipped_ids else "success",
+        request=request,
+        details={
+            "requested_count": len(data.user_ids),
+            "updated_count": updated_count,
+            "skipped_count": len(skipped_ids),
+            "skipped_ids": skipped_ids,
+            "is_active": data.is_active,
+        },
+    )
 
     logger.info(
         f"Admin {admin.email} batch updated {updated_count} users to is_active={data.is_active}, reason: {reason}"
@@ -857,52 +856,51 @@ async def batch_adjust_credits(
     updated_ids: list[str] = []
     skipped_ids: list[str] = []
     total_delta = 0
-    async with db.begin():
-        for user in users:
-            if user.id == admin.id:
-                skipped_ids.append(user.id)
-                continue
+    for user in users:
+        if user.id == admin.id:
+            skipped_ids.append(user.id)
+            continue
 
-            old_balance = user.credit_balance
-            new_balance = old_balance + data.amount
+        old_balance = user.credit_balance
+        new_balance = old_balance + data.amount
 
-            # 防止余额为负
-            if new_balance < 0:
-                new_balance = 0
-            actual_delta = new_balance - old_balance
-            user.credit_balance = new_balance
+        # 防止余额为负
+        if new_balance < 0:
+            new_balance = 0
+        actual_delta = new_balance - old_balance
+        user.credit_balance = new_balance
 
-            # 记录交易
-            transaction = CreditTransaction(
-                user_id=user.id,
-                amount=actual_delta,
-                type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
-                description=reason,
-                balance_after=user.credit_balance,
-            )
-            db.add(transaction)
-            updated_count += 1
-            updated_ids.append(user.id)
-            total_delta += actual_delta
-
-        _record_admin_audit(
-            db=db,
-            admin=admin,
-            action="batch_adjust_credits",
-            target_type="user",
-            target_ids=updated_ids,
-            reason=reason,
-            status_text="partial" if skipped_ids else "success",
-            request=request,
-            details={
-                "requested_count": len(data.user_ids),
-                "updated_count": updated_count,
-                "skipped_count": len(skipped_ids),
-                "skipped_ids": skipped_ids,
-                "amount": data.amount,
-                "total_delta": total_delta,
-            },
+        # 记录交易
+        transaction = CreditTransaction(
+            user_id=user.id,
+            amount=actual_delta,
+            type=TransactionType.BONUS.value if data.amount > 0 else TransactionType.CONSUME.value,
+            description=reason,
+            balance_after=user.credit_balance,
         )
+        db.add(transaction)
+        updated_count += 1
+        updated_ids.append(user.id)
+        total_delta += actual_delta
+
+    _record_admin_audit(
+        db=db,
+        admin=admin,
+        action="batch_adjust_credits",
+        target_type="user",
+        target_ids=updated_ids,
+        reason=reason,
+        status_text="partial" if skipped_ids else "success",
+        request=request,
+        details={
+            "requested_count": len(data.user_ids),
+            "updated_count": updated_count,
+            "skipped_count": len(skipped_ids),
+            "skipped_ids": skipped_ids,
+            "amount": data.amount,
+            "total_delta": total_delta,
+        },
+    )
 
     logger.info(
         f"Admin {admin.email} batch adjusted credits for {updated_count} users, amount={data.amount}, reason: {reason}"
