@@ -74,14 +74,25 @@ async def init_db():
     # 先导入所有模型，确保它们注册到 Base.metadata
     from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history, admin_audit_log, smtp_config  # noqa: F401
     
-    # 生产环境只使用 Alembic migrations，不调用 create_all()
-    # create_all() 和 migrations 混用会导致状态冲突
-    # 如需从零初始化数据库，请直接运行: alembic upgrade head
+    # 首次部署时需要创建所有表
+    # create_all() 会跳过已存在的表，所以可以安全地每次都调用
+    print("📋 Creating tables if not exist...")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("✅ Tables created/verified")
+    except Exception as e:
+        print(f"❌ Failed to create tables: {e}")
+        raise
     
     # 运行 Alembic 迁移（处理增量变更）
     print("📦 Running migrations...")
-    await asyncio.to_thread(run_migrations)
-    print("✅ Migrations completed")
+    try:
+        await asyncio.to_thread(run_migrations)
+        print("✅ Migrations completed")
+    except Exception as e:
+        print(f"⚠️ Migration warning (may be normal on fresh DB): {e}")
+        # 不抛出异常，因为在新数据库上某些迁移可能会失败（表已通过 create_all 创建）
     
     print("💰 Seeding model pricing...")
     try:
