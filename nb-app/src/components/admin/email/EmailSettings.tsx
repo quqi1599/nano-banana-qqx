@@ -880,10 +880,8 @@ export const EmailSettings: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
-    </>
-  )
-}
-    </div >
+        </>
+      )}
+    </div>
   );
 };
