@@ -1,13 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { AdminDashboard } from './components/AdminDashboard';
-import { SliderCaptcha } from './components/SliderCaptcha';
 import { login, resetPassword, sendCode } from './services/authService';
 import { useAppStore } from './store/useAppStore';
 import { useAuthStore } from './store/useAuthStore';
 
 type AuthMode = 'login' | 'reset';
-type CaptchaPurpose = 'login' | 'reset';
 
 export const AdminApp: React.FC = () => {
   const { settings } = useAppStore();
@@ -24,9 +22,6 @@ export const AdminApp: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
-  const [showCaptcha, setShowCaptcha] = useState(false);
-  const [captchaPurpose, setCaptchaPurpose] = useState<CaptchaPurpose | null>(null);
-  const pendingCaptchaActionRef = useRef<null | ((ticket: string) => Promise<void>)>(null);
 
   useEffect(() => {
     initAuth();
@@ -62,51 +57,24 @@ export const AdminApp: React.FC = () => {
     return () => systemTheme.removeEventListener('change', applyTheme);
   }, [settings.theme]);
 
-  const openCaptcha = (purpose: CaptchaPurpose, action: (ticket: string) => Promise<void>) => {
-    pendingCaptchaActionRef.current = action;
-    setCaptchaPurpose(purpose);
-    setShowCaptcha(true);
-  };
-
-  const handleCaptchaVerify = async (ticket: string) => {
-    setShowCaptcha(false);
-    setCaptchaPurpose(null);
-    const action = pendingCaptchaActionRef.current;
-    pendingCaptchaActionRef.current = null;
-    if (!action) return;
-    try {
-      await action(ticket);
-    } catch (err) {
-      setFormError((err as Error).message || 'Request failed. Please try again.');
-    }
-  };
-
-  const handleCaptchaCancel = () => {
-    setShowCaptcha(false);
-    setCaptchaPurpose(null);
-    pendingCaptchaActionRef.current = null;
-  };
-
-  const handleLoginSubmit = (event: React.FormEvent) => {
+  const handleLoginSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError('');
     setFormSuccess('');
+    setIsSubmitting(true);
 
-    openCaptcha('login', async (ticket) => {
-      setIsSubmitting(true);
-      try {
-        const data = await login(email.trim(), password, ticket);
-        storeLogin(data.access_token, data.user);
-        setPassword('');
-      } catch (err) {
-        setFormError((err as Error).message || '登录失败，请重试');
-      } finally {
-        setIsSubmitting(false);
-      }
-    });
+    try {
+      const data = await login(email.trim(), password);
+      storeLogin(data.access_token, data.user);
+      setPassword('');
+    } catch (err) {
+      setFormError((err as Error).message || '登录失败，请重试');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleSendResetCode = () => {
+  const handleSendResetCode = async () => {
     if (!resetEmail.trim()) {
       setFormError('请输入邮箱');
       return;
@@ -115,49 +83,42 @@ export const AdminApp: React.FC = () => {
 
     setFormError('');
     setFormSuccess('');
-    openCaptcha('reset', async (ticket) => {
-      setCodeSending(true);
-      try {
-        await sendCode(resetEmail.trim(), 'reset', ticket);
-        setFormSuccess('验证码已发送');
-        setCodeCooldown(60);
-      } catch (err) {
-        setFormError((err as Error).message || '验证码发送失败');
-      } finally {
-        setCodeSending(false);
-      }
-    });
+    setCodeSending(true);
+    try {
+      await sendCode(resetEmail.trim(), 'reset');
+      setFormSuccess('验证码已发送');
+      setCodeCooldown(60);
+    } catch (err) {
+      setFormError((err as Error).message || '验证码发送失败');
+    } finally {
+      setCodeSending(false);
+    }
   };
 
-  const handleResetSubmit = (event: React.FormEvent) => {
+  const handleResetSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setFormError('');
     setFormSuccess('');
+    setIsSubmitting(true);
 
-    openCaptcha('reset', async (ticket) => {
-      setIsSubmitting(true);
-      try {
-        await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword, ticket);
-        setFormSuccess('密码已重置，请使用新密码登录');
-        setAuthMode('login');
-        setEmail(resetEmail.trim());
-        setResetCode('');
-        setResetNewPassword('');
-      } catch (err) {
-        setFormError((err as Error).message || '重置失败，请重试');
-      } finally {
-        setIsSubmitting(false);
-      }
-    });
+    try {
+      await resetPassword(resetEmail.trim(), resetCode.trim(), resetNewPassword);
+      setFormSuccess('密码已重置，请使用新密码登录');
+      setAuthMode('login');
+      setEmail(resetEmail.trim());
+      setResetCode('');
+      setResetNewPassword('');
+    } catch (err) {
+      setFormError((err as Error).message || '重置失败，请重试');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const switchMode = (nextMode: AuthMode) => {
     if (nextMode === authMode) return;
     setFormError('');
     setFormSuccess('');
-    setShowCaptcha(false);
-    setCaptchaPurpose(null);
-    pendingCaptchaActionRef.current = null;
     if (nextMode === 'reset') {
       setResetEmail(email.trim());
     }
@@ -281,22 +242,6 @@ export const AdminApp: React.FC = () => {
             </div>
 
             <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 shadow-xl p-6">
-              {showCaptcha && captchaPurpose && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-white/95 dark:bg-slate-900/90 p-6">
-                  <h3 className="text-base font-semibold">安全验证</h3>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    请完成滑块验证以继续。
-                  </p>
-                  <div className="mt-4">
-                    <SliderCaptcha
-                      purpose={captchaPurpose}
-                      onVerified={handleCaptchaVerify}
-                      onCancel={handleCaptchaCancel}
-                    />
-                  </div>
-                </div>
-              )}
-
               {authMode === 'login' ? (
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div className="relative">

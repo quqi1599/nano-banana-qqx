@@ -24,24 +24,6 @@ export interface AuthResponse {
   user: User;
 }
 
-export interface SliderChallenge {
-  challenge_id: string;
-  track_width: number;
-  handle_width: number;
-  expires_in: number;
-}
-
-export interface SliderVerifyRequest {
-  challenge_id: string;
-  final_x: number;
-  use: 'register' | 'login' | 'reset';
-}
-
-export interface SliderVerifyResponse {
-  ok: boolean;
-  ticket?: string;
-}
-
 export interface CreditBalance {
   balance: number;
 }
@@ -95,30 +77,17 @@ const request = async <T>(
   return response.json();
 };
 
-export const getSliderChallenge = async (): Promise<SliderChallenge> => {
-  return request<SliderChallenge>('/captcha/slider/challenge');
-};
-
-export const verifySliderCaptcha = async (
-  payload: SliderVerifyRequest
-): Promise<SliderVerifyResponse> => {
-  return request<SliderVerifyResponse>('/captcha/slider/verify', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-};
-
 /**
  * 发送验证码
  */
 export const sendCode = async (
   email: string,
   purpose: 'register' | 'reset',
-  captchaTicket: string
+  captchaTicket?: string
 ): Promise<{ message: string }> => {
   return request('/auth/send-code', {
     method: 'POST',
-    body: JSON.stringify({ email, purpose, captcha_ticket: captchaTicket }),
+    body: JSON.stringify({ email, purpose, ...(captchaTicket && { captcha_ticket: captchaTicket }) }),
   });
 };
 
@@ -130,11 +99,11 @@ export const register = async (
   password: string,
   nickname: string | undefined,
   code: string,
-  captchaTicket: string
+  captchaTicket?: string
 ): Promise<AuthResponse> => {
   const data = await request<AuthResponse>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ email, password, nickname, code, captcha_ticket: captchaTicket }),
+    body: JSON.stringify({ email, password, nickname, code, ...(captchaTicket && { captcha_ticket: captchaTicket }) }),
   });
 
   saveUser(data.user);
@@ -148,11 +117,11 @@ export const register = async (
 export const login = async (
   email: string,
   password: string,
-  captchaTicket: string
+  captchaTicket?: string
 ): Promise<AuthResponse> => {
   const data = await request<AuthResponse>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, captcha_ticket: captchaTicket }),
+    body: JSON.stringify({ email, password, ...(captchaTicket && { captcha_ticket: captchaTicket }) }),
   });
 
   saveUser(data.user);
@@ -205,11 +174,11 @@ export const resetPassword = async (
   email: string,
   code: string,
   newPassword: string,
-  captchaTicket: string
+  captchaTicket?: string
 ): Promise<{ message: string }> => {
   return request('/auth/reset-password', {
     method: 'POST',
-    body: JSON.stringify({ email, code, new_password: newPassword, captcha_ticket: captchaTicket }),
+    body: JSON.stringify({ email, code, new_password: newPassword, ...(captchaTicket && { captcha_ticket: captchaTicket }) }),
   });
 };
 
