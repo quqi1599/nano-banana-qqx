@@ -15,6 +15,7 @@ const API_BASE = `${getBackendUrl()}/api`;
 const formatProxyError = (error: any): Error => {
     let message = "发生了未知错误，请稍后重试。";
     const errorMsg = error?.message || error?.detail || error?.toString() || "";
+    const noChargeHint = "温馨提示：本次请求失败，不会扣除积分。";
 
     if (errorMsg.includes("402") || errorMsg.includes("次数不足") || errorMsg.includes("积分不足")) {
         message = errorMsg.includes("次数不足") ? errorMsg : "次数不足，请充值后重试。";
@@ -30,6 +31,13 @@ const formatProxyError = (error: any): Error => {
         message = "⚠️ 网络连接失败！无法访问 API 服务器。请检查：1. 网络连接是否正常  2. 后端服务是否运行  3. API 中转地址是否可访问";
     } else {
         message = `请求出错: ${errorMsg}。如果问题持续，请联系管理员。`;
+    }
+
+    const shouldAppendNoCharge =
+        !/次数不足|积分不足|余额不足|Payment Required/i.test(errorMsg || "") &&
+        !message.includes("不会扣除积分");
+    if (shouldAppendNoCharge) {
+        message = `${message}\n${noChargeHint}`;
     }
 
     const newError = new Error(message);

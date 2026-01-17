@@ -23,6 +23,7 @@ celery_app = Celery(
     "nbnb",
     broker=redis_url,
     backend=redis_url,
+    broker_connection_retry=False,
     broker_connection_retry_on_startup=True,
     include=[
         "app.tasks.email_tasks",
