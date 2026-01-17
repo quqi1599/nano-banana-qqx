@@ -522,7 +522,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
             // Update local user data
             const updateKey = creditType === 'credit' ? 'credit_balance' :
-                            creditType === 'pro3' ? 'pro3_balance' : 'flash_balance';
+                creditType === 'pro3' ? 'pro3_balance' : 'flash_balance';
             setActiveUser(prev => prev ? { ...prev, [updateKey]: newBalance } : prev);
             setUsers(prev => prev.map(user => (
                 user.id === targetUserId ? { ...user, [updateKey]: newBalance } : user
@@ -736,9 +736,9 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
             {/* 用户列表 */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
                 {/* 表头 */}
-                <div className="hidden sm:grid grid-cols-12 gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <div className="hidden sm:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                     <div className="col-span-1 flex items-center">
-                        <button onClick={toggleSelectAll} className="text-gray-400 hover:text-amber-500">
+                        <button onClick={toggleSelectAll} className="hover:text-amber-500 transition-colors">
                             {selectAll ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                         </button>
                     </div>
@@ -746,15 +746,15 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                     <div className="col-span-2">状态</div>
                     <div className="col-span-2">余额</div>
                     <div className="col-span-2">标签</div>
-                    <div className="col-span-1">操作</div>
+                    <div className="col-span-1 text-right">操作</div>
                 </div>
 
                 {/* 用户列表 */}
-                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                <div className="space-y-2">
                     {loading ? (
                         <div className="p-8 text-center text-gray-400">加载中...</div>
                     ) : users.length === 0 ? (
-                        <div className="p-12 text-center text-gray-400">
+                        <div className="p-12 text-center text-gray-400 bg-gray-50/50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             没有找到符合条件的用户
                         </div>
@@ -762,7 +762,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                         users.map(user => (
                             <div
                                 key={user.id}
-                                className={`p-3 sm:px-4 sm:py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${!user.is_active ? 'opacity-60' : ''
+                                className={`group relative p-3 sm:px-4 sm:py-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md hover:border-amber-200 dark:hover:border-amber-900/50 transition-all duration-200 ${!user.is_active ? 'opacity-60 grayscale' : ''
                                     }`}
                             >
                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-3 items-center">
@@ -788,40 +788,49 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
 
                                     {/* 用户信息 */}
                                     <div className="col-span-1 sm:col-span-4 flex items-center gap-3">
-                                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-400 flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-amber-500/20 ring-2 ring-white dark:ring-gray-800">
                                             {user.nickname?.[0] || user.email[0].toUpperCase()}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-medium text-gray-900 dark:text-white truncate">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-gray-900 dark:text-white truncate">
                                                     {user.nickname || '未设置昵称'}
                                                 </span>
                                                 {user.is_admin && (
-                                                    <span className="text-xs bg-amber-600 text-white px-1.5 py-0.5 rounded font-medium">管理</span>
+                                                    <span className="text-[10px] bg-amber-500 text-white px-1.5 py-0.5 rounded-md font-bold shadow-sm shadow-amber-500/20">ADMIN</span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-gray-400 truncate">{user.email}</div>
+                                            <div className="text-xs text-gray-400 truncate font-medium">{user.email}</div>
                                         </div>
                                     </div>
 
                                     {/* 状态 */}
                                     <div className="col-span-1 sm:col-span-2">
-                                        <div className="text-xs text-gray-400 sm:hidden">状态</div>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${user.is_active
-                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        <div className="text-xs text-gray-400 sm:hidden mb-1">状态</div>
+                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${user.is_active
+                                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
+                                            : 'bg-rose-50 text-rose-600 border border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
                                             }`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${user.is_active ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
                                             {user.is_active ? '正常' : '已禁用'}
                                         </span>
                                     </div>
 
                                     {/* 余额 */}
                                     <div className="col-span-1 sm:col-span-2">
-                                        <div className="text-xs text-gray-400 sm:hidden">余额</div>
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                            <span className="font-mono font-bold text-amber-600">C:{user.credit_balance}</span>
-                                            <span className="font-mono font-bold text-purple-600">P3:{user.pro3_balance}</span>
-                                            <span className="font-mono font-bold text-blue-600">F:{user.flash_balance}</span>
+                                        <div className="text-xs text-gray-400 sm:hidden mb-1">余额</div>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center gap-1.5 text-xs">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                                <span className="text-gray-500 dark:text-gray-400">通用:</span>
+                                                <span className="font-mono font-bold text-gray-700 dark:text-gray-200">{user.credit_balance}</span>
+                                            </div>
+                                            {(user.pro3_balance > 0 || user.flash_balance > 0) && (
+                                                <div className="flex items-center gap-2 text-[10px] opacity-75">
+                                                    <span className="text-purple-600 font-medium">P3:{user.pro3_balance}</span>
+                                                    <span className="text-blue-600 font-medium">F:{user.flash_balance}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -917,14 +926,14 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                     <div className="col-span-1 flex justify-end items-center gap-2">
                                         <button
                                             onClick={() => openCreditsPanel(user)}
-                                            className="text-gray-400 hover:text-amber-500 transition"
+                                            className="p-2 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all"
                                             title="积分管理"
                                         >
                                             <CreditCard className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => openPasswordModal(user)}
-                                            className="text-gray-400 hover:text-blue-500 transition"
+                                            className="p-2 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                                             title="修改密码"
                                         >
                                             <Key className="w-4 h-4" />
@@ -932,7 +941,7 @@ export function UserManagementPanel({ apiBase, onViewConversations }: UserManage
                                         {onViewConversations && (
                                             <button
                                                 onClick={() => onViewConversations(user.id, user.email, user.nickname)}
-                                                className="text-gray-400 hover:text-amber-500 transition"
+                                                className="p-2 bg-gray-50 dark:bg-gray-800 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all"
                                                 title="查看对话"
                                             >
                                                 <MessageSquare className="w-4 h-4" />
