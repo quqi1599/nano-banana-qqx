@@ -34,8 +34,7 @@ from app.utils.captcha import verify_captcha_ticket, hash_captcha_ticket
 from app.utils.rate_limiter import RateLimiter
 from app.utils.cache import get_cached_json, set_cached_json
 from app.utils.redis_client import redis_client
-from app.services.email_service import generate_code
-from app.services.email_service_v2 import send_verification_code_v2
+from app.services.email_service import generate_code, send_verification_code
 
 router = APIRouter()
 settings = get_settings()
@@ -440,8 +439,8 @@ async def send_code(
 
     logger.info(f"[验证码] 验证码已保存到数据库: 邮箱={data.email}, 用途={data.purpose}")
 
-    # 直接发送邮件 (不用后台任务，避免事件循环问题)
-    email_sent = await send_verification_code_v2(data.email, code, data.purpose)
+    # 直接发送邮件 (使用 email_service，同测试邮件)
+    email_sent = send_verification_code(data.email, code, data.purpose)
     logger.info(f"[邮件] 邮件发送结果: 邮箱={data.email}, 成功={email_sent}")
 
     # 重置密码时增加计数
