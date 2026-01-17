@@ -67,7 +67,7 @@ async def init_db():
     """初始化数据库表"""
     print("🔧 Initializing database...")
     # 先导入所有模型，确保它们注册到 Base.metadata
-    from app.models import user, token_pool, redeem_code, usage_log, model_pricing, credit, ticket, conversation, login_history, admin_audit_log, smtp_config  # noqa: F401
+    import app.models  # noqa: F401
     
     # 首次部署时需要创建所有表
     # create_all() 会跳过已存在的表，所以可以安全地每次都调用

@@ -423,7 +423,7 @@ async def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
     """从数据库或环境变量获取 SMTP 配置
     优先使用数据库配置，如果不存在则回退到环境变量
     """
-    from sqlalchemy import select
+    from sqlalchemy import select, desc
     from app.database import get_db_session
     from app.models.smtp_config import SmtpConfig
 
@@ -431,10 +431,10 @@ async def get_smtp_config_from_db() -> Optional[Dict[str, Any]]:
     async with get_db_session() as db:
         try:
             result = await db.execute(
-                select(SmtpConfig).where(
-                    SmtpConfig.is_enabled == True,
-                    SmtpConfig.is_default == True
-                )
+                select(SmtpConfig)
+                .where(SmtpConfig.is_enabled == True)
+                .order_by(desc(SmtpConfig.is_default), desc(SmtpConfig.created_at))
+                .limit(1)
             )
             config = result.scalar_one_or_none()
 

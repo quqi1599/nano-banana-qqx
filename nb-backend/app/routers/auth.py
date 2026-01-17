@@ -442,6 +442,12 @@ async def send_code(
     # 直接发送邮件 (使用 email_service，同测试邮件)
     email_sent = await send_verification_code(data.email, code, data.purpose)
     logger.info(f"[邮件] 邮件发送结果: 邮箱={data.email}, 成功={email_sent}")
+    if not email_sent:
+        logger.error(f"[邮件] 邮件发送失败: 邮箱={data.email}, 用途={data.purpose}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="验证码发送失败，请检查邮件服务配置",
+        )
 
     # 重置密码时增加计数
     if data.purpose == "reset":
