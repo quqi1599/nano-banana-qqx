@@ -547,6 +547,7 @@ async def register(
         logger.info(f"[注册] 邮箱验证码验证通过: 邮箱={data.email}")
 
         db.add(user)
+        await db.commit()
         logger.info(f"[注册] 用户已添加到数据库: 邮箱={data.email}, 昵称={user.nickname}, is_admin={user.is_admin}")
     except IntegrityError:
         logger.warning(f"[注册] 数据库完整性错误: 邮箱={data.email}")

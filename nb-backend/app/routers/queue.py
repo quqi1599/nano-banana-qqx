@@ -31,7 +31,7 @@ from app.utils.queue_monitor import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin/queue", tags=["队列监控"])
+router = APIRouter(tags=["队列监控"])
 
 
 def _normalize_status(status: Optional[str]) -> Optional[str]:
