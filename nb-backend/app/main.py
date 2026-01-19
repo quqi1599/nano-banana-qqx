@@ -198,14 +198,16 @@ async def csrf_middleware(request: Request, call_next):
 
 # CORS 配置
 # 注意：生产环境应该通过环境变量配置允许的域名
-_allowed_origins = settings.cors_origins if hasattr(settings, 'cors_origins') else [
-    "http://localhost",
-    "http://localhost:80",
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://banana2.peacedejiai.cc",
-    "https://nanobanana2.peacedejiai.cc",
-]
+_allowed_origins = settings.cors_origins
+if not _allowed_origins:
+    _allowed_origins = [
+        "http://localhost",
+        "http://localhost:80",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://banana2.peacedejiai.cc",
+        "https://nanobanana2.peacedejiai.cc",
+    ]
 
 app.add_middleware(
     CORSMiddleware,

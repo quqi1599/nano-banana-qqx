@@ -88,23 +88,39 @@ const App: React.FC = () => {
 
   // Preload components and prompt data after mount
   useEffect(() => {
-    preloadComponents([
-      () => import('./components/ApiKeyModal'),
-      () => import('./components/SettingsPanel'),
-      () => import('./components/ImageHistoryPanel'),
-      () => import('./components/PromptLibraryPanel'),
-      // Also preload components used in ChatInterface
-      () => import('./components/ThinkingIndicator'),
-      () => import('./components/MessageBubble'),
-      // Preload Games
-      () => import('./components/games/SnakeGame'),
-      () => import('./components/games/DinoGame'),
-      () => import('./components/games/LifeGame'),
-      () => import('./components/games/Puzzle2048')
-    ]);
+    const connection = (navigator as {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    const effectiveType = connection?.effectiveType || '';
+    const shouldPreload =
+      !connection?.saveData && !['slow-2g', '2g'].includes(effectiveType);
 
-    // Preload prompt library data in background
-    preloadPrompts();
+    const timer = window.setTimeout(() => {
+      preloadComponents([
+        () => import('./components/ApiKeyModal'),
+        () => import('./components/SettingsPanel'),
+        // Also preload components used in ChatInterface
+        () => import('./components/ThinkingIndicator'),
+        () => import('./components/MessageBubble'),
+      ]);
+
+      if (shouldPreload) {
+        preloadComponents([
+          () => import('./components/ImageHistoryPanel'),
+          () => import('./components/PromptLibraryPanel'),
+          // Preload Games
+          () => import('./components/games/SnakeGame'),
+          () => import('./components/games/DinoGame'),
+          () => import('./components/games/LifeGame'),
+          () => import('./components/games/Puzzle2048'),
+        ]);
+
+        // Preload prompt library data in background
+        preloadPrompts();
+      }
+    }, 800);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   // 初始化认证状态

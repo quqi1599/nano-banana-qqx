@@ -70,6 +70,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
         throw new Error(error.detail || '请求失败');
     }
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     return response.json();
 }
 
@@ -307,6 +311,10 @@ async function adminRequest<T>(url: string, options?: RequestInit): Promise<T> {
     if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: response.statusText }));
         throw new Error(error.detail || '请求失败');
+    }
+
+    if (response.status === 204) {
+        return undefined as T;
     }
 
     return response.json();

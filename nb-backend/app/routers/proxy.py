@@ -160,6 +160,14 @@ def _build_key_updates(token: TokenPool, plain_key: str) -> dict[str, str]:
     return updates
 
 
+async def _commit_changes(db: AsyncSession) -> None:
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+
 async def _apply_token_update(
     db: AsyncSession,
     token: TokenPool,
@@ -195,6 +203,8 @@ async def _apply_token_update(
         mark_token_success(token)
     if usage_log:
         db.add(usage_log)
+
+    await _commit_changes(db)
     
     # 触发 Token 告警
     if disable_token:
@@ -334,13 +344,13 @@ async def proxy_generate(
     try:
         await reserve_user_credits(db, current_user.id, credits_to_use, model_name)
         reserved = True
+        await _commit_changes(db)
     except HTTPException:
         raise
 
     # 获取可用 Token 列表
     try:
         tokens = await get_available_tokens(db)
-        await db.commit()
     except HTTPException:
         if reserved:
             await refund_user_credits(
@@ -350,6 +360,7 @@ async def proxy_generate(
                 model_name,
                 "请求失败退款",
             )
+            await _commit_changes(db)
         raise
 
     # 提取 prompt 预览
@@ -509,6 +520,7 @@ async def proxy_generate(
                         model_name,
                         "请求失败退款",
                     )
+                    await _commit_changes(db)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=last_error_detail or "请求参数错误",
@@ -522,6 +534,7 @@ async def proxy_generate(
             model_name,
             "请求失败退款",
         )
+        await _commit_changes(db)
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
@@ -549,12 +562,12 @@ async def proxy_generate_stream(
     try:
         await reserve_user_credits(db, current_user.id, credits_to_use, model_name)
         reserved = True
+        await _commit_changes(db)
     except HTTPException:
         raise
 
     try:
         tokens = await get_available_tokens(db)
-        await db.commit()
     except HTTPException:
         if reserved:
             await refund_user_credits(
@@ -564,6 +577,7 @@ async def proxy_generate_stream(
                 model_name,
                 "请求失败退款",
             )
+            await _commit_changes(db)
         raise
     prompt_preview = ""
     contents = body.get("contents", [])
@@ -711,6 +725,7 @@ async def proxy_generate_stream(
                                 model_name,
                                 "请求失败退款",
                             )
+                            await _commit_changes(db)
                         raise HTTPException(
                             status_code=status.HTTP_400_BAD_REQUEST,
                             detail=last_error_detail or "请求参数错误",
@@ -725,6 +740,7 @@ async def proxy_generate_stream(
                         model_name,
                         "请求失败退款",
                     )
+                    await _commit_changes(db)
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
