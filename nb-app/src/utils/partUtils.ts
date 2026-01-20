@@ -63,16 +63,14 @@ export const appendSdkPart = (currentParts: Part[], sdkPart: SDKPart): void => {
             currentParts.push(newPart);
         }
     } else if (sdkPart.inlineData) {
+        // 图片不应该是思考过程的一部分，忽略 thought 标记
         const newPart: Part = {
             inlineData: {
                 mimeType: sdkPart.inlineData.mimeType || 'image/png',
                 data: sdkPart.inlineData.data || ''
             },
-            thought: isThought
+            thought: false  // 图片永远不是思考过程
         };
-        if (signature) {
-            newPart.thoughtSignature = signature;
-        }
         currentParts.push(newPart);
     }
 };

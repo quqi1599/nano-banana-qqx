@@ -165,7 +165,7 @@ export const useAppStore = create<AppState>()(
         streamResponse: true,
         sendHistory: false,
         customEndpoint: DEFAULT_API_ENDPOINT,
-        modelName: 'gemini-3-pro-image-preview',
+        modelName: 'gemini-2.5-flash-image',
         theme: 'light',
       },
       messages: [],

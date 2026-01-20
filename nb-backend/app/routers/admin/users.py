@@ -512,15 +512,15 @@ async def adjust_user_credits(
     if user.id == admin.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="不能调整自己的积分",
+            detail="不能调整自己的灵感值",
         )
 
-    # 根据类型调整不同的积分
+    # 根据类型调整不同的灵感值
     balance_field = type
     if type not in ("credit", "pro3", "flash"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="无效的积分类型，支持: credit, pro3, flash",
+            detail="无效的灵感值类型，支持: credit, pro3, flash",
         )
 
     old_balance = getattr(user, f"{type}_balance")

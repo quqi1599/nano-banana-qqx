@@ -71,6 +71,7 @@ interface UiState {
   batchMode: BatchMode;
   batchCount: number;
   showApiKeyModal: boolean;
+  showAuthModal: boolean;
   pendingReferenceImage: PendingReferenceImage | null;
 
   addToast: (message: string, type?: ToastType) => void;
@@ -82,6 +83,7 @@ interface UiState {
   setBatchMode: (mode: BatchMode) => void;
   setBatchCount: (count: number) => void;
   setShowApiKeyModal: (show: boolean) => void;
+  setShowAuthModal: (show: boolean) => void;
   setPendingReferenceImage: (image: PendingReferenceImage | null) => void;
 }
 
@@ -92,6 +94,7 @@ export const useUiStore = create<UiState>((set) => ({
   batchMode: 'off',
   batchCount: 1,
   showApiKeyModal: false,
+  showAuthModal: false,
   pendingReferenceImage: null,
 
   addToast: (message, type = 'info') => {
@@ -133,6 +136,8 @@ export const useUiStore = create<UiState>((set) => ({
   setBatchCount: (count) => set({ batchCount: Math.max(1, Math.min(4, count)) }),
 
   setShowApiKeyModal: (show) => set({ showApiKeyModal: show }),
+
+  setShowAuthModal: (show) => set({ showAuthModal: show }),
 
   setPendingReferenceImage: (image) => set({ pendingReferenceImage: image }),
 }));

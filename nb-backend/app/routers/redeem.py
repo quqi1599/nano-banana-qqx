@@ -82,11 +82,11 @@ async def use_redeem_code(
             detail="兑换码已过期",
         )
 
-    # 检查是否有任何积分可兑换
+    # 检查是否有任何灵感值可兑换
     if redeem_code.credit_amount == 0 and redeem_code.pro3_credits == 0 and redeem_code.flash_credits == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="兑换码无可用积分",
+            detail="兑换码无可用灵感值",
         )
 
     user_result = await db.execute(

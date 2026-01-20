@@ -82,11 +82,6 @@ export const generateContentViaProxy = async (
             },
             tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
             responseModalities: ["TEXT", "IMAGE"],
-            ...(settings.enableThinking ? {
-                thinkingConfig: {
-                    includeThoughts: true,
-                }
-            } : {}),
         },
     };
 
@@ -116,6 +111,7 @@ export const generateContentViaProxy = async (
         }
 
         const candidate = data.candidates?.[0];
+
         if (!candidate || !candidate.content || !candidate.content.parts) {
             throw new Error("No content generated.");
         }
@@ -171,11 +167,6 @@ export const streamContentViaProxy = async function* (
             },
             tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
             responseModalities: ["TEXT", "IMAGE"],
-            ...(settings.enableThinking ? {
-                thinkingConfig: {
-                    includeThoughts: true,
-                }
-            } : {}),
         },
     };
 
@@ -202,6 +193,7 @@ export const streamContentViaProxy = async function* (
         const decoder = new TextDecoder();
         let buffer = '';
         let currentParts: Part[] = [];
+        let hasProcessed = false; // 标记是否已经处理过数据
 
         while (true) {
             if (signal?.aborted) {
@@ -213,37 +205,70 @@ export const streamContentViaProxy = async function* (
 
             buffer += decoder.decode(value, { stream: true });
 
-            // 尝试解析 JSON 数据块
-            try {
-                const data = JSON.parse(buffer);
-                buffer = '';
+            // 尝试解析整个 buffer（如果是单个 JSON 对象）
+            if (!hasProcessed) {
+                try {
+                    const data = JSON.parse(buffer);
+                    // 成功解析，说明是单个 JSON 对象（格式化的）
+                    hasProcessed = true;
+                    buffer = '';
 
-                // 验证数据结构
-                const candidates = data.candidates;
-                if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
-                  console.warn('Proxy API 返回数据格式异常: 缺少 candidates 数组');
-                  continue;
+                    // 验证数据结构
+                    const candidates = data.candidates;
+                    if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
+                        console.warn('Proxy API 返回数据格式异常: 缺少 candidates 数组');
+                        continue;
+                    }
+
+                    const newParts = candidates[0].content?.parts || [];
+
+                    for (const part of newParts) {
+                        appendSdkPart(currentParts, part);
+                    }
+
+                    yield {
+                        userContent: currentUserContent,
+                        modelParts: currentParts
+                    };
+                } catch (parseError) {
+                    // 解析失败，可能是 NDJSON 格式，继续累积
+                    // 只有当 buffer 过大时才清空
+                    if (buffer.length > 50000) {
+                        console.warn('Proxy API buffer 过大，清空重试:', parseError);
+                        buffer = '';
+                    }
                 }
+            }
+        }
 
-                const newParts = candidates[0].content?.parts || [];
+        // 如果还没有处理过，尝试作为 NDJSON 处理
+        if (!hasProcessed && buffer.trim()) {
+            const lines = buffer.split('\n');
+            for (const line of lines) {
+                if (!line.trim()) continue;
 
-                for (const part of newParts) {
-                  appendSdkPart(currentParts, part);
+                try {
+                    const data = JSON.parse(line);
+
+                    const candidates = data.candidates;
+                    if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
+                        continue;
+                    }
+
+                    const newParts = candidates[0].content?.parts || [];
+
+                    for (const part of newParts) {
+                        appendSdkPart(currentParts, part);
+                    }
+
+                    yield {
+                        userContent: currentUserContent,
+                        modelParts: currentParts
+                    };
+                } catch (parseError) {
+                    console.warn('Proxy API JSON 解析失败，跳过该行:', parseError, line.substring(0, 100));
                 }
-
-                yield {
-                  userContent: currentUserContent,
-                  modelParts: currentParts
-                };
-              } catch (parseError) {
-                // JSON 不完整，继续读取
-                // 记录解析错误以便调试
-                if (buffer.length > 10000) {
-                  // 如果 buffer 过大但仍无法解析，可能是数据损坏，清空重试
-                  console.warn('Proxy API JSON 解析失败，buffer 过大，清空重试:', parseError);
-                  buffer = '';
-                }
-              }
+            }
         }
     } catch (error) {
         if ((error as Error).name === 'AbortError') {

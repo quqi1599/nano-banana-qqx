@@ -1093,7 +1093,7 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                             {/* 当前余额显示 */}
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
-                                    <div className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase">通用积分</div>
+                                    <div className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase">灵感值</div>
                                     <div className="text-xl font-mono font-bold text-amber-700 dark:text-amber-300">{activeUser.credit_balance}</div>
                                 </div>
                                 <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
@@ -1110,7 +1110,7 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                             <div className="bg-amber-50/50 dark:bg-amber-900/5 rounded-2xl border border-amber-100 dark:border-amber-900/30 p-4">
                                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-bold text-sm mb-4">
                                     <CreditCard className="w-4 h-4 text-amber-500" />
-                                    分配积分
+                                    分配灵感值
                                 </div>
                                 <div className="flex flex-col md:flex-row items-end gap-3">
                                     <div className="w-full md:w-28">
@@ -1120,7 +1120,7 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                                             onInput={(e) => setCreditType((e.target as HTMLSelectElement).value as 'credit' | 'pro3' | 'flash')}
                                             className="w-full px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-amber-500 text-sm h-10"
                                         >
-                                            <option value="credit">通用积分</option>
+                                            <option value="credit">灵感值</option>
                                             <option value="pro3">Pro3 次数</option>
                                             <option value="flash">Flash 次数</option>
                                         </select>
@@ -1343,7 +1343,7 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
 
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">通用积分</label>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">灵感值</label>
                                         <input
                                             type="number"
                                             min="0"

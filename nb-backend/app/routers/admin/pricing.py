@@ -55,12 +55,12 @@ async def create_model_pricing(
         创建的模型计费配置
 
     Raises:
-        HTTPException: 模型已存在或扣点次数无效时
+        HTTPException: 模型已存在或灵感值无效时
     """
     if data.credits_per_request <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="扣点次数必须大于 0",
+            detail="灵感值必须大于 0",
         )
 
     result = await db.execute(

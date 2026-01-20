@@ -17,7 +17,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab
         switch (activeTab) {
             case 'dashboard': return '总览';
             case 'tokens': return 'Token 管理';
-            case 'pricing': return '模型与定价';
+            case 'pricing': return '模型与灵感值';
             case 'codes': return '兑换码';
             case 'users': return '用户管理';
             case 'tickets': return '工单支持';

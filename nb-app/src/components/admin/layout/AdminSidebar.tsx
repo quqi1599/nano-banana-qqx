@@ -38,7 +38,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
     const navItems = [
         { id: 'dashboard', label: '总览', icon: LayoutDashboard },
         { id: 'tokens', label: 'Token 管理', icon: Key },
-        { id: 'pricing', label: '模型与定价', icon: Coins },
+        { id: 'pricing', label: '模型与灵感值', icon: Coins },
         { id: 'codes', label: '兑换码', icon: Gift },
         { id: 'users', label: '用户管理', icon: Users },
         { id: 'tickets', label: '工单支持', icon: Ticket, showBadge: true },

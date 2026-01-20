@@ -671,10 +671,19 @@ async def proxy_generate_stream(
                             usage_log=usage_log,
                         )
 
-                        # 流式传输
+                        # 流式传输 - 处理 NDJSON 格式
                         try:
+                            buffer = b""
                             async for chunk in response.aiter_bytes():
-                                yield chunk
+                                buffer += chunk
+                                # 按行分割 NDJSON
+                                while b"\n" in buffer:
+                                    line, buffer = buffer.split(b"\n", 1)
+                                    if line.strip():  # 跳过空行
+                                        yield line + b"\n"
+                            # 处理最后剩余的数据
+                            if buffer.strip():
+                                yield buffer
                         finally:
                             await response.aclose()
                         return

@@ -69,7 +69,7 @@ export const AdminPricing = () => {
     const handleUpdatePricing = async (id: string) => {
         const nextValue = pricingDrafts[id];
         if (!nextValue || nextValue <= 0) {
-            setError('扣点次数必须大于 0');
+            setError('灵感值必须大于 0');
             return;
         }
         try {
@@ -119,7 +119,7 @@ export const AdminPricing = () => {
                         min="1"
                         value={newModelCredits}
                         onChange={(e) => setNewModelCredits(Number(e.currentTarget.value))}
-                        placeholder="积分消耗"
+                        placeholder="灵感值消耗"
                         className="w-full sm:w-32 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-center focus:ring-2 focus:ring-cream-500 outline-none transition"
                     />
                     <button
@@ -145,7 +145,7 @@ export const AdminPricing = () => {
                                     onChange={(e) => setPricingDrafts(prev => ({ ...prev, [item.id]: Number(e.currentTarget.value) }))}
                                     className="w-16 bg-transparent text-center font-mono text-sm outline-none"
                                 />
-                                <span className="text-xs text-gray-400">积分</span>
+                                <span className="text-xs text-gray-400">灵感值</span>
                             </div>
                             <button
                                 onClick={() => handleUpdatePricing(item.id)}

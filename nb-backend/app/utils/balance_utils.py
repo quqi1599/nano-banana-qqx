@@ -34,9 +34,9 @@ async def check_openai_quota(api_key: str, base_url: str = DEFAULT_API_BASE) -> 
             sub_data = sub_res.json()
             hard_limit_usd = sub_data.get("hard_limit_usd", 0)
             
-            # 无限额度
+            # 无限额度 - 使用数据库可存储的最大值 (NUMERIC(10,4) 最大值为 999999.9999)
             if hard_limit_usd >= 100000000:
-                return float("inf")
+                return 999999.9999
             
             # 2. 查询使用情况
             now = datetime.utcnow()
@@ -90,8 +90,9 @@ async def check_new_api_quota(api_key: str, base_url: str = DEFAULT_API_BASE) ->
                 return None
 
             # 使用 API 返回的 unlimited_quota 字段判断是否无限
+            # 使用数据库可存储的最大值 (NUMERIC(10,4) 最大值为 999999.9999)
             if data["data"].get("unlimited_quota", False):
-                return float("inf")
+                return 999999.9999
 
             # New API 的额度单位是"分"，需要转换为美元（÷ 500000）
             # 直接使用 API 返回的 total_available 字段

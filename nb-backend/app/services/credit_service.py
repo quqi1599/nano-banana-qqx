@@ -90,7 +90,7 @@ class CreditService:
             if current_balance is None:
                 raise CreditOperationError("用户不存在", "USER_NOT_FOUND")
             raise CreditOperationError(
-                f"次数不足，需要 {credits_to_use} 次，当前余额 {current_balance}",
+                f"灵感值不足，需要 {credits_to_use} 灵感值，当前余额 {current_balance}",
                 "INSUFFICIENT_CREDITS",
             )
 

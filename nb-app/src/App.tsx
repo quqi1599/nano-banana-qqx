@@ -30,11 +30,10 @@ const PromptLibraryPanel = lazyWithRetry(() => import('./components/PromptLibrar
 
 const App: React.FC = () => {
   const { apiKey, visitorId, settings, updateSettings, isSettingsOpen, toggleSettings, imageHistory, balance, fetchBalance, installPrompt, setInstallPrompt, clearHistory, loadConversation, createNewConversation } = useAppStore();
-  const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showDialog, addToast } = useUiStore();
+  const { togglePromptLibrary, isPromptLibraryOpen, showApiKeyModal, setShowApiKeyModal, showAuthModal, setShowAuthModal, showDialog, addToast } = useUiStore();
   const { isAuthenticated, user, initAuth, logout } = useAuthStore();
   const { isGuideCompleted, isGuideAvailable, startGuide } = useOnboardingStore();
   const [hasHydrated, setHasHydrated] = useState(useAppStore.persist.hasHydrated());
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
