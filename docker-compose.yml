@@ -29,24 +29,42 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     command: >
-      sh -c 'pass="$$REDIS_PASSWORD"; if [ -z "$$pass" ] && [ -n "$$REDIS_URL" ]; then
-        pass=$$(echo "$$REDIS_URL" | sed -n "s#redis://:\\([^@]*\\)@.*#\\1#p");
-      fi; if [ -n "$$pass" ]; then
-        exec redis-server --requirepass "$$pass";
-      else
-        exec redis-server;
-      fi'
+      sh -c '
+        pass="$$REDIS_PASSWORD";
+        if [ -z "$$pass" ] && [ -n "$$REDIS_URL" ]; then
+          pass=$$(echo "$$REDIS_URL" | sed -n "s#redis://:\\([^@]*\\)@.*#\\1#p");
+        fi;
+        if [ -n "$$pass" ]; then
+          exec redis-server --requirepass "$$pass";
+        else
+          exec redis-server;
+        fi
+      '
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: [ "CMD-SHELL", "if [ -n \"$$REDIS_URL\" ]; then redis-cli -u \"$$REDIS_URL\" ping | grep PONG; else redis-cli ping | grep PONG; fi" ]
-      interval: 5s
+      test:
+        [
+          "CMD-SHELL",
+          "pass=\"$$REDIS_PASSWORD\"; \
+           if [ -z \"$$pass\" ] && [ -n \"$$REDIS_URL\" ]; then \
+             pass=$$(echo \"$$REDIS_URL\" | sed -n \"s#redis://:\\([^@]*\\)@.*#\\1#p\"); \
+           fi; \
+           if [ -n \"$$pass\" ]; then \
+             redis-cli -a \"$$pass\" ping | grep -q PONG; \
+           else \
+             redis-cli ping | grep -q PONG; \
+           fi"
+        ]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     mem_limit: 256m
     cpus: "0.5"
+
 
   # 后端服务
   backend:
@@ -96,13 +114,15 @@ services:
       dockerfile: Dockerfile
     container_name: nbnb-celery-worker
     command: celery -A app.celery_app worker --loglevel=info --concurrency=2
-    env_file:
-      - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@postgres:5432/nbnb
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+async://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/nbnb
+      REDIS_URL: ${REDIS_URL}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CELERY_BROKER_URL: ${REDIS_URL}
+      ENVIRONMENT: development
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+      NEWAPI_BASE_URL: ${NEWAPI_BASE_URL}
     depends_on:
       postgres:
         condition: service_healthy

@@ -38,9 +38,9 @@ export const FiltersPanel: React.FC<FiltersPanelProps> = ({
                     className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                 >
                     <option value="">全部模型</option>
-                    <option value="gemini-3-pro-image-preview">Gemini 3 Pro</option>
+                    <option value="gemini-3-pro-image-preview">Banana Pro (3.0模型)</option>
                     <option value="gemini-2.5-flash-image-preview">Gemini 2.5 Flash</option>
-                    <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
+                    <option value="gemini-2.5-flash-image">Banana (2.5模型)</option>
                 </select>
 
                 {/* 消息数量范围 */}

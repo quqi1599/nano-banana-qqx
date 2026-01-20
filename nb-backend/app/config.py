@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     flower_password: str = ""
 
     # Credits pricing defaults
-    credits_gemini_3_pro: int = 10
+    credits_gemini_3_pro: int = 4
     credits_gemini_25_flash: int = 1
 
     # 模型白名单（逗号分隔，留空则允许所有模型）

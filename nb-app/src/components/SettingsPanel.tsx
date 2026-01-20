@@ -137,7 +137,7 @@ export const SettingsPanel: React.FC = () => {
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 dark:text-amber-400" />
-                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">我的积分</h3>
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">我的灵感</h3>
               </div>
               <button
                 onClick={handleRefreshCredits}
@@ -160,7 +160,7 @@ export const SettingsPanel: React.FC = () => {
                     {user?.credit_balance?.toLocaleString() || '0'}
                   </div>
                   <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    可用积分
+                    可用灵感
                   </div>
                 </div>
                 {balanceError && (
@@ -291,33 +291,26 @@ export const SettingsPanel: React.FC = () => {
             {isAuthenticated && modelPricing.length > 0 && (
               <div className="flex items-center gap-1 text-[10px] sm:text-xs text-amber-600 dark:text-amber-400">
                 <Coins className="h-3 w-3" />
-                <span>登录可见积分</span>
+                <span>登录可见灵感值</span>
               </div>
             )}
           </div>
           <div className="space-y-2">
             {([
-              { name: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview (第2代)' },
-              { name: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (第1代)' }
+              { name: 'gemini-3-pro-image-preview', label: 'Banana Pro (3.0模型)' },
+              { name: 'gemini-2.5-flash-image', label: 'Banana (2.5模型)' }
             ] as const).map((model) => {
               const isActive = (settings.modelName || 'gemini-3-pro-image-preview') === model.name;
-              const price = isAuthenticated ? getModelPrice(model.name) : null;
               return (
                 <button
                   key={model.name}
                   onClick={() => updateSettings({ modelName: model.name })}
-                  className={`w-full rounded-lg border px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-left transition flex items-center justify-between ${isActive
+                  className={`w-full rounded-lg border px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-left transition ${isActive
                     ? 'border-cream-500 bg-cream-50 dark:bg-cream-500/10 text-cream-600 dark:text-cream-400'
                     : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
                     }`}
                 >
-                  <span>{model.label}</span>
-                  {price !== null && (
-                    <span className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">
-                      <Coins className="h-2.5 w-2.5" />
-                      {price} 积分
-                    </span>
-                  )}
+                  {model.label}
                 </button>
               );
             })}

@@ -13,8 +13,8 @@ interface Props {
 }
 
 const AVAILABLE_MODELS = [
-  { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro Image Preview (第2代)' },
-  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash Image (第1代)' }
+  { value: 'gemini-3-pro-image-preview', label: 'Banana Pro (3.0模型)' },
+  { value: 'gemini-2.5-flash-image', label: 'Banana (2.5模型)' }
 ] as const;
 
 

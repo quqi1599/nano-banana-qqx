@@ -276,7 +276,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                             </div>
 
                             <div className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-xl p-4 text-center">
-                                <p className="text-sm text-amber-700 dark:text-amber-300">当前积分余额</p>
+                                <p className="text-sm text-amber-700 dark:text-amber-300">当前灵感余额</p>
                                 <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
                                     {user.credit_balance}
                                 </p>
@@ -300,7 +300,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gift className="w-5 h-5" />}
-                                    兑换积分
+                                    兑换灵感
                                 </button>
                             </form>
 

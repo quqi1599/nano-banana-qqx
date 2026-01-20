@@ -5,15 +5,15 @@ import { ErrorAlert, InlineLoading } from '../common';
 
 // 模型名称友好显示映射
 const MODEL_NAME_MAP: Record<string, string> = {
-    'gemini-3-pro-image-preview': 'Gemini 3 Pro Image Preview (第2代)',
-    'gemini-2.5-flash-image': 'Gemini 2.5 Flash Image (第1代)',
+    'gemini-3-pro-image-preview': 'Banana Pro (3.0模型)',
+    'gemini-2.5-flash-image': 'Banana (2.5模型)',
     'gemini-2.5-flash-image-preview': 'Gemini 2.5 Flash Image Preview',
 };
 
 // 快速选择常用模型
 const QUICK_MODELS = [
-    { name: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro (第2代)' },
-    { name: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash (第1代)' },
+    { name: 'gemini-3-pro-image-preview', label: 'Banana Pro (3.0模型)' },
+    { name: 'gemini-2.5-flash-image', label: 'Banana (2.5模型)' },
 ];
 
 export const AdminPricing = () => {
