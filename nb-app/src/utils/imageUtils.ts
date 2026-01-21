@@ -24,127 +24,139 @@ export const compressImage = async (
 ): Promise<CompressResult> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    const cleanupObjectUrl = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
+      cleanupObjectUrl();
+      try {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
 
-      // 第一步：如果尺寸过大，先缩放
-      if (width > maxDimension || height > maxDimension) {
-        if (width > height) {
-          height = (height * maxDimension) / width;
-          width = maxDimension;
-        } else {
-          width = (width * maxDimension) / height;
-          height = maxDimension;
+        // 第一步：如果尺寸过大，先缩放
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height * maxDimension) / width;
+            width = maxDimension;
+          } else {
+            width = (width * maxDimension) / height;
+            height = maxDimension;
+          }
         }
-      }
 
-      canvas.width = width;
-      canvas.height = height;
+        canvas.width = width;
+        canvas.height = height;
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('无法获取 canvas 上下文'));
-        return;
-      }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('无法获取 canvas 上下文'));
+          return;
+        }
 
-      // 使用更好的图片缩放质量
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, width, height);
+        // 使用更好的图片缩放质量
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
 
-      // 判断输出格式（PNG 透明图保持 PNG，其他用 JPEG）
-      const isPngWithAlpha = file.type === 'image/png' && hasTransparency(img, ctx, width, height);
-      const exportType = isPngWithAlpha ? 'image/png' : 'image/jpeg';
+        // 判断输出格式（PNG 透明图保持 PNG，其他用 JPEG）
+        const isPngWithAlpha = file.type === 'image/png' && hasTransparency(img, ctx, width, height);
+        const exportType = isPngWithAlpha ? 'image/png' : 'image/jpeg';
 
-      // 如果已经是 PNG 且没有透明度，尝试用 JPEG 压缩
-      const originalSize = file.size;
+        // 如果已经是 PNG 且没有透明度，尝试用 JPEG 压缩
+        const originalSize = file.size;
 
-      // 如果原始文件已经符合要求，直接返回
-      if (originalSize <= maxSizeBytes && width === img.width && height === img.height) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          resolve({
-            blob: file,
-            base64,
-            compressed: false,
-            originalSize,
-            compressedSize: originalSize,
-          });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-        return;
-      }
-
-      // 需要压缩，从高质量开始逐步降低
-      let quality = exportType === 'image/png' ? 1 : 0.95;
-      const minQuality = 0.5; // 最低质量阈值
-      const maxAttempts = 20; // 最大尝试次数，防止无限循环
-
-      // 使用迭代而非递归，防止栈溢出
-      const compressIterative = () => {
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          const dataUrl = canvas.toDataURL(exportType, quality);
-          const base64Data = dataUrl.split(',')[1];
-          const blob = base64ToBlob(base64Data, exportType);
-
-          // 如果大小符合要求或已达到最低质量
-          if (blob.size <= maxSizeBytes || quality <= minQuality) {
-            // 创建压缩后的 File 对象
-            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
-              type: exportType,
+        // 如果原始文件已经符合要求，直接返回
+        if (originalSize <= maxSizeBytes && width === img.width && height === img.height) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            resolve({
+              blob: file,
+              base64,
+              compressed: false,
+              originalSize,
+              compressedSize: originalSize,
             });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+          return;
+        }
 
-            const reader = new FileReader();
-            reader.onload = () => {
-              resolve({
-                blob: compressedFile,
-                base64: reader.result as string,
-                compressed: true,
-                originalSize,
-                compressedSize: blob.size,
-                quality: exportType === 'image/png' ? undefined : quality,
+        // 需要压缩，从高质量开始逐步降低
+        let quality = exportType === 'image/png' ? 1 : 0.95;
+        const minQuality = 0.5; // 最低质量阈值
+        const maxAttempts = 20; // 最大尝试次数，防止无限循环
+
+        // 使用迭代而非递归，防止栈溢出
+        const compressIterative = () => {
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            const dataUrl = canvas.toDataURL(exportType, quality);
+            const base64Data = dataUrl.split(',')[1];
+            const blob = base64ToBlob(base64Data, exportType);
+
+            // 如果大小符合要求或已达到最低质量
+            if (blob.size <= maxSizeBytes || quality <= minQuality) {
+              // 创建压缩后的 File 对象
+              const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                type: exportType,
               });
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(compressedFile);
-            return; // 退出函数
+
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  blob: compressedFile,
+                  base64: reader.result as string,
+                  compressed: true,
+                  originalSize,
+                  compressedSize: blob.size,
+                  quality: exportType === 'image/png' ? undefined : quality,
+                });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(compressedFile);
+              return; // 退出函数
+            }
+
+            // 继续降低质量
+            quality = Math.max(minQuality, quality - 0.05);
           }
 
-          // 继续降低质量
-          quality = Math.max(minQuality, quality - 0.05);
-        }
-
-        // 如果所有尝试都失败，使用最低质量返回
-        const dataUrl = canvas.toDataURL(exportType, minQuality);
-        const base64Data = dataUrl.split(',')[1];
-        const blob = base64ToBlob(base64Data, exportType);
-        const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
-          type: exportType,
-        });
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          resolve({
-            blob: compressedFile,
-            base64: reader.result as string,
-            compressed: true,
-            originalSize,
-            compressedSize: blob.size,
-            quality: minQuality,
+          // 如果所有尝试都失败，使用最低质量返回
+          const dataUrl = canvas.toDataURL(exportType, minQuality);
+          const base64Data = dataUrl.split(',')[1];
+          const blob = base64ToBlob(base64Data, exportType);
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: exportType,
           });
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(compressedFile);
-      };
 
-      compressIterative();
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              blob: compressedFile,
+              base64: reader.result as string,
+              compressed: true,
+              originalSize,
+              compressedSize: blob.size,
+              quality: minQuality,
+            });
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(compressedFile);
+        };
+
+        compressIterative();
+      } catch (error) {
+        reject(error);
+      }
     };
-    img.onerror = () => reject(new Error('图片加载失败'));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      cleanupObjectUrl();
+      reject(new Error('图片加载失败'));
+    };
+    img.src = objectUrl;
   });
 };
 
