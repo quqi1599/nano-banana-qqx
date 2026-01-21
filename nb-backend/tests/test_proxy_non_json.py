@@ -60,6 +60,13 @@ class FakeResponse:
         raise ValueError("not json")
 
 
+class FakeEmptyResponse:
+    status_code = 200
+
+    def json(self):
+        return {"candidates": []}
+
+
 class FakeClient:
     async def __aenter__(self):
         return self
@@ -69,6 +76,17 @@ class FakeClient:
 
     async def post(self, *args, **kwargs):
         return FakeResponse()
+
+
+class FakeEmptyClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def post(self, *args, **kwargs):
+        return FakeEmptyResponse()
 
 
 def build_request(payload: dict) -> Request:
@@ -119,3 +137,42 @@ async def test_proxy_generate_handles_non_json_upstream(monkeypatch):
         await proxy_module.proxy_generate(request, current_user=user, db=db)
 
     assert exc.value.status_code == 503
+
+
+@pytest.mark.anyio
+async def test_proxy_generate_refunds_on_empty_content(monkeypatch):
+    db = FakeDB()
+    user = FakeUser()
+    token = FakeToken()
+    refund_called = False
+
+    async def fake_get_credits_for_model(_db, _model_name):
+        return 1
+
+    async def fake_get_available_tokens(_db, lock=False):
+        return [token]
+
+    async def fake_reserve_user_credits(_db, _user_id, _credits, _model_name):
+        return None
+
+    async def fake_refund_user_credits(_db, _user_id, _credits, _model_name, _reason):
+        nonlocal refund_called
+        refund_called = True
+        return None
+
+    monkeypatch.setattr(proxy_module, "get_credits_for_model", fake_get_credits_for_model)
+    monkeypatch.setattr(proxy_module, "get_available_tokens", fake_get_available_tokens)
+    monkeypatch.setattr(proxy_module, "reserve_user_credits", fake_reserve_user_credits)
+    monkeypatch.setattr(proxy_module, "refund_user_credits", fake_refund_user_credits)
+    monkeypatch.setattr(proxy_module, "decrypt_api_key", lambda _key: "plain")
+    monkeypatch.setattr(proxy_module.httpx, "AsyncClient", lambda timeout=120.0: FakeEmptyClient())
+    monkeypatch.setattr(proxy_module.settings, "token_encryption_key", "")
+
+    request = build_request({"model": "gemini-3-pro-image-preview", "contents": []})
+
+    with pytest.raises(HTTPException) as exc:
+        await proxy_module.proxy_generate(request, current_user=user, db=db)
+
+    assert exc.value.status_code == 503
+    assert "No content generated" in str(exc.value.detail)
+    assert refund_called is True

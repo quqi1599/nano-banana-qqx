@@ -95,6 +95,28 @@ def _safe_error_detail_from_bytes(status_code: int, body: bytes) -> str:
     return _sanitize_error_detail(message)
 
 
+def _extract_candidate_parts(payload: Any) -> list[Any]:
+    if not isinstance(payload, dict):
+        return []
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        return []
+    candidate = candidates[0]
+    if not isinstance(candidate, dict):
+        return []
+    content = candidate.get("content")
+    if not isinstance(content, dict):
+        return []
+    parts = content.get("parts")
+    if not isinstance(parts, list) or not parts:
+        return []
+    return parts
+
+
+def _has_candidate_content(payload: Any) -> bool:
+    return bool(_extract_candidate_parts(payload))
+
+
 _QUOTA_ERROR_HINTS = (
     "quota",
     "insufficient",
@@ -455,6 +477,40 @@ async def proxy_generate(
                     last_error_detail = "上游响应格式错误"
                     continue
 
+                if not _has_candidate_content(data):
+                    usage_log = UsageLog(
+                        user_id=current_user.id,
+                        model_name=model_name,
+                        credits_used=0,
+                        token_id=token.id,
+                        request_type="generate",
+                        prompt_preview=prompt_preview,
+                        is_success=False,
+                        error_message="No content generated",
+                    )
+                    await _apply_token_update(
+                        db,
+                        token,
+                        now,
+                        update_request_counters=True,
+                        mark_success=True,
+                        key_updates=key_updates,
+                        usage_log=usage_log,
+                    )
+                    if reserved:
+                        await refund_user_credits(
+                            db,
+                            current_user.id,
+                            credits_to_use,
+                            model_name,
+                            "生成内容为空退款",
+                        )
+                        await _commit_changes(db)
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="No content generated",
+                    )
+
                 usage_log = UsageLog(
                     user_id=current_user.id,
                     model_name=model_name,
@@ -588,159 +644,106 @@ async def proxy_generate_stream(
                 prompt_preview = part["text"][:200]
                 break
 
-    async def stream_response_with_cleanup():
-        """使用 async context manager 确保连接正确关闭"""
-        try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                selected_token = None
-                selected_key_updates = None
-                last_error_detail = None
+    last_error_detail = None
+    client = httpx.AsyncClient(timeout=120.0)
+    selected_token = None
+    selected_key_updates = None
+    selected_response = None
+    try:
+        for token in tokens:
+            now = datetime.utcnow()
+            target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:streamGenerateContent"
+            try:
+                plain_key = decrypt_api_key(token.api_key)
+            except RuntimeError:
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=False,
+                    mark_failure=True,
+                )
+                last_error_detail = "Token 解密失败"
+                continue
 
-                for token in tokens:
-                    now = datetime.utcnow()
-                    target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:streamGenerateContent"
-                    try:
-                        plain_key = decrypt_api_key(token.api_key)
-                    except RuntimeError:
-                        await _apply_token_update(
-                            db,
-                            token,
-                            now,
-                            update_request_counters=False,
-                            mark_failure=True,
-                        )
-                        last_error_detail = "Token 解密失败"
-                        continue
+            key_updates = _build_key_updates(token, plain_key)
 
-                    key_updates = _build_key_updates(token, plain_key)
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": plain_key,
+            }
 
-                    headers = {
-                        "Content-Type": "application/json",
-                        "x-goog-api-key": plain_key,
-                    }
+            try:
+                request_obj = client.build_request("POST", target_url, json=body, headers=headers)
+                response = await client.send(request_obj, stream=True)
+            except httpx.TimeoutException:
+                usage_log = UsageLog(
+                    user_id=current_user.id,
+                    model_name=model_name,
+                    credits_used=0,
+                    token_id=token.id,
+                    request_type="generate_stream",
+                    prompt_preview=prompt_preview,
+                    is_success=False,
+                    error_message="API 请求超时",
+                )
+                await _apply_token_update(
+                    db,
+                    token,
+                    now,
+                    update_request_counters=True,
+                    mark_failure=True,
+                    key_updates=key_updates,
+                    usage_log=usage_log,
+                )
+                last_error_detail = "API 请求超时"
+                continue
 
-                    try:
-                        request_obj = client.build_request("POST", target_url, json=body, headers=headers)
-                        response = await client.send(request_obj, stream=True)
-                    except httpx.TimeoutException:
-                        usage_log = UsageLog(
-                            user_id=current_user.id,
-                            model_name=model_name,
-                            credits_used=0,
-                            token_id=token.id,
-                            request_type="generate_stream",
-                            prompt_preview=prompt_preview,
-                            is_success=False,
-                            error_message="API 请求超时",
-                        )
-                        await _apply_token_update(
-                            db,
-                            token,
-                            now,
-                            update_request_counters=True,
-                            mark_failure=True,
-                            key_updates=key_updates,
-                            usage_log=usage_log,
-                        )
-                        last_error_detail = "API 请求超时"
-                        continue
+            status_code = response.status_code
+            if status_code == 200:
+                selected_token = token
+                selected_key_updates = key_updates
+                selected_response = response
+                break
 
-                    status_code = response.status_code
-                    if status_code == 200:
-                        selected_token = token
-                        selected_key_updates = key_updates
+            body_bytes = await response.aread()
+            error_detail = _safe_error_detail_from_bytes(status_code, body_bytes)
+            last_error_detail = error_detail or f"HTTP {status_code}"
+            quota_error = status_code == 402 or _is_quota_error(last_error_detail)
+            rate_limit_error = _is_rate_limit_error(last_error_detail)
+            retryable_error = (
+                status_code >= 500
+                or status_code in {401, 403, 408, 429}
+                or quota_error
+                or rate_limit_error
+            )
+            disable_token = quota_error and not rate_limit_error
+            usage_log = UsageLog(
+                user_id=current_user.id,
+                model_name=model_name,
+                credits_used=0,
+                token_id=token.id,
+                request_type="generate_stream",
+                prompt_preview=prompt_preview,
+                is_success=False,
+                error_message=last_error_detail,
+            )
+            await _apply_token_update(
+                db,
+                token,
+                now,
+                update_request_counters=True,
+                mark_failure=retryable_error,
+                key_updates=key_updates,
+                usage_log=usage_log,
+                disable_token=disable_token,
+                remaining_quota=0.0 if disable_token else None,
+                error_message=last_error_detail,
+                is_auth_failure=status_code in {401, 403},
+            )
+            await response.aclose()
 
-                        # 记录成功日志
-                        usage_log = UsageLog(
-                            user_id=current_user.id,
-                            model_name=model_name,
-                            credits_used=credits_to_use,
-                            token_id=selected_token.id,
-                            request_type="generate_stream",
-                            prompt_preview=prompt_preview,
-                            is_success=True,
-                            error_message=None,
-                        )
-                        await _apply_token_update(
-                            db,
-                            selected_token,
-                            datetime.utcnow(),
-                            update_request_counters=True,
-                            mark_success=True,
-                            key_updates=selected_key_updates,
-                            usage_log=usage_log,
-                        )
-
-                        # 流式传输 - 处理 NDJSON 格式
-                        try:
-                            buffer = b""
-                            async for chunk in response.aiter_bytes():
-                                buffer += chunk
-                                # 按行分割 NDJSON
-                                while b"\n" in buffer:
-                                    line, buffer = buffer.split(b"\n", 1)
-                                    if line.strip():  # 跳过空行
-                                        yield line + b"\n"
-                            # 处理最后剩余的数据
-                            if buffer.strip():
-                                yield buffer
-                        finally:
-                            await response.aclose()
-                        return
-
-                    body_bytes = await response.aread()
-                    error_detail = _safe_error_detail_from_bytes(status_code, body_bytes)
-                    last_error_detail = error_detail or f"HTTP {status_code}"
-                    quota_error = status_code == 402 or _is_quota_error(last_error_detail)
-                    rate_limit_error = _is_rate_limit_error(last_error_detail)
-                    retryable_error = (
-                        status_code >= 500
-                        or status_code in {401, 403, 408, 429}
-                        or quota_error
-                        or rate_limit_error
-                    )
-                    disable_token = quota_error and not rate_limit_error
-                    usage_log = UsageLog(
-                        user_id=current_user.id,
-                        model_name=model_name,
-                        credits_used=0,
-                        token_id=token.id,
-                        request_type="generate_stream",
-                        prompt_preview=prompt_preview,
-                        is_success=False,
-                        error_message=last_error_detail,
-                    )
-                    await _apply_token_update(
-                        db,
-                        token,
-                        now,
-                        update_request_counters=True,
-                        mark_failure=retryable_error,
-                        key_updates=key_updates,
-                        usage_log=usage_log,
-                        disable_token=disable_token,
-                        remaining_quota=0.0 if disable_token else None,
-                        error_message=last_error_detail,
-                        is_auth_failure=status_code in {401, 403},
-                    )
-                    await response.aclose()
-
-                    if status_code == 400 and not quota_error:
-                        if reserved:
-                            await refund_user_credits(
-                                db,
-                                current_user.id,
-                                credits_to_use,
-                                model_name,
-                                "请求失败退款",
-                            )
-                            await _commit_changes(db)
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=last_error_detail or "请求参数错误",
-                        )
-
-                # 所有 token 都失败
+            if status_code == 400 and not quota_error:
                 if reserved:
                     await refund_user_credits(
                         db,
@@ -751,15 +754,113 @@ async def proxy_generate_stream(
                     )
                     await _commit_changes(db)
                 raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=last_error_detail or "请求参数错误",
                 )
-        except HTTPException:
-            raise
-        except Exception as e:
+
+        if selected_response is None:
+            if reserved:
+                await refund_user_credits(
+                    db,
+                    current_user.id,
+                    credits_to_use,
+                    model_name,
+                    "请求失败退款",
+                )
+                await _commit_changes(db)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"请求失败: {str(e)}",
+                detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
             )
+    except HTTPException:
+        if selected_response is not None:
+            await selected_response.aclose()
+        await client.aclose()
+        raise
+    except Exception as e:
+        if selected_response is not None:
+            await selected_response.aclose()
+        await client.aclose()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"请求失败: {str(e)}",
+        )
+
+    async def stream_response_with_cleanup():
+        """使用 async context manager 确保连接正确关闭"""
+        has_content = False
+        stream_error = None
+        try:
+            buffer = b""
+            async for chunk in selected_response.aiter_bytes():
+                buffer += chunk
+                # 按行分割 NDJSON
+                while b"\n" in buffer:
+                    line, buffer = buffer.split(b"\n", 1)
+                    if line.strip():  # 跳过空行
+                        if not has_content:
+                            try:
+                                decoded = line.strip()
+                                if decoded.startswith(b"data:"):
+                                    decoded = decoded[5:].strip()
+                                payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                                has_content = _has_candidate_content(payload)
+                            except ValueError:
+                                pass
+                        yield line + b"\n"
+            # 处理最后剩余的数据
+            if buffer.strip():
+                if not has_content:
+                    try:
+                        decoded = buffer.strip()
+                        if decoded.startswith(b"data:"):
+                            decoded = decoded[5:].strip()
+                        payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                        has_content = _has_candidate_content(payload)
+                    except ValueError:
+                        pass
+                yield buffer
+        except Exception as exc:
+            stream_error = exc
+        finally:
+            await selected_response.aclose()
+            await client.aclose()
+
+        if stream_error:
+            logger.error("Stream response failed: %s", str(stream_error)[:200])
+            return
+
+        if selected_token is None:
+            return
+
+        usage_log = UsageLog(
+            user_id=current_user.id,
+            model_name=model_name,
+            credits_used=credits_to_use if has_content else 0,
+            token_id=selected_token.id,
+            request_type="generate_stream",
+            prompt_preview=prompt_preview,
+            is_success=has_content,
+            error_message=None if has_content else "No content generated",
+        )
+        await _apply_token_update(
+            db,
+            selected_token,
+            datetime.utcnow(),
+            update_request_counters=True,
+            mark_success=True,
+            key_updates=selected_key_updates,
+            usage_log=usage_log,
+        )
+        if not has_content and reserved:
+            await refund_user_credits(
+                db,
+                current_user.id,
+                credits_to_use,
+                model_name,
+                "生成内容为空退款",
+            )
+            await _commit_changes(db)
+        return
 
     return StreamingResponse(stream_response_with_cleanup(), media_type="application/json")

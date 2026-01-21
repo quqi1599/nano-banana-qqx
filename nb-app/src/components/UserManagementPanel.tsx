@@ -560,7 +560,7 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                         type="text"
                         value={searchQuery}
                         onInput={(e) => handleSearchChange((e.target as HTMLInputElement).value)}
-                        placeholder="搜索邮箱、昵称..."
+                        placeholder={`搜索邮箱、昵称... (共 ${total} 位用户)`}
                         className="w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 dark:border-gray-700 dark:bg-gray-900 focus:ring-2 focus:ring-amber-500 outline-none transition text-sm"
                     />
                 </div>
@@ -745,7 +745,7 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                             {selectAll ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                         </button>
                     </div>
-                    <div className="col-span-4">用户</div>
+                    <div className="col-span-4">用户 <span className="text-[10px] font-normal opacity-70">(共 {total} 人)</span></div>
                     <div className="col-span-2">状态</div>
                     <div className="col-span-2">余额</div>
                     <div className="col-span-2">标签</div>
@@ -957,8 +957,8 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                     )}
                 </div>
 
-                {/* 分页 */}
-                {total > pageSize && (
+                {/* 分页 - 只要有数据就显示总数 */}
+                {total > 0 && (
                     <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
                         <div className="text-sm text-gray-500">
                             共 {total} 个用户，第 {page} / {Math.ceil(total / pageSize)} 页
