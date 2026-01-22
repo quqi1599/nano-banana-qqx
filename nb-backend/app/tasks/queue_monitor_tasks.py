@@ -3,20 +3,22 @@
 
 定期收集队列指标并触发告警，支持邮件通知
 """
+import json
 import logging
 import statistics
 from datetime import datetime, timedelta
 from typing import Optional
 
 from celery import shared_task
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 
 from app.celery_app import celery_app
 from app.tasks.base import get_task_db
 from app.utils.queue_monitor import (
     QUEUE_MONITOR_QUEUE_NAMES,
-    build_status_key,
+    QUEUE_TASK_MAX_ENTRIES,
     build_completed_key,
+    build_task_key,
     get_queue_monitor_redis,
 )
 from app.models.queue_metrics import QueueMetrics
@@ -44,6 +46,42 @@ ALERT_THRESHOLDS = {
 ALERT_COOLDOWN_SECONDS = 3600  # 1小时
 
 
+def _queue_matches(task_queue: Optional[str], target_queue: str) -> bool:
+    if target_queue == "default":
+        return task_queue in (None, "", "default", "celery")
+    return task_queue == target_queue
+
+
+def _load_completed_tasks(
+    redis_client,
+    status: str,
+    start_ts: float,
+    end_ts: float,
+) -> list[dict]:
+    task_ids = redis_client.zrevrangebyscore(
+        build_completed_key(status),
+        end_ts,
+        start_ts,
+        start=0,
+        num=QUEUE_TASK_MAX_ENTRIES,
+    )
+    if not task_ids:
+        return []
+
+    raw_tasks = redis_client.mget([build_task_key(task_id) for task_id in task_ids])
+    tasks: list[dict] = []
+    for task_id, raw in zip(task_ids, raw_tasks):
+        if not raw:
+            continue
+        try:
+            task = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        task.setdefault("id", task_id)
+        tasks.append(task)
+    return tasks
+
+
 def create_and_send_alert(
     alert_type: str,
     title: str,
@@ -64,10 +102,15 @@ def create_and_send_alert(
         # 检查是否存在相同类型和队列的活跃告警
         cooldown_time = datetime.utcnow() - timedelta(seconds=ALERT_COOLDOWN_SECONDS)
 
+        queue_clause = (
+            or_(QueueAlert.queue_name.is_(None), QueueAlert.queue_name == "")
+            if queue_name is None
+            else QueueAlert.queue_name == queue_name
+        )
         existing_query = select(QueueAlert).where(
             and_(
                 QueueAlert.alert_type == alert_type,
-                QueueAlert.queue_name == (queue_name or ""),
+                queue_clause,
                 QueueAlert.status.in_(["firing", "acknowledged"]),
                 QueueAlert.fired_at > cooldown_time,
             )
@@ -178,10 +221,15 @@ def auto_resolve_alerts(
     """
     db = get_task_db()
     try:
+        queue_clause = (
+            or_(QueueAlert.queue_name.is_(None), QueueAlert.queue_name == "")
+            if queue_name is None
+            else QueueAlert.queue_name == queue_name
+        )
         query = select(QueueAlert).where(
             and_(
                 QueueAlert.alert_type == alert_type,
-                QueueAlert.queue_name == (queue_name or ""),
+                queue_clause,
                 QueueAlert.status == "firing",
             )
         )
@@ -225,10 +273,21 @@ def collect_queue_metrics_task():
         ping = inspect.ping() or {}
         worker_count = len(ping)
 
-        active_tasks = 0
+        active_by_queue = {name: 0 for name in QUEUE_MONITOR_QUEUE_NAMES}
         if ping:
             active = inspect.active() or {}
-            active_tasks = sum(len(tasks) for tasks in active.values())
+            for worker_tasks in active.values():
+                for task in worker_tasks:
+                    task_queue = task.get("delivery_info", {}).get("routing_key")
+                    for queue_name in QUEUE_MONITOR_QUEUE_NAMES:
+                        if _queue_matches(task_queue, queue_name):
+                            active_by_queue[queue_name] += 1
+                            break
+
+        now_ts = datetime.utcnow().timestamp()
+        five_min_ago = now_ts - 300
+        succeeded_tasks = _load_completed_tasks(redis_client, "succeeded", five_min_ago, now_ts)
+        failed_tasks = _load_completed_tasks(redis_client, "failed", five_min_ago, now_ts)
 
         # 收集各队列指标
         metrics_collected = []
@@ -247,38 +306,23 @@ def collect_queue_metrics_task():
                     except Exception:
                         pass
 
-                # 获取最近完成的任务统计
-                now_ts = datetime.utcnow().timestamp()
-                five_min_ago = now_ts - 300
+                queue_succeeded = [
+                    task for task in succeeded_tasks
+                    if _queue_matches(task.get("queue"), queue_name)
+                ]
+                queue_failed = [
+                    task for task in failed_tasks
+                    if _queue_matches(task.get("queue"), queue_name)
+                ]
 
-                succeeded_count = redis_client.zcount(
-                    build_completed_key("succeeded"),
-                    five_min_ago,
-                    now_ts
-                )
-                failed_count = redis_client.zcount(
-                    build_completed_key("failed"),
-                    five_min_ago,
-                    now_ts
-                )
+                succeeded_count = len(queue_succeeded)
+                failed_count = len(queue_failed)
 
-                # 获取任务执行时间（从Redis获取最近的任务）
-                duration_key = f"queue:tasks:status:succeeded"
-                recent_task_ids = redis_client.zrevrange(duration_key, 0, 99)
-
-                durations = []
-                for task_id in recent_task_ids:
-                    task_key = f"queue:tasks:data:{task_id}"
-                    task_data = redis_client.get(task_key)
-                    if task_data:
-                        import json
-                        try:
-                            task = json.loads(task_data)
-                            duration = task.get("duration")
-                            if duration and isinstance(duration, (int, float)):
-                                durations.append(duration)
-                        except (json.JSONDecodeError, TypeError):
-                            pass
+                durations = [
+                    task.get("duration")
+                    for task in queue_succeeded
+                    if isinstance(task.get("duration"), (int, float))
+                ]
 
                 # 计算执行时间统计
                 avg_duration = None
@@ -303,7 +347,7 @@ def collect_queue_metrics_task():
                     metric = QueueMetrics(
                         queue_name=queue_name,
                         pending_count=pending_count,
-                        active_count=active_tasks,
+                        active_count=active_by_queue.get(queue_name, 0),
                         succeeded_count=succeeded_count,
                         failed_count=failed_count,
                         avg_duration=avg_duration,
@@ -361,6 +405,11 @@ def check_queue_alerts_task():
             # Worker恢复在线，自动解决告警
             auto_resolve_alerts("worker_offline")
 
+        now_ts = datetime.utcnow().timestamp()
+        hour_ago = now_ts - 3600
+        succeeded_hour_tasks = _load_completed_tasks(redis_client, "succeeded", hour_ago, now_ts)
+        failed_hour_tasks = _load_completed_tasks(redis_client, "failed", hour_ago, now_ts)
+
         # 2. 检查各队列状态
         for queue_name in QUEUE_MONITOR_QUEUE_NAMES:
             try:
@@ -403,19 +452,14 @@ def check_queue_alerts_task():
                     auto_resolve_alerts("queue_backlog", queue_name)
 
                 # 3. 检查失败率
-                now_ts = datetime.utcnow().timestamp()
-                hour_ago = now_ts - 3600
-
-                succeeded_hour = redis_client.zcount(
-                    build_completed_key("succeeded"),
-                    hour_ago,
-                    now_ts
-                )
-                failed_hour = redis_client.zcount(
-                    build_completed_key("failed"),
-                    hour_ago,
-                    now_ts
-                )
+                succeeded_hour = len([
+                    task for task in succeeded_hour_tasks
+                    if _queue_matches(task.get("queue"), queue_name)
+                ])
+                failed_hour = len([
+                    task for task in failed_hour_tasks
+                    if _queue_matches(task.get("queue"), queue_name)
+                ])
 
                 total_hour = succeeded_hour + failed_hour
                 if total_hour > 10:  # 至少有10个样本才统计

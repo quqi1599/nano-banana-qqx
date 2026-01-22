@@ -576,14 +576,26 @@ export const useAppStore = create<AppState>()(
 
       toggleSettings: () => set((state) => ({ isSettingsOpen: !state.isSettingsOpen })),
 
-      clearHistory: () =>
+      clearHistory: () => {
+        const state = get();
+        if (!shouldPersistLocalHistory()) {
+          state.messages.forEach((msg) => {
+            msg.parts.forEach((part) => {
+              if (part.imageId) {
+                deleteMessageImage(part.imageId).catch(console.error);
+              }
+            });
+          });
+        }
+
         set({
           currentConversationId: null,
           localConversationId: null,
           messages: [],
           messagesTotal: 0,
           messagesPage: 1,
-        }),
+        });
+      },
 
       removeApiKey: () => {
         localStorage.removeItem(API_KEY_STORAGE);

@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, DateTime, Integer, Text, Boolean, JSON, Index
+from sqlalchemy import String, DateTime, Float, Text, Boolean, JSON, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -49,8 +49,8 @@ class QueueAlert(Base):
     message: Mapped[str] = mapped_column(Text)
 
     # 当前值和阈值
-    current_value: Mapped[Optional[float]] = mapped_column(Integer, nullable=True)
-    threshold_value: Mapped[Optional[float]] = mapped_column(Integer, nullable=True)
+    current_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    threshold_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # 额外信息
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

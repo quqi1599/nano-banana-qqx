@@ -7,7 +7,8 @@ import logging
 from datetime import datetime
 from typing import Optional, Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 
@@ -21,11 +22,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["用户反馈"])
 
 
+class FeedbackCreate(BaseModel):
+    title: str
+    content: str
+    feedback_type: str = "other"
+    category: Optional[str] = None
+    related_conversation_id: Optional[str] = None
+    related_task_id: Optional[str] = None
+    related_model: Optional[str] = None
+    page_url: Optional[str] = None
+    browser_info: Optional[str] = None
+    extra_data: Optional[dict] = None
+    screenshots: Optional[List[str]] = None
+
+
 @router.post("")
 async def create_feedback(
     request: Request,
-    title: str,
-    content: str,
+    payload: Optional[FeedbackCreate] = Body(default=None),
+    title: Optional[str] = None,
+    content: Optional[str] = None,
     feedback_type: str = "other",
     category: Optional[str] = None,
     related_conversation_id: Optional[str] = None,
@@ -54,6 +70,22 @@ async def create_feedback(
         extra_data: 额外数据
         screenshots: 截图URL列表
     """
+    if payload:
+        title = payload.title
+        content = payload.content
+        feedback_type = payload.feedback_type
+        category = payload.category
+        related_conversation_id = payload.related_conversation_id
+        related_task_id = payload.related_task_id
+        related_model = payload.related_model
+        page_url = payload.page_url
+        browser_info = payload.browser_info
+        extra_data = payload.extra_data
+        screenshots = payload.screenshots
+
+    if not title or not content:
+        raise HTTPException(status_code=400, detail="title and content are required")
+
     # 验证反馈类型
     valid_types = {"bug", "feature", "improvement", "complaint", "other"}
     if feedback_type not in valid_types:
