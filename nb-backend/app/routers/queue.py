@@ -14,7 +14,9 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import get_db
 from app.utils.redis_client import get_redis, get_celery_redis
 from app.utils.security import get_admin_user
 from app.utils.queue_monitor import (
@@ -660,3 +662,356 @@ async def get_dashboard(
         logger.error(f"获取仪表板数据失败: {e}")
 
     return dashboard
+
+
+@router.get("/metrics/history")
+async def get_metrics_history(
+    queue: Optional[str] = None,
+    hours: int = Query(24, ge=1, le=168),
+    current_user = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    获取队列指标历史数据
+
+    参数：
+    - queue: 队列名称过滤
+    - hours: 查询最近几小时的数据（1-168小时/7天）
+    """
+    from datetime import timedelta
+    from app.models.queue_metrics import QueueMetrics
+    from sqlalchemy import select
+
+    since = datetime.utcnow() - timedelta(hours=hours)
+
+    query = select(QueueMetrics).where(QueueMetrics.recorded_at >= since)
+
+    if queue:
+        query = query.where(QueueMetrics.queue_name == queue)
+
+    query = query.order_by(QueueMetrics.recorded_at.desc())
+
+    result = await db.execute(query)
+    metrics = result.scalars().all()
+
+    # 按队列分组
+    by_queue: Dict[str, list[Dict]] = {}
+    for m in metrics:
+        qname = m.queue_name
+        if qname not in by_queue:
+            by_queue[qname] = []
+        by_queue[qname].append(m.to_dict())
+
+    # 计算统计汇总
+    summary = {}
+    for qname, items in by_queue.items():
+        if items:
+            avg_pending = sum(m["pending_count"] for m in items) / len(items)
+            avg_active = sum(m["active_count"] for m in items) / len(items)
+            total_succeeded = sum(m["succeeded_count"] for m in items)
+            total_failed = sum(m["failed_count"] for m in items)
+            avg_duration = sum(m["avg_duration"] or 0 for m in items) / len(items)
+
+            summary[qname] = {
+                "avg_pending": round(avg_pending, 2),
+                "avg_active": round(avg_active, 2),
+                "total_succeeded": total_succeeded,
+                "total_failed": total_failed,
+                "failure_rate": round(total_failed / max(1, total_succeeded + total_failed) * 100, 2),
+                "avg_duration": round(avg_duration, 2),
+                "data_points": len(items),
+            }
+
+    return {
+        "by_queue": by_queue,
+        "summary": summary,
+        "time_range": {
+            "hours": hours,
+            "since": since.isoformat(),
+            "until": datetime.utcnow().isoformat(),
+        },
+    }
+
+
+@router.get("/alerts")
+async def get_alerts(
+    status: Optional[str] = None,
+    severity: Optional[str] = None,
+    alert_type: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    获取队列告警列表
+
+    参数：
+    - status: 状态过滤 (firing/resolved/acknowledged)
+    - severity: 严重级别过滤 (info/warning/critical)
+    - alert_type: 告警类型过滤
+    - limit: 返回数量
+    - offset: 偏移量
+    """
+    from app.models.queue_alert import QueueAlert
+    from sqlalchemy import select, func, desc
+
+    query = select(QueueAlert)
+
+    if status:
+        query = query.where(QueueAlert.status == status)
+    if severity:
+        query = query.where(QueueAlert.severity == severity)
+    if alert_type:
+        query = query.where(QueueAlert.alert_type == alert_type)
+
+    # 统计总数
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    query = query.order_by(desc(QueueAlert.fired_at))
+    query = query.offset(offset).limit(limit)
+
+    result = await db.execute(query)
+    alerts = result.scalars().all()
+
+    # 统计活跃告警数
+    firing_count_result = await db.execute(
+        select(func.count()).where(QueueAlert.status == "firing")
+    )
+    firing_count = firing_count_result.scalar() or 0
+
+    return {
+        "items": [a.to_dict() for a in alerts],
+        "total": total,
+        "firing_count": firing_count,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.post("/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(
+    alert_id: str,
+    notes: Optional[str] = None,
+    current_user = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    确认告警
+    """
+    from app.models.queue_alert import QueueAlert
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(QueueAlert).where(QueueAlert.id == alert_id)
+    )
+    alert = result.scalar_one_or_none()
+
+    if not alert:
+        raise HTTPException(status_code=404, detail="告警不存在")
+
+    if alert.status != "firing":
+        raise HTTPException(status_code=400, detail="只能确认活跃的告警")
+
+    alert.status = "acknowledged"
+    alert.acknowledged_by = current_user.id
+    alert.acknowledged_at = datetime.utcnow()
+    alert.notes = notes
+
+    await db.commit()
+
+    logger.info(f"Alert acknowledged: id={alert_id}, admin={current_user.id}")
+
+    return {"message": "告警已确认", "alert": alert.to_dict()}
+
+
+@router.post("/alerts/{alert_id}/resolve")
+async def resolve_alert(
+    alert_id: str,
+    notes: Optional[str] = None,
+    current_user = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    解决告警
+    """
+    from app.models.queue_alert import QueueAlert
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(QueueAlert).where(QueueAlert.id == alert_id)
+    )
+    alert = result.scalar_one_or_none()
+
+    if not alert:
+        raise HTTPException(status_code=404, detail="告警不存在")
+
+    if alert.status == "resolved":
+        raise HTTPException(status_code=400, detail="告警已解决")
+
+    alert.status = "resolved"
+    alert.resolved_at = datetime.utcnow()
+    if not alert.acknowledged_by:
+        alert.acknowledged_by = current_user.id
+        alert.acknowledged_at = datetime.utcnow()
+    if notes:
+        alert.notes = (alert.notes or "") + f"\n解决备注: {notes}"
+
+    await db.commit()
+
+    logger.info(f"Alert resolved: id={alert_id}, admin={current_user.id}")
+
+    return {"message": "告警已解决", "alert": alert.to_dict()}
+
+
+@router.get("/stats/summary")
+async def get_queue_stats_summary(
+    current_user = Depends(get_admin_user),
+    broker_redis = Depends(get_celery_redis),
+    store_redis = Depends(get_redis),
+) -> Dict[str, Any]:
+    """
+    获取队列统计摘要
+
+    包括：
+    - 当前队列状态
+    - 任务执行趋势
+    - Worker健康状态
+    - 性能指标
+    """
+    from app.celery_app import celery_app
+    from datetime import timedelta
+
+    summary = {
+        "queues": {},
+        "workers": {},
+        "performance": {},
+        "alerts": {},
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    try:
+        # 队列状态
+        queue_lengths = await _get_queue_lengths(broker_redis)
+        total_pending = sum(queue_lengths.values())
+
+        summary["queues"] = {
+            "pending_by_queue": queue_lengths,
+            "total_pending": total_pending,
+        }
+
+        # 任务统计
+        inspect = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS)
+        ping = inspect.ping() or {}
+        worker_count = len(ping)
+
+        active_tasks = 0
+        if ping:
+            active_data = inspect.active() or {}
+            active_tasks = sum(len(tasks) for tasks in active_data.values())
+
+        succeeded_total = await store_redis.zcard(build_status_key("succeeded"))
+        failed_total = await store_redis.zcard(build_status_key("failed"))
+
+        # 计算失败率
+        total_completed = succeeded_total + failed_total
+        failure_rate = round(failed_total / max(1, total_completed) * 100, 2)
+
+        summary["workers"] = {
+            "online_count": worker_count,
+            "active_tasks": active_tasks,
+        }
+
+        summary["performance"] = {
+            "succeeded_total": succeeded_total,
+            "failed_total": failed_total,
+            "failure_rate": failure_rate,
+        }
+
+        # 最近1小时的统计
+        now_ts = time.time()
+        hour_ago = now_ts - 3600
+        succeeded_hour = await store_redis.zcount(build_completed_key("succeeded"), hour_ago, now_ts)
+        failed_hour = await store_redis.zcount(build_completed_key("failed"), hour_ago, now_ts)
+
+        summary["performance"]["throughput_last_hour"] = succeeded_hour + failed_hour
+        summary["performance"]["success_rate_last_hour"] = round(
+            succeeded_hour / max(1, succeeded_hour + failed_hour) * 100, 2
+        )
+
+    except Exception as e:
+        logger.error(f"获取队列统计摘要失败: {e}")
+
+    return summary
+
+
+@router.get("/trends")
+async def get_queue_trends(
+    queue: Optional[str] = None,
+    hours: int = Query(24, ge=1, le=168),
+    current_user = Depends(get_admin_user),
+    store_redis = Depends(get_redis),
+) -> Dict[str, Any]:
+    """
+    获取队列趋势数据
+
+    返回指定时间范围内的任务执行趋势
+    """
+    from datetime import timedelta
+
+    now_ts = time.time()
+    since_ts = now_ts - (hours * 3600)
+
+    trends = {
+        "queue": queue,
+        "hours": hours,
+        "time_series": [],
+        "summary": {},
+    }
+
+    try:
+        # 按小时统计
+        interval = 3600  # 1小时
+        for i in range(hours):
+            interval_end = now_ts - (i * interval)
+            interval_start = interval_end - interval
+
+            succeeded = await store_redis.zcount(
+                build_completed_key("succeeded"),
+                interval_start,
+                interval_end
+            )
+            failed = await store_redis.zcount(
+                build_completed_key("failed"),
+                interval_start,
+                interval_end
+            )
+
+            trends["time_series"].append({
+                "timestamp": datetime.fromtimestamp(interval_start).isoformat(),
+                "succeeded": succeeded,
+                "failed": failed,
+                "total": succeeded + failed,
+            })
+
+        trends["time_series"].reverse()
+
+        # 计算汇总
+        total_succeeded = sum(t["succeeded"] for t in trends["time_series"])
+        total_failed = sum(t["failed"] for t in trends["time_series"])
+        total_tasks = total_succeeded + total_failed
+
+        trends["summary"] = {
+            "total_succeeded": total_succeeded,
+            "total_failed": total_failed,
+            "total_tasks": total_tasks,
+            "avg_per_hour": round(total_tasks / hours, 2),
+            "failure_rate": round(total_failed / max(1, total_tasks) * 100, 2),
+        }
+
+    except Exception as e:
+        logger.error(f"获取队列趋势失败: {e}")
+
+    return trends

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 import { AdminDashboard } from './components/AdminDashboard';
 import { login, resetPassword, sendCode } from './services/authService';
 import { useAppStore } from './store/useAppStore';
@@ -127,7 +127,7 @@ export const AdminApp: React.FC = () => {
 
   if (authLoading) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-2 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           正在检查会话...
@@ -147,15 +147,15 @@ export const AdminApp: React.FC = () => {
 
   if (isAuthenticated && !user?.is_admin) {
     return (
-      <div className="min-h-dvh flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-6">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 shadow-xl p-6 text-slate-900 dark:text-slate-100">
+      <div className="min-h-dvh flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-6">
+        <div className="w-full max-w-md rounded-2xl border border-red-200 dark:border-red-900/50 bg-white/95 dark:bg-gray-900/80 shadow-xl p-6 text-gray-900 dark:text-gray-100 animate-scale-in">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400">
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
               <h1 className="text-lg font-semibold">访问受限</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">当前账号无管理员权限。</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">当前账号无管理员权限。</p>
             </div>
           </div>
           <div className="mt-6 flex flex-col gap-2">
@@ -166,13 +166,13 @@ export const AdminApp: React.FC = () => {
                 setPassword('');
                 setAuthMode('login');
               }}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
             >
               切换账号
             </button>
             <a
               href="/"
-              className="w-full rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 text-sm font-semibold text-center hover:bg-slate-800 dark:hover:bg-slate-100 transition"
+              className="w-full rounded-xl bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-semibold text-center hover:bg-gray-800 dark:hover:bg-gray-100 transition"
             >
               返回应用
             </a>
@@ -183,190 +183,233 @@ export const AdminApp: React.FC = () => {
   }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-gradient-to-br from-slate-50 via-amber-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/4 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
-        <div className="absolute bottom-[-140px] right-[-80px] h-80 w-80 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
+    <div className="relative min-h-dvh overflow-hidden bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-amber-400/20 blur-[100px] animate-float-slow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-purple-500/20 blur-[100px] animate-float-slow" style={{ animationDelay: '-2s' }} />
+        <div className="absolute top-[40%] left-[40%] w-[300px] h-[300px] rounded-full bg-blue-400/10 blur-[80px] animate-float-slow" style={{ animationDelay: '-4s' }} />
       </div>
 
-      <div className="relative mx-auto flex min-h-dvh max-w-6xl flex-col lg:flex-row">
-        <aside className="hidden lg:flex w-1/2 flex-col justify-between px-10 py-12">
-          <div>
-            <div className="flex items-center gap-3">
-              <img src="/logo_new.png" alt="Logo" className="h-12 w-12 rounded-2xl shadow-lg shadow-amber-500/30" />
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">DEAI Admin</p>
-                <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">管理控制台</h1>
-              </div>
+      <div className="relative z-10 mx-auto flex min-h-dvh max-w-7xl flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24 px-6 py-12">
+
+        {/* Left Side: Branding (Visible on Desktop) */}
+        <aside className="hidden lg:flex flex-col max-w-lg">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="relative">
+              <div className="absolute inset-0 bg-amber-500/30 blur-xl rounded-full animate-pulse-fast"></div>
+              <img src="/logo_new.png" alt="Logo" className="relative h-20 w-20 rounded-2xl shadow-2xl shadow-amber-500/30 transform hover:scale-105 transition-transform duration-300" />
             </div>
-            <p className="mt-6 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              本控制台仅限授权管理员访问。所有操作均会被审计记录以确保合规。
-            </p>
-            <div className="mt-8 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                集中化租户运营与账单监管
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                敏感操作统一审计追踪
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                安全访问控制与会话监控
+            <div>
+              <h1 className="text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                DEAI Admin
+              </h1>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider border border-amber-200 dark:border-amber-800">Control Panel</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Version 2.0</p>
               </div>
             </div>
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            提示：请使用专用管理账号，并建议开启双因素认证（MFA）。
+
+          <p className="text-lg leading-relaxed text-gray-600 dark:text-gray-300 mb-8 font-light">
+            欢迎回到管理控制台。在这里，您可以全面掌控租户运营、监控系统状态、管理用户权限以及追踪审计日志。
+          </p>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-white/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">企业级安全</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">全链路审计追踪与访问控制</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-white/50 dark:border-gray-700/50 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 text-white shadow-lg shadow-indigo-500/30">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">智能监控</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">实时系统状态与业务数据分析</p>
+              </div>
+            </div>
           </div>
         </aside>
 
-        <main className="flex w-full flex-1 items-center justify-center px-6 py-12 lg:w-1/2 lg:px-10">
-          <div className="w-full max-w-md">
-            <div className="mb-6 text-center lg:text-left">
-              <div className="flex items-center justify-center lg:justify-start gap-2 text-sm font-medium text-slate-500">
-                <img src="/logo_new.png" alt="Logo" className="h-4 w-4" />
-                管理员登录
-              </div>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">
-                {authMode === 'login' ? '登录管理后台' : '重置密码'}
-              </h2>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                {authMode === 'login'
-                  ? '请使用管理员凭证访问控制台。'
-                  : '我们将先验证您的身份，再协助您更新凭证。'}
-              </p>
-            </div>
+        {/* Right Side: Login Form */}
+        <main className="w-full max-w-md">
+          <div className="relative rounded-3xl overflow-hidden shadow-2xl animate-scale-in">
+            {/* Glassmorphism Card */}
+            <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl" />
+            <div className="absolute inset-0 border border-white/40 dark:border-white/10 rounded-3xl pointer-events-none" />
 
-            <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 shadow-xl p-6">
+            <div className="relative p-8 sm:p-10">
+              <div className="text-center mb-8 lg:text-left lg:hidden">
+                <img src="/logo_new.png" alt="Logo" className="h-12 w-12 mx-auto mb-4 rounded-xl shadow-lg" />
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">管理员登录</h2>
+              </div>
+
+              <h2 className="hidden lg:block text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                {authMode === 'login' ? '登录您的账户' : '重置密码'}
+              </h2>
+              <p className="hidden lg:block text-sm text-gray-500 dark:text-gray-400 mb-8">
+                {authMode === 'login' ? '请输入您的管理员凭证以继续。' : '验证身份后即可设置新密码。'}
+              </p>
+
               {authMode === 'login' ? (
-                <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.currentTarget.value)}
-                      placeholder="邮箱地址"
-                      required
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
-                    />
+                <form onSubmit={handleLoginSubmit} className="space-y-5">
+                  <div className="space-y-4">
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
+                      <input
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.currentTarget.value)}
+                        placeholder="邮箱地址"
+                        required
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-950/50 px-12 py-3.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.currentTarget.value)}
+                        placeholder="密码"
+                        required
+                        minLength={6}
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-950/50 px-12 py-3.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((value) => !value)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(event) => setPassword(event.currentTarget.value)}
-                      placeholder="密码"
-                      required
-                      minLength={6}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
+
                   {formError && (
-                    <p className="text-xs text-red-500">{formError}</p>
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 flex items-center gap-2 text-xs text-red-600 dark:text-red-400 animate-fade-in">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <span>{formError}</span>
+                    </div>
                   )}
                   {formSuccess && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{formSuccess}</p>
+                    <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 animate-fade-in">
+                      <ShieldCheck className="h-4 w-4 shrink-0" />
+                      <span>{formSuccess}</span>
+                    </div>
                   )}
+
                   <button
                     type="submit"
                     disabled={isSubmitting || !email.trim() || !password}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                    className="group relative w-full overflow-hidden rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg shadow-gray-900/20 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none transition-all duration-200"
                   >
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    登 录
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none" />
+                    <div className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold tracking-wide">
+                      {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>登 录</span>}
+                      {!isSubmitting && <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />}
+                    </div>
                   </button>
-                  <div className="flex justify-between text-xs text-slate-500">
+
+                  <div className="flex justify-between items-center text-xs font-medium pt-2">
+                    <a href="/" className="text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+                      ← 返回前台
+                    </a>
                     <button
                       type="button"
                       onClick={() => switchMode('reset')}
-                      className="hover:text-amber-600 transition"
+                      className="text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
                     >
                       忘记密码？
                     </button>
-                    <a href="/" className="hover:text-amber-600 transition">
-                      返回应用
-                    </a>
                   </div>
                 </form>
               ) : (
-                <form onSubmit={handleResetSubmit} className="space-y-4">
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      autoComplete="email"
-                      value={resetEmail}
-                      onChange={(event) => setResetEmail(event.currentTarget.value)}
-                      placeholder="邮箱地址"
-                      required
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <form onSubmit={handleResetSubmit} className="space-y-5">
+                  <div className="space-y-4">
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
                       <input
-                        type="text"
-                        value={resetCode}
-                        onChange={(event) => setResetCode(event.currentTarget.value)}
-                        placeholder="验证码"
+                        type="email"
+                        autoComplete="email"
+                        value={resetEmail}
+                        onChange={(event) => setResetEmail(event.currentTarget.value)}
+                        placeholder="邮箱地址"
                         required
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-950/50 px-12 py-3.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleSendResetCode}
-                      disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
-                      className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-3 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {codeSending ? '发送中...' : codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码'}
-                    </button>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1 group">
+                        <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
+                        <input
+                          type="text"
+                          value={resetCode}
+                          onChange={(event) => setResetCode(event.currentTarget.value)}
+                          placeholder="验证码"
+                          required
+                          className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-950/50 px-12 py-3.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendResetCode}
+                        disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
+                        className="shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 px-4 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 hover:border-amber-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[100px]"
+                      >
+                        {codeSending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码'}
+                      </button>
+                    </div>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 group-focus-within:text-amber-500 transition-colors" />
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={resetNewPassword}
+                        onChange={(event) => setResetNewPassword(event.currentTarget.value)}
+                        placeholder="设置新密码"
+                        required
+                        minLength={6}
+                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-950/50 px-12 py-3.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
+                      />
+                    </div>
                   </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      value={resetNewPassword}
-                      onChange={(event) => setResetNewPassword(event.currentTarget.value)}
-                      placeholder="设置新密码"
-                      required
-                      minLength={6}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-10 py-3 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 outline-none"
-                    />
-                  </div>
+
                   {formError && (
-                    <p className="text-xs text-red-500">{formError}</p>
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 flex items-center gap-2 text-xs text-red-600 dark:text-red-400 animate-fade-in">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <span>{formError}</span>
+                    </div>
                   )}
                   {formSuccess && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">{formSuccess}</p>
+                    <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 animate-fade-in">
+                      <ShieldCheck className="h-4 w-4 shrink-0" />
+                      <span>{formSuccess}</span>
+                    </div>
                   )}
+
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-3 text-sm font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                    className="group w-full rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
                   >
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    确认重置
+                    <div className="flex items-center justify-center gap-2 px-4 py-3.5 text-sm font-bold tracking-wide">
+                      {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>确认重置</span>}
+                    </div>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
-                    className="w-full text-xs text-slate-500 hover:text-amber-600 transition"
+                    className="w-full text-xs font-medium text-gray-500 hover:text-amber-600 transition-colors py-2"
                   >
                     返回登录
                   </button>
@@ -374,6 +417,11 @@ export const AdminApp: React.FC = () => {
               )}
             </div>
           </div>
+
+          <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">
+            &copy; {new Date().getFullYear()} DEAI. All rights reserved. <br />
+            Secure Admin Gateway
+          </p>
         </main>
       </div>
     </div>

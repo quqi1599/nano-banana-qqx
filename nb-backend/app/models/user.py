@@ -35,3 +35,4 @@ class User(Base):
     )
 
     tickets = relationship("Ticket", back_populates="user", cascade="all, delete-orphan")
+    feedbacks = relationship("UserFeedback", foreign_keys="UserFeedback.user_id", back_populates="user")

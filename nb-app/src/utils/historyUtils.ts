@@ -5,22 +5,13 @@
  * - 检查对话是否超过限制
  */
 
-import type { Content } from "@google/genai";
+import type { Content } from '../types';
+import { getBase64ByteSize } from './base64';
 
 // 常量定义
 const MAX_HISTORY_IMAGE_BYTES = 2 * 1024 * 1024; // 单张历史图片最大 2MB
-const MAX_TOTAL_HISTORY_IMAGE_BYTES = 100 * 1024 * 1024; // 历史图片总大小上限 100MB
-const MAX_HISTORY_MESSAGES = 10; // 历史消息条数上限
-
-/**
- * 计算 Base64 字符串的实际字节大小
- */
-const getBase64ByteSize = (base64: string): number => {
-    // Base64 编码会增加约 33% 的大小
-    // 实际字节 ≈ Base64长度 * 3/4
-    const padding = (base64.match(/=/g) || []).length;
-    return Math.floor((base64.length * 3) / 4) - padding;
-};
+const MAX_TOTAL_HISTORY_IMAGE_BYTES = 120 * 1024 * 1024; // 历史图片总大小上限 120MB
+const MAX_HISTORY_MESSAGES = 20; // 历史消息条数上限
 
 /**
  * 压缩单张图片到指定大小
@@ -125,7 +116,9 @@ export const calculateHistoryImageSize = (history: Content[]): number => {
 
     for (const content of history) {
         for (const part of content.parts) {
-            if (part.inlineData?.data) {
+            if (part.imageBytes) {
+                totalSize += part.imageBytes;
+            } else if (part.inlineData?.data) {
                 totalSize += getBase64ByteSize(part.inlineData.data);
             }
         }
@@ -145,7 +138,7 @@ export const getHistoryMessageCount = (history: Content[]): number => {
 
 /**
  * 检查对话是否需要强制开启新对话
- * 条件：消息数 >= 10 且 图片总大小 >= 100MB
+ * 条件：消息数 >= 20 且 图片总大小 >= 120MB
  * @param history 对话历史
  * @returns { needNewConversation: boolean, messageCount: number, imageSizeMB: number }
  */

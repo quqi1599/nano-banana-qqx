@@ -2,8 +2,7 @@
  * 后端代理服务 - 通过后端调用 AI API（次数计费模式）
  */
 
-import type { Content } from "@google/genai";
-import { AppSettings, Part } from '../types';
+import { AppSettings, Part, Content } from '../types';
 import { getBackendUrl } from '../utils/backendUrl';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { buildRequestOptions } from '../utils/request';

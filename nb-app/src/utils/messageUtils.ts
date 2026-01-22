@@ -1,4 +1,5 @@
 import { ChatMessage, Content, Part } from '../types';
+import { resolveMessageImageData } from './messageImageUtils';
 
 /**
  * 将聊天消息转换为 SDK 历史格式
@@ -13,8 +14,51 @@ export const convertMessagesToHistory = (messages: ChatMessage[]): Content[] => 
       parts: msg.parts.filter(p => !p.thought && !p.thoughtSignature).map(p => {
         const part: Part = {};
         if (p.text) part.text = p.text;
-        if (p.inlineData) part.inlineData = p.inlineData;
+        if (p.inlineData) {
+          part.inlineData = {
+            mimeType: p.inlineData.mimeType,
+            data: p.inlineData.data,
+          };
+          if (p.imageBytes) {
+            part.imageBytes = p.imageBytes;
+          }
+        }
         return part;
       })
     }));
+};
+
+export const convertMessagesToHistoryAsync = async (messages: ChatMessage[]): Promise<Content[]> => {
+  const history: Content[] = [];
+
+  for (const msg of messages) {
+    if (msg.isError) continue;
+
+    const parts: Part[] = [];
+    for (const p of msg.parts) {
+      if (p.thought || p.thoughtSignature) continue;
+
+      if (p.text) {
+        parts.push({ text: p.text });
+      }
+
+      if (p.inlineData) {
+        const resolved = await resolveMessageImageData(p);
+        if (resolved?.data) {
+          parts.push({
+            inlineData: {
+              mimeType: resolved.mimeType,
+              data: resolved.data,
+            },
+          });
+        }
+      }
+    }
+
+    if (parts.length > 0) {
+      history.push({ role: msg.role, parts });
+    }
+  }
+
+  return history;
 };

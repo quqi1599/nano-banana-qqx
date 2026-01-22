@@ -4,75 +4,250 @@
 
 /* 自定义 xs 断点 (375px - 介于默认和 sm 之间) */
 @media (min-width: 375px) {
+
   /* 显示类 */
-  .xs\:block { display: block; }
-  .xs\:hidden { display: none; }
-  .xs\:flex { display: flex; }
-  .xs\:inline { display: inline; }
-  .xs\:inline-flex { display: inline-flex; }
-  .xs\:grid { display: grid; }
+  .xs\:block {
+    display: block;
+  }
+
+  .xs\:hidden {
+    display: none;
+  }
+
+  .xs\:flex {
+    display: flex;
+  }
+
+  .xs\:inline {
+    display: inline;
+  }
+
+  .xs\:inline-flex {
+    display: inline-flex;
+  }
+
+  .xs\:grid {
+    display: grid;
+  }
 
   /* 文字大小 */
-  .xs\:text-xs { font-size: 0.75rem; }
-  .xs\:text-sm { font-size: 0.875rem; }
-  .xs\:text-base { font-size: 1rem; }
-  .xs\:text-lg { font-size: 1.125rem; }
-  .xs\:text-xl { font-size: 1.25rem; }
-  .xs\:text-\[10px\] { font-size: 0.625rem; }
+  .xs\:text-xs {
+    font-size: 0.75rem;
+  }
+
+  .xs\:text-sm {
+    font-size: 0.875rem;
+  }
+
+  .xs\:text-base {
+    font-size: 1rem;
+  }
+
+  .xs\:text-lg {
+    font-size: 1.125rem;
+  }
+
+  .xs\:text-xl {
+    font-size: 1.25rem;
+  }
+
+  .xs\:text-\[10px\] {
+    font-size: 0.625rem;
+  }
 
   /* 间距 */
-  .xs\:gap-1 { gap: 0.25rem; }
-  .xs\:gap-1\.5 { gap: 0.375rem; }
-  .xs\:gap-2 { gap: 0.5rem; }
-  .xs\:gap-3 { gap: 0.75rem; }
-  .xs\:p-1 { padding: 0.25rem; }
-  .xs\:p-1\.5 { padding: 0.375rem; }
-  .xs\:p-2 { padding: 0.5rem; }
-  .xs\:p-3 { padding: 0.75rem; }
-  .xs\:px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-  .xs\:px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-  .xs\:py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-  .xs\:py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
-  .xs\:py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-  .xs\:py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-  .xs\:ml-0\.5 { margin-left: 0.125rem; }
-  .xs\:ml-1 { margin-left: 0.25rem; }
-  .xs\:mr-1 { margin-right: 0.25rem; }
-  .xs\:mr-2 { margin-right: 0.5rem; }
-  .xs\:h-2 { height: 0.5rem; }
-  .xs\:h-4 { height: 1rem; }
-  .xs\:h-5 { height: 1.25rem; }
-  .xs\:w-2 { width: 0.5rem; }
-  .xs\:w-4 { width: 1rem; }
-  .xs\:w-5 { width: 1.25rem; }
+  .xs\:gap-1 {
+    gap: 0.25rem;
+  }
+
+  .xs\:gap-1\.5 {
+    gap: 0.375rem;
+  }
+
+  .xs\:gap-2 {
+    gap: 0.5rem;
+  }
+
+  .xs\:gap-3 {
+    gap: 0.75rem;
+  }
+
+  .xs\:p-1 {
+    padding: 0.25rem;
+  }
+
+  .xs\:p-1\.5 {
+    padding: 0.375rem;
+  }
+
+  .xs\:p-2 {
+    padding: 0.5rem;
+  }
+
+  .xs\:p-3 {
+    padding: 0.75rem;
+  }
+
+  .xs\:px-2 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .xs\:px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .xs\:py-1 {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .xs\:py-1\.5 {
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+  }
+
+  .xs\:py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .xs\:py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .xs\:ml-0\.5 {
+    margin-left: 0.125rem;
+  }
+
+  .xs\:ml-1 {
+    margin-left: 0.25rem;
+  }
+
+  .xs\:mr-1 {
+    margin-right: 0.25rem;
+  }
+
+  .xs\:mr-2 {
+    margin-right: 0.5rem;
+  }
+
+  .xs\:h-2 {
+    height: 0.5rem;
+  }
+
+  .xs\:h-4 {
+    height: 1rem;
+  }
+
+  .xs\:h-5 {
+    height: 1.25rem;
+  }
+
+  .xs\:w-2 {
+    width: 0.5rem;
+  }
+
+  .xs\:w-4 {
+    width: 1rem;
+  }
+
+  .xs\:w-5 {
+    width: 1.25rem;
+  }
 
   /* 圆角 */
-  .xs\:rounded-md { border-radius: 0.375rem; }
-  .xs\:rounded-lg { border-radius: 0.5rem; }
+  .xs\:rounded-md {
+    border-radius: 0.375rem;
+  }
+
+  .xs\:rounded-lg {
+    border-radius: 0.5rem;
+  }
 
   /* 图标尺寸 */
-  .xs\:h-3\.5 { height: 0.875rem; }
-  .xs\:h-4 { height: 1rem; }
-  .xs\:h-4\.5 { height: 1.125rem; }
-  .xs\:h-5 { height: 1.25rem; }
-  .xs\:h-6 { height: 1.5rem; }
-  .xs\:h-7 { height: 1.75rem; }
-  .xs\:h-8 { height: 2rem; }
-  .xs\:h-9 { height: 2.25rem; }
-  .xs\:w-3\.5 { width: 0.875rem; }
-  .xs\:w-4 { width: 1rem; }
-  .xs\:w-4\.5 { width: 1.125rem; }
-  .xs\:w-5 { width: 1.25rem; }
-  .xs\:w-6 { width: 1.5rem; }
-  .xs\:w-7 { width: 1.75rem; }
-  .xs\:w-8 { width: 2rem; }
-  .xs\:w-9 { width: 2.25rem; }
+  .xs\:h-3\.5 {
+    height: 0.875rem;
+  }
+
+  .xs\:h-4 {
+    height: 1rem;
+  }
+
+  .xs\:h-4\.5 {
+    height: 1.125rem;
+  }
+
+  .xs\:h-5 {
+    height: 1.25rem;
+  }
+
+  .xs\:h-6 {
+    height: 1.5rem;
+  }
+
+  .xs\:h-7 {
+    height: 1.75rem;
+  }
+
+  .xs\:h-8 {
+    height: 2rem;
+  }
+
+  .xs\:h-9 {
+    height: 2.25rem;
+  }
+
+  .xs\:w-3\.5 {
+    width: 0.875rem;
+  }
+
+  .xs\:w-4 {
+    width: 1rem;
+  }
+
+  .xs\:w-4\.5 {
+    width: 1.125rem;
+  }
+
+  .xs\:w-5 {
+    width: 1.25rem;
+  }
+
+  .xs\:w-6 {
+    width: 1.5rem;
+  }
+
+  .xs\:w-7 {
+    width: 1.75rem;
+  }
+
+  .xs\:w-8 {
+    width: 2rem;
+  }
+
+  .xs\:w-9 {
+    width: 2.25rem;
+  }
 
   /* 定位 */
-  .xs\:top-0\.5 { top: 0.125rem; }
-  .xs\:top-1 { top: 0.25rem; }
-  .xs\:right-0\.5 { right: 0.125rem; }
-  .xs\:right-1 { right: 0.25rem; }
+  .xs\:top-0\.5 {
+    top: 0.125rem;
+  }
+
+  .xs\:top-1 {
+    top: 0.25rem;
+  }
+
+  .xs\:right-0\.5 {
+    right: 0.125rem;
+  }
+
+  .xs\:right-1 {
+    right: 0.25rem;
+  }
 }
 
 @theme {
@@ -200,6 +375,52 @@
   }
 }
 
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes float-slow {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float-slow {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
 .fade-in-up {
   animation: var(--animate-fade-in-up);
 }
@@ -229,49 +450,100 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ===== 安全区域工具类 ===== */
-/* 用于刘海屏和底部手势条适配 */
+/* ===== 安全区域工具类 Enhanced ===== */
+/* 用于刘海屏、灵动岛和底部手势条适配 */
+/* 使用 CSS 变量定义安全区域，方便在 JS 中读取或在其他 CSS 中引用 */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--sat);
 }
 
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--sab);
 }
 
 .pl-safe {
-  padding-left: env(safe-area-inset-left, 0px);
+  padding-left: var(--sal);
 }
 
 .pr-safe {
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-right: var(--sar);
 }
 
 /* 组合安全区域 */
 .px-safe {
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
 }
 
 .py-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+}
+
+/* 带有额外间距的安全区域 padding */
+.pb-safe-offset-2 {
+  padding-bottom: calc(var(--sab) + 0.5rem);
 }
 
 .pb-safe-offset-4 {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  padding-bottom: calc(var(--sab) + 1rem);
+}
+
+.pt-safe-offset-2 {
+  padding-top: calc(var(--sat) + 0.5rem);
+}
+
+.pt-safe-offset-4 {
+  padding-top: calc(var(--sat) + 1rem);
 }
 
 .p-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  padding-left: env(safe-area-inset-left, 0px);
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
 }
 
 /* 底部栏安全高度（常用于固定底部的输入区域） */
 .min-h-safe-bottom {
-  min-height: env(safe-area-inset-bottom, 0px);
+  min-height: var(--sab);
+}
+
+/* 固定定位元素的安全距离（防止被刘海遮挡） */
+.top-safe {
+  top: var(--sat);
+}
+
+.bottom-safe {
+  bottom: var(--sab);
+}
+
+/* ===== 折叠屏与双屏优化 ===== */
+/* 
+   检测跨屏模式 (Dual Screen / Foldable)
+   虽然主要浏览器支持还不完善，但为了未来兼容性预留
+*/
+@media (horizontal-viewport-segments: 2) {
+  .dual-screen-layout {
+    display: flex;
+    flex-direction: row;
+  }
+}
+
+/* 针对折叠屏展开态（通常宽度类似平板，但比例更方） */
+@media (min-width: 540px) and (max-width: 767px) {
+
+  /* 优化网格布局，在小平板/展开折叠屏上显示更多列 */
+  .xs\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ===== 触摸交互优化 ===== */
@@ -397,6 +669,7 @@ select {
 
 /* ===== iPad / 平板设备优化 ===== */
 @media (min-width: 768px) and (max-width: 1024px) {
+
   /* iPad 特定优化 */
   body {
     /* 调整触摸目标大小 */
@@ -416,6 +689,7 @@ select {
 
 /* ===== iOS Safari 特定优化 ===== */
 @supports (-webkit-touch-callout: none) {
+
   /* iOS 设备检测 */
   body {
     /* 防止 iOS 15+ 地址栏遮挡 */
@@ -503,6 +777,7 @@ select {
 
 /* ===== 黑夜模式增强优化 ===== */
 @media (prefers-color-scheme: dark) {
+
   /* 自动适应系统深色模式 */
   :root:not(.light) {
     color-scheme: dark;
@@ -622,6 +897,7 @@ select {
 
 /* ===== 减少动画模式支持 ===== */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -633,6 +909,7 @@ select {
 
 /* ===== 横屏模式优化 ===== */
 @media (orientation: landscape) and (max-height: 600px) {
+
   /* 横屏时减少垂直间距 */
   .py-4 {
     padding-top: 0.5rem;
@@ -654,6 +931,7 @@ select {
 
 /* ===== 外部显示器检测 (Mac/PC 连接高分辨率显示器) ===== */
 @media (min-width: 3840px) {
+
   /* 4K 显示器 */
   :root {
     font-size: 20px;
@@ -757,6 +1035,7 @@ p {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -785,17 +1064,17 @@ p {
 /* ===== 移动端触摸优化 ===== */
 /* 防止双击缩放和误触 */
 .touch-manipulation {
-    touch-action: manipulation;
+  touch-action: manipulation;
 }
 
 .no-select {
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .no-tap-highlight {
-    -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* 移动端安全区域适配 */
@@ -807,6 +1086,7 @@ p {
 
 /* 优化移动端按钮触摸反馈 */
 @media (hover: none) and (pointer: coarse) {
+
   button:active,
   [role="button"] {
     opacity: 0.9;
@@ -815,12 +1095,14 @@ p {
 
 /* 优化移动端输入框字体大小 */
 @media (max-width: 640px) {
+
   input[type="text"],
   input[type="email"],
   input[type="password"],
   input[type="number"],
   textarea {
-    font-size: 16px; /* 防止iOS自动缩放 */
+    font-size: 16px;
+    /* 防止iOS自动缩放 */
   }
 }
 
@@ -834,6 +1116,7 @@ p {
 /* 确保模态框在移动端有足够的内边距 */
 @media (max-width: 640px) {
   .modal-mobile-padding {
-    padding: 16px 16px 24px 16px; /* top right bottom left */
+    padding: 16px 16px 24px 16px;
+    /* top right bottom left */
   }
 }

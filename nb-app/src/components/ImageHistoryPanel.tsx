@@ -18,6 +18,8 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const [fullResData, setFullResData] = useState<string | null>(null);
   const [loadingFullRes, setLoadingFullRes] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const getThumbnailMimeType = (image: ImageHistoryItem) =>
+    image.thumbnailMimeType || (image.mimeType === 'image/png' ? 'image/png' : 'image/jpeg');
 
   // 自动清理无效历史记录
   useEffect(() => {
@@ -32,14 +34,13 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         .then((data) => {
           if (data) {
             setFullResData(data as string);
-          } else {
-            // 如果找不到原图，尝试使用缩略图显示（虽然很模糊）
-            setFullResData(selectedImage.thumbnailData || null);
+            return;
           }
+          setFullResData(null);
         })
         .catch(err => {
           console.error("Failed to load full image", err);
-          setFullResData(selectedImage.thumbnailData || null);
+          setFullResData(null);
         })
         .finally(() => setLoadingFullRes(false));
     } else {
@@ -258,7 +259,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   onClick={() => setSelectedImage(image)}
                 >
                   <img
-                    src={`data:${image.mimeType};base64,${image.thumbnailData}`}
+                    src={`data:${getThumbnailMimeType(image)};base64,${image.thumbnailData}`}
                     alt={image.prompt}
                     className="w-full h-full object-cover"
                     loading="lazy"
@@ -345,7 +346,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 </div>
               ) : (
                 <img
-                  src={`data:${selectedImage.mimeType};base64,${fullResData || selectedImage.thumbnailData}`}
+                  src={`data:${fullResData ? selectedImage.mimeType : getThumbnailMimeType(selectedImage)};base64,${fullResData || selectedImage.thumbnailData}`}
                   alt={selectedImage.prompt}
                   className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
                 />

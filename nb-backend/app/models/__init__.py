@@ -17,6 +17,9 @@ from app.models.conversation import Conversation, ConversationMessage
 from app.models.conversation_cleanup import ConversationCleanup
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.notification_email import NotificationEmail
+from app.models.user_feedback import UserFeedback
+from app.models.queue_metrics import QueueMetrics
+from app.models.queue_alert import QueueAlert
 
 __all__ = [
     "User",
@@ -37,4 +40,7 @@ __all__ = [
     "ConversationCleanup",
     "AdminAuditLog",
     "NotificationEmail",
+    "UserFeedback",
+    "QueueMetrics",
+    "QueueAlert",
 ]

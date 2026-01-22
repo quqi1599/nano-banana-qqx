@@ -15,6 +15,8 @@ import {
 } from '../services/conversationService';
 import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
+import { offloadMessageParts, resolveMessageImageData } from '../utils/messageImageUtils';
+import { deleteMessageImage } from '../utils/messageImageStore';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
 import { useUiStore } from './useUiStore';
 import { getCsrfToken } from '../utils/csrf';
@@ -124,6 +126,7 @@ interface AppState {
   addEndpointToHistory: (endpoint: string) => void; // 添加 API 地址到历史记录
   addMessage: (message: ChatMessage) => void;
   updateLastMessage: (parts: Part[], isError?: boolean, thinkingDuration?: number) => void;
+  offloadMessageImages: (id: string) => Promise<void>;
   addImageToHistory: (image: ImageHistoryItem) => Promise<void>;
   deleteImageFromHistory: (id: string) => Promise<void>;
   clearImageHistory: () => Promise<void>;
@@ -361,12 +364,65 @@ export const useAppStore = create<AppState>()(
           return { messages, localConversations };
         }),
 
+      offloadMessageImages: async (id) => {
+        const state = get();
+        const target = state.messages.find((msg) => msg.id === id);
+        if (!target) return;
+
+        const { parts, changed } = await offloadMessageParts(target.id, target.parts);
+        if (!changed) return;
+
+        set((state) => {
+          const index = state.messages.findIndex((msg) => msg.id === id);
+          if (index === -1) return {};
+
+          const messages = [...state.messages];
+          messages[index] = { ...messages[index], parts };
+
+          if (!shouldPersistLocalHistory()) {
+            return { messages };
+          }
+
+          const localConversationId = state.localConversationId;
+          if (!localConversationId) {
+            return { messages };
+          }
+
+          const conversationIndex = state.localConversations.findIndex(
+            (conv) => conv.id === localConversationId
+          );
+          if (conversationIndex === -1) {
+            return { messages };
+          }
+
+          const localConversations = [...state.localConversations];
+          const conversation = localConversations[conversationIndex];
+          const updatedLocalMessages = conversation.messages.map((msg) =>
+            msg.id === id ? { ...msg, parts } : msg
+          );
+          const updatedConversation: LocalConversation = {
+            ...conversation,
+            messages: updatedLocalMessages,
+            message_count: updatedLocalMessages.length,
+            updated_at: new Date().toISOString(),
+          };
+
+          localConversations.splice(conversationIndex, 1);
+          localConversations.unshift(updatedConversation);
+
+          return { messages, localConversations };
+        });
+      },
+
       addImageToHistory: async (image) => {
         // 分离存储：生成缩略图存入 State，原图存入 IDB
         let thumbnail = image.thumbnailData;
+        let thumbnailMimeType = image.thumbnailMimeType;
         if (!thumbnail && image.base64Data) {
           try {
-            thumbnail = await createThumbnail(image.base64Data, image.mimeType);
+            const generated = await createThumbnail(image.base64Data, image.mimeType);
+            thumbnail = generated.data;
+            thumbnailMimeType = generated.mimeType;
           } catch (e) {
             console.error('Failed to create thumbnail', e);
           }
@@ -384,6 +440,7 @@ export const useAppStore = create<AppState>()(
         const newImageItem: ImageHistoryItem = {
           ...image,
           thumbnailData: thumbnail,
+          thumbnailMimeType,
           base64Data: undefined // 不在 State 中存储原图
         };
 
@@ -437,16 +494,29 @@ export const useAppStore = create<AppState>()(
         const newHistoryPromises = imageHistory.map(async (img) => {
           // Case 1: 已经是新格式 (有缩略图)
           if (img.thumbnailData) {
+            let updatedImage: ImageHistoryItem = img;
+            let updated = false;
+
+            if (!img.thumbnailMimeType) {
+              const fallbackMimeType = img.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+              updatedImage = { ...updatedImage, thumbnailMimeType: fallbackMimeType };
+              updated = true;
+            }
+
             // 如果还有 base64Data，顺手清理并确保 IDB 有数据
             if (img.base64Data) {
               try {
                 await setVal(`image_data_${img.id}`, img.base64Data);
               } catch (e) { console.error(e); }
 
-              hasChanges = true;
-              return { ...img, base64Data: undefined };
+              updatedImage = { ...updatedImage, base64Data: undefined };
+              updated = true;
             }
-            return img;
+
+            if (updated) {
+              hasChanges = true;
+            }
+            return updatedImage;
           }
 
           // Case 2: 旧格式 (无缩略图，有 base64Data) -> 迁移
@@ -461,8 +531,9 @@ export const useAppStore = create<AppState>()(
               // 3. 返回新结构
               return {
                 ...img,
-                thumbnailData: thumbnail,
-                base64Data: undefined
+                thumbnailData: thumbnail.data,
+                thumbnailMimeType: thumbnail.mimeType,
+                base64Data: undefined,
               } as ImageHistoryItem;
             } catch (e) {
               console.warn(`图片缩略图生成失败，保留原图: ${img.id}`, e);
@@ -524,6 +595,15 @@ export const useAppStore = create<AppState>()(
           const index = state.messages.findIndex((m) => m.id === id);
           if (index === -1) return {};
 
+          const target = state.messages[index];
+          if (target) {
+            target.parts.forEach((part) => {
+              if (part.imageId) {
+                deleteMessageImage(part.imageId).catch(console.error);
+              }
+            });
+          }
+
           const newMessages = [...state.messages];
           newMessages.splice(index, 1);
 
@@ -561,6 +641,15 @@ export const useAppStore = create<AppState>()(
 
       sliceMessages: (index) =>
         set((state) => {
+          const removedMessages = state.messages.slice(index + 1);
+          removedMessages.forEach((msg) => {
+            msg.parts.forEach((part) => {
+              if (part.imageId) {
+                deleteMessageImage(part.imageId).catch(console.error);
+              }
+            });
+          });
+
           const slicedMessages = state.messages.slice(0, index + 1);
           if (!shouldPersistLocalHistory()) {
             return { messages: slicedMessages };
@@ -681,13 +770,16 @@ export const useAppStore = create<AppState>()(
             const normalizedRole =
               msg.role === 'assistant' || msg.role === 'system' ? 'model' : msg.role;
 
-            messages.push({
+            const message: ChatMessage = {
               id: msg.id,
               role: normalizedRole as 'user' | 'model',
               parts,
               timestamp: new Date(msg.created_at).getTime(),
               ...(msg.thinking_duration != null && { thinkingDuration: msg.thinking_duration }),
-            });
+            };
+
+            const { parts: storedParts } = await offloadMessageParts(message.id, message.parts);
+            messages.push({ ...message, parts: storedParts });
           }
 
           set({
@@ -740,6 +832,12 @@ export const useAppStore = create<AppState>()(
           messagesTotal: conversation.messages.length,
           messagesPage: 1,
         });
+
+        conversation.messages.forEach((msg) => {
+          if (msg.parts.some((part) => part.inlineData?.data)) {
+            get().offloadMessageImages(msg.id).catch(console.error);
+          }
+        });
       },
 
       loadConversationList: async (page, pageSize) => {
@@ -775,6 +873,17 @@ export const useAppStore = create<AppState>()(
 
       deleteLocalConversation: (id) => {
         set((state) => {
+          const target = state.localConversations.find((conv) => conv.id === id);
+          if (target) {
+            target.messages.forEach((msg) => {
+              msg.parts.forEach((part) => {
+                if (part.imageId) {
+                  deleteMessageImage(part.imageId).catch(console.error);
+                }
+              });
+            });
+          }
+
           const localConversations = state.localConversations.filter((conv) => conv.id !== id);
           const shouldReset = state.localConversationId === id;
           return {
@@ -861,14 +970,15 @@ export const useAppStore = create<AppState>()(
               let content = contentParts.join('\n');
 
               const images: MessageImage[] = [];
-              item.message.parts.forEach((p) => {
-                if (p.inlineData?.data && p.inlineData.mimeType) {
-                  images.push({
-                    base64: p.inlineData.data,
-                    mimeType: p.inlineData.mimeType,
-                  });
-                }
-              });
+              for (const part of item.message.parts) {
+                if (!part.inlineData?.mimeType) continue;
+                const resolved = await resolveMessageImageData(part);
+                if (!resolved?.data) continue;
+                images.push({
+                  base64: resolved.data,
+                  mimeType: resolved.mimeType,
+                });
+              }
 
               const hasThought = item.message.parts.some((p) => p.thought);
               const hasNonThoughtContent = item.message.parts.some(
@@ -939,10 +1049,13 @@ export const useAppStore = create<AppState>()(
         // 避免重复添加同一条消息
         if (state.pendingSyncQueue.some((item) => item.message.id === message.id)) return;
 
+        const { parts } = await offloadMessageParts(message.id, message.parts);
+        const messageForQueue: ChatMessage = { ...message, parts };
+
         set({
           pendingSyncQueue: [
             ...state.pendingSyncQueue,
-            { message, attempts: 0, nextRetryAt: Date.now() },
+            { message: messageForQueue, attempts: 0, nextRetryAt: Date.now() },
           ],
         });
 

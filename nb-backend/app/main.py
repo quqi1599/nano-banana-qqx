@@ -18,7 +18,7 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from app.config import get_settings
 from app.database import init_db
-from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations, queue, email_config
+from app.routers import auth, user, credit, redeem, proxy, admin, stats, ticket, captcha, conversations, queue, email_config, feedback
 from app.utils.request_context import request_id_ctx_var, RequestIdFilter, JsonFormatter
 from app.utils.metrics import REQUEST_COUNT, REQUEST_LATENCY, IN_PROGRESS, get_route_name
 from app.utils.security import verify_metrics_basic_auth
@@ -244,6 +244,7 @@ app.include_router(admin.router, prefix=f"{API_V1_PREFIX}/admin", tags=["V1-管�
 app.include_router(queue.router, prefix=f"{API_V1_PREFIX}/admin/queue", tags=["V1-队列监控"])
 app.include_router(stats.router, prefix=f"{API_V1_PREFIX}/stats", tags=["V1-统计"])
 app.include_router(ticket.router, prefix=f"{API_V1_PREFIX}/tickets", tags=["V1-工单"])
+app.include_router(feedback.router, prefix=f"{API_V1_PREFIX}/feedbacks", tags=["V1-用户反馈"])
 app.include_router(captcha.router, prefix=f"{API_V1_PREFIX}/captcha", tags=["V1-验证码"])
 app.include_router(conversations.router, prefix=API_V1_PREFIX, tags=["V1-对话历史"])
 app.include_router(email_config.router, prefix=API_V1_PREFIX, tags=["V1-邮件配置"])

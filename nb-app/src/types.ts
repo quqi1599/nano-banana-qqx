@@ -15,7 +15,11 @@ export interface Part {
   inlineData?: {
     mimeType: string;
     data: string;
+    isThumbnail?: boolean;
+    thumbnailMimeType?: string;
   };
+  imageId?: string;
+  imageBytes?: number;
   thought?: boolean;
   thoughtSignature?: string;
   prompt?: string; // 用于数据集下载时的图片标注
@@ -37,9 +41,10 @@ export interface ChatMessage {
 
 export interface Attachment {
   file: File;
-  preview: string; // Base64 for UI preview
-  base64Data: string; // Raw base64 for API
+  preview: string; // Preview URL (object URL or data URL)
+  base64Data?: string; // Raw base64 for API
   mimeType: string;
+  previewIsObjectUrl?: boolean;
 }
 
 export interface ImageHistoryItem {
@@ -47,6 +52,7 @@ export interface ImageHistoryItem {
   mimeType: string;
   base64Data?: string; // Raw base64 for API (Optional if stored separately)
   thumbnailData?: string; // Base64 thumbnail
+  thumbnailMimeType?: string; // Thumbnail MIME type
   prompt: string; // 生成图片的提示词
   timestamp: number;
   modelName?: string;

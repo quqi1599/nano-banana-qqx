@@ -1,5 +1,4 @@
-import type { Content } from "@google/genai";
-import { AppSettings, Part } from '../types';
+import { AppSettings, Part, Content } from '../types';
 import { resolveApiBaseUrl } from '../utils/endpointUtils';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';

@@ -4,7 +4,6 @@ import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
 import { useUiStore } from '../store/useUiStore';
 import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
-import { fileToBase64 } from '../utils/imageUtils';
 
 interface Props {
   isOpen: boolean;
@@ -53,6 +52,23 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const attachmentsRef = useRef<Attachment[]>([]);
+
+  const revokeAttachmentPreview = useCallback((attachment: Attachment) => {
+    if (attachment.previewIsObjectUrl) {
+      URL.revokeObjectURL(attachment.preview);
+    }
+  }, []);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach(revokeAttachmentPreview);
+    };
+  }, [revokeAttachmentPreview]);
 
   // 加载模板
   useEffect(() => {
@@ -132,8 +148,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
 
           // 使用验证返回的文件（可能是压缩后的）
           const processedFile = validation.file || file;
-          const base64 = await fileToBase64(processedFile);
-          const base64Data = base64.split(',')[1];
+          const previewUrl = URL.createObjectURL(processedFile);
 
           // 如果压缩了，显示提示
           if (validation.compressed) {
@@ -144,8 +159,8 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
 
           newAttachments.push({
             file: processedFile,
-            preview: base64,
-            base64Data,
+            preview: previewUrl,
+            previewIsObjectUrl: true,
             mimeType: processedFile.type
           });
           totalBytes += processedFile.size;
@@ -156,11 +171,24 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
       }
     }
 
-    setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, [attachments, addToast, showDialog]);
+    setAttachments(prev => {
+      const next = [...prev, ...newAttachments];
+      const limited = next.slice(0, 14);
+      if (next.length > 14) {
+        next.slice(14).forEach(revokeAttachmentPreview);
+      }
+      return limited;
+    });
+  }, [attachments, addToast, showDialog, revokeAttachmentPreview]);
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    setAttachments(prev => {
+      const target = prev[index];
+      if (target) {
+        revokeAttachmentPreview(target);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleApplyTemplate = (template: PipelineTemplate) => {
@@ -194,6 +222,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
       prompt: '',
       status: 'pending'
     }]);
+    attachments.forEach(revokeAttachmentPreview);
     setAttachments([]);
   };
 

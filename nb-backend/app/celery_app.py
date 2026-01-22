@@ -31,6 +31,7 @@ celery_app = Celery(
         "app.tasks.api_tasks",
         "app.tasks.stats_tasks",
         "app.tasks.monitor",
+        "app.tasks.queue_monitor_tasks",
     ]
 )
 
@@ -81,6 +82,26 @@ celery_app.conf.update(
         "auto-close-stale-tickets": {
             "task": "app.tasks.cleanup_tasks.auto_close_stale_tickets_task",
             "schedule": crontab(hour="*/6", minute=0),
+        },
+        # 每5分钟收集队列指标
+        "collect-queue-metrics": {
+            "task": "app.tasks.queue_monitor_tasks.collect_queue_metrics_task",
+            "schedule": crontab(minute="*/5"),
+        },
+        # 每5分钟检查队列告警
+        "check-queue-alerts": {
+            "task": "app.tasks.queue_monitor_tasks.check_queue_alerts_task",
+            "schedule": crontab(minute="*/5"),
+        },
+        # 每天凌晨3点清理旧的队列指标（保留30天）
+        "cleanup-old-metrics": {
+            "task": "app.tasks.queue_monitor_tasks.cleanup_old_metrics_task",
+            "schedule": crontab(hour=3, minute=0),
+        },
+        # 每天凌晨4点清理旧的已解决告警（保留90天）
+        "cleanup-old-alerts": {
+            "task": "app.tasks.queue_monitor_tasks.cleanup_old_alerts_task",
+            "schedule": crontab(hour=4, minute=0),
         },
     },
 )

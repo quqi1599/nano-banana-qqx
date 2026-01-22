@@ -5,7 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { Attachment } from '../types';
 import { PromptQuickPicker } from './PromptQuickPicker';
 import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
-import { fileToBase64, base64ToBlob } from '../utils/imageUtils';
+import { base64ToBlob } from '../utils/imageUtils';
 
 interface Props {
   onSend: (text: string, attachments: Attachment[]) => void;
@@ -47,6 +47,23 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
+  const attachmentsRef = useRef<Attachment[]>([]);
+
+  const revokeAttachmentPreview = useCallback((attachment: Attachment) => {
+    if (attachment.previewIsObjectUrl) {
+      URL.revokeObjectURL(attachment.preview);
+    }
+  }, []);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach(revokeAttachmentPreview);
+    };
+  }, [revokeAttachmentPreview]);
 
   // Auto-resize textarea
   const autoResizeTextarea = useCallback(() => {
@@ -73,17 +90,25 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
       const blob = base64ToBlob(base64Data, mimeType);
       const file = new File([blob], fileName, { type: mimeType });
 
+      const previewUrl = URL.createObjectURL(file);
       const newAttachment: Attachment = {
         file,
-        preview: `data:${mimeType};base64,${base64Data}`,
-        base64Data,
+        preview: previewUrl,
+        previewIsObjectUrl: true,
         mimeType
       };
 
-      setAttachments(prev => [...prev, newAttachment].slice(0, 14));
+      setAttachments(prev => {
+        const next = [...prev, newAttachment];
+        const limited = next.slice(0, 14);
+        if (next.length > 14) {
+          next.slice(14).forEach(revokeAttachmentPreview);
+        }
+        return limited;
+      });
       setPendingReferenceImage(null); // 清除待添加图片
     }
-  }, [pendingReferenceImage, attachments.length, setPendingReferenceImage]);
+  }, [pendingReferenceImage, attachments.length, setPendingReferenceImage, revokeAttachmentPreview]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Use more reliable mobile detection:
@@ -121,7 +146,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         try {
           const validation = await validateAndCompressImage(file, totalBytes);
           if (!validation.ok) {
-            const errorMsg = getImageValidationMessage(validation.error);
+            // TypeScript sometimes needs explicit checking or casting if narrowing fails unexpectedly
+            const error = 'error' in validation ? validation.error : undefined;
+            const errorMsg = getImageValidationMessage(error);
             // 只有无法压缩的错误才弹窗
             showDialog({
               type: 'alert',
@@ -133,8 +160,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
           // 使用验证返回的文件（可能是压缩后的）
           const processedFile = validation.file || file;
-          const base64 = await fileToBase64(processedFile);
-          const base64Data = base64.split(',')[1];
+          const previewUrl = URL.createObjectURL(processedFile);
 
           // 如果压缩了，显示提示
           if (validation.compressed) {
@@ -145,8 +171,8 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
           newAttachments.push({
             file: processedFile,
-            preview: base64,
-            base64Data,
+            preview: previewUrl,
+            previewIsObjectUrl: true,
             mimeType: processedFile.type
           });
           totalBytes += processedFile.size;
@@ -157,8 +183,15 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
       }
     }
 
-    setAttachments(prev => [...prev, ...newAttachments].slice(0, 14));
-  }, [attachments, addToast, showDialog]);
+    setAttachments(prev => {
+      const next = [...prev, ...newAttachments];
+      const limited = next.slice(0, 14);
+      if (next.length > 14) {
+        next.slice(14).forEach(revokeAttachmentPreview);
+      }
+      return limited;
+    });
+  }, [attachments, addToast, showDialog, revokeAttachmentPreview]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
@@ -223,7 +256,13 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   };
 
   const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    setAttachments(prev => {
+      const target = prev[index];
+      if (target) {
+        revokeAttachmentPreview(target);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleSubmit = () => {
@@ -231,6 +270,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
     onSend(inputText, attachments);
     setInputText('');
+    attachments.forEach(revokeAttachmentPreview);
     setAttachments([]);
   };
 
@@ -424,27 +464,29 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             disabled={disabled}
+            // @ts-ignore
+            enterKeyHint="send"
             placeholder="描述一张图片来生成 或上传参考图来修改 或使用/t中模板"
-            className="mb-0.5 xs:mb-1 max-h-[200px] min-h-9 xs:min-h-10 w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2 xs:py-2.5 text-sm xs:text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
+            className="mb-0.5 xs:mb-1 max-h-[200px] min-h-[44px] w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2.5 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
             rows={1}
-            style={{ height: '36px' }}
+            style={{ height: '44px' }}
           />
 
           {disabled ? (
             <button
               onClick={onStop}
-              className="mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-9 w-9 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl bg-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-600 transition touch-feedback"
+              className="mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl bg-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-600 transition touch-feedback"
               title="停止生成"
             >
-              <Square className="h-3.5 w-3.5 xs:h-4 xs:w-4 fill-current" />
+              <Square className="h-4 w-4 fill-current" />
             </button>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={!inputText.trim() && attachments.length === 0}
-              className="mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-9 w-9 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl bg-cream-500 text-white shadow-lg shadow-cream-500/20 hover:bg-cream-600 disabled:opacity-50 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:shadow-none transition touch-feedback active:scale-95"
+              className="mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl bg-cream-500 text-white shadow-lg shadow-cream-500/20 hover:bg-cream-600 disabled:opacity-50 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:shadow-none transition touch-feedback active:scale-95"
             >
-              <Send className="h-4 w-4 xs:h-5 xs:w-5" />
+              <Send className="h-5 w-5" />
             </button>
           )}
         </div>

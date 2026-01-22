@@ -216,9 +216,13 @@ export const base64ToBlob = (base64Data: string, mimeType: string): Blob => {
  * @param base64Data 原图 Base64
  * @param mimeType MIME 类型
  * @param maxWidth 最大宽度，默认 200px
- * @returns Promise<string> 缩略图 Base64
+ * @returns Promise<{ data: string; mimeType: string }> 缩略图 Base64 + 实际 MIME 类型
  */
-export const createThumbnail = (base64Data: string, mimeType: string, maxWidth: number = 200): Promise<string> => {
+export const createThumbnail = (
+  base64Data: string,
+  mimeType: string,
+  maxWidth: number = 200
+): Promise<{ data: string; mimeType: string }> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -244,7 +248,11 @@ export const createThumbnail = (base64Data: string, mimeType: string, maxWidth: 
       // 使用较低质量导出 JPEG 缩略图，或者保持原格式
       // 这里统一用 JPEG 以减小体积，除非是 PNG 透明图
       const exportType = mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
-      resolve(canvas.toDataURL(exportType, 0.7).split(',')[1]); // 返回不带前缀的 base64
+      const dataUrl = canvas.toDataURL(exportType, 0.7);
+      const [header, data] = dataUrl.split(',', 2);
+      const match = header.match(/^data:([^;]+);base64$/);
+      const actualMimeType = match ? match[1] : exportType;
+      resolve({ data: data || '', mimeType: actualMimeType });
     };
     img.onerror = reject;
     img.src = `data:${mimeType};base64,${base64Data}`;

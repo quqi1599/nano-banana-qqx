@@ -1,8 +1,9 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { ChatMessage, Part } from '../types';
 import { User, Sparkles, ChevronDown, ChevronRight, BrainCircuit, Trash2, RotateCcw, Download, Edit, PackageOpen, MessageCircle } from 'lucide-react';
 import { useUiStore } from '../store/useUiStore';
 import { downloadImage, openImageInNewTab, downloadDatasetZip } from '../utils/imageUtils';
+import { resolveMessageImageData } from '../utils/messageImageUtils';
 import { WeChatQRModal } from './WeChatQRModal';
 const MarkdownRenderer = React.lazy(() => import('./MarkdownRenderer'));
 
@@ -15,6 +16,67 @@ const LazyMarkdown: React.FC<{ children: string }> = ({ children }) => {
   );
 };
 
+const getThumbnailMimeType = (part: Part) => {
+  if (!part.inlineData) return 'image/jpeg';
+  if (!part.inlineData.isThumbnail) return part.inlineData.mimeType;
+  if (part.inlineData.thumbnailMimeType) return part.inlineData.thumbnailMimeType;
+  return part.inlineData.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+};
+
+const getPreviewMimeType = (part: Part, fullData: string | null) => {
+  if (fullData) {
+    return part.inlineData?.mimeType || 'image/jpeg';
+  }
+  return getThumbnailMimeType(part);
+};
+
+const useLazyFullImage = (part: Part) => {
+  const [fullData, setFullData] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!part.imageId || !part.inlineData?.isThumbnail) return;
+    const node = containerRef.current;
+    if (!node) return;
+    let canceled = false;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      resolveMessageImageData(part).then((resolved) => {
+        if (!canceled && resolved?.data) {
+          setFullData(resolved.data);
+        }
+      });
+      return () => {
+        canceled = true;
+      };
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+          resolveMessageImageData(part).then((resolved) => {
+            if (!canceled && resolved?.data) {
+              setFullData(resolved.data);
+            }
+          });
+        } else {
+          setFullData(null);
+        }
+      },
+      { root: null, rootMargin: '200px', threshold: 0.1 }
+    );
+
+    observer.observe(node);
+    return () => {
+      canceled = true;
+      observer.disconnect();
+    };
+  }, [part.imageId, part.inlineData?.isThumbnail, part.inlineData?.mimeType, part.inlineData?.data]);
+
+  return { fullData, containerRef };
+};
+
 interface Props {
   message: ChatMessage;
   isLast: boolean;
@@ -25,7 +87,8 @@ interface Props {
 
 const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
   const [isImageHovered, setIsImageHovered] = useState(false);
-  const { setPendingReferenceImage } = useUiStore();
+  const { setPendingReferenceImage, addToast } = useUiStore();
+  const { fullData, containerRef } = useLazyFullImage(part);
 
   if (part.text) {
     return (
@@ -38,27 +101,58 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
   }
 
   if (part.inlineData) {
-    const handleReEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const handleReEdit = async (e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
+      const resolved = fullData
+        ? { mimeType: part.inlineData!.mimeType, data: fullData }
+        : await resolveMessageImageData(part);
+      if (!resolved?.data) {
+        addToast('图片加载失败，请重试', 'error');
+        return;
+      }
       setPendingReferenceImage({
-        base64Data: part.inlineData!.data,
-        mimeType: part.inlineData!.mimeType,
+        base64Data: resolved.data,
+        mimeType: resolved.mimeType,
         timestamp: Date.now()
       });
     };
 
+    const handleOpen = async () => {
+      const resolved = fullData
+        ? { mimeType: part.inlineData!.mimeType, data: fullData }
+        : await resolveMessageImageData(part);
+      if (!resolved?.data) {
+        addToast('图片加载失败，请重试', 'error');
+        return;
+      }
+      openImageInNewTab(resolved.mimeType, resolved.data);
+    };
+
+    const handleDownload = async (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      const resolved = fullData
+        ? { mimeType: part.inlineData!.mimeType, data: fullData }
+        : await resolveMessageImageData(part);
+      if (!resolved?.data) {
+        addToast('图片加载失败，请重试', 'error');
+        return;
+      }
+      downloadImage(resolved.mimeType, resolved.data);
+    };
+
     return (
       <div
+        ref={containerRef}
         className="relative my-2 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700/50 bg-gray-100 dark:bg-black/20 max-w-sm mx-auto group"
         onMouseEnter={() => setIsImageHovered(true)}
         onMouseLeave={() => setIsImageHovered(false)}
       >
         <img
-          src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
+          src={`data:${getPreviewMimeType(part, fullData)};base64,${fullData || part.inlineData.data}`}
           alt="Thinking process sketch"
           className="h-auto max-w-full object-contain opacity-80 hover:opacity-100 transition cursor-pointer"
           loading="lazy"
-          onClick={() => openImageInNewTab(part.inlineData!.mimeType, part.inlineData!.data)}
+          onClick={handleOpen}
           title="点击查看大图"
         />
 
@@ -72,10 +166,7 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
             <Edit className="h-4 w-4" />
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
-            }}
+            onClick={handleDownload}
             className="p-2.5 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all touch-feedback active:scale-90"
             title="下载图片"
           >
@@ -91,32 +182,64 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
 
 const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, index }) => {
   const [isImageHovered, setIsImageHovered] = useState(false);
-  const { setPendingReferenceImage } = useUiStore();
+  const { setPendingReferenceImage, addToast } = useUiStore();
+  const { fullData, containerRef } = useLazyFullImage(part);
 
   if (!part.inlineData) return null;
 
-  const handleReEdit = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleReEdit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    const resolved = fullData
+      ? { mimeType: part.inlineData!.mimeType, data: fullData }
+      : await resolveMessageImageData(part);
+    if (!resolved?.data) {
+      addToast('图片加载失败，请重试', 'error');
+      return;
+    }
     setPendingReferenceImage({
-      base64Data: part.inlineData!.data,
-      mimeType: part.inlineData!.mimeType,
+      base64Data: resolved.data,
+      mimeType: resolved.mimeType,
       timestamp: Date.now()
     });
+  };
+
+  const handleOpen = async () => {
+    const resolved = fullData
+      ? { mimeType: part.inlineData!.mimeType, data: fullData }
+      : await resolveMessageImageData(part);
+    if (!resolved?.data) {
+      addToast('图片加载失败，请重试', 'error');
+      return;
+    }
+    openImageInNewTab(resolved.mimeType, resolved.data);
+  };
+
+  const handleDownload = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const resolved = fullData
+      ? { mimeType: part.inlineData!.mimeType, data: fullData }
+      : await resolveMessageImageData(part);
+    if (!resolved?.data) {
+      addToast('图片加载失败，请重试', 'error');
+      return;
+    }
+    downloadImage(resolved.mimeType, resolved.data);
   };
 
   return (
     <div
       key={index}
+      ref={containerRef}
       className="relative mt-3 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700/50 bg-white dark:bg-gray-950/50 max-w-lg mx-auto group"
       onMouseEnter={() => setIsImageHovered(true)}
       onMouseLeave={() => setIsImageHovered(false)}
     >
       <img
-        src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
+        src={`data:${getPreviewMimeType(part, fullData)};base64,${fullData || part.inlineData.data}`}
         alt="Generated or uploaded content"
         className="h-auto max-w-full object-contain cursor-pointer"
         loading="lazy"
-        onClick={() => openImageInNewTab(part.inlineData!.mimeType, part.inlineData!.data)}
+        onClick={handleOpen}
         title="点击查看大图"
       />
 
@@ -130,10 +253,7 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
           <Edit className="h-5 w-5" />
         </button>
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            downloadImage(part.inlineData!.mimeType, part.inlineData!.data);
-          }}
+          onClick={handleDownload}
           className="p-2.5 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg backdrop-blur-sm transition-all"
           title="下载图片"
         >
@@ -199,13 +319,25 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
   const handleDownloadDataset = async () => {
     try {
-      const datasetParts = imageParts.map(p => ({
-        mimeType: p.inlineData!.mimeType,
-        data: p.inlineData!.data,
-        prompt: p.prompt
-      }));
+      const datasetParts = await Promise.all(
+        imageParts.map(async (p) => {
+          const resolved = await resolveMessageImageData(p);
+          if (!resolved?.data) return null;
+          return {
+            mimeType: resolved.mimeType,
+            data: resolved.data,
+            prompt: p.prompt
+          };
+        })
+      );
 
-      await downloadDatasetZip(datasetParts);
+      const validParts = datasetParts.filter((p): p is { mimeType: string; data: string; prompt?: string } => !!p);
+      if (validParts.length === 0) {
+        addToast('没有可下载的图片', 'error');
+        return;
+      }
+
+      await downloadDatasetZip(validParts);
       addToast('数据集下载成功！', 'success');
     } catch (error) {
       console.error('下载数据集失败:', error);
