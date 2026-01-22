@@ -31,6 +31,9 @@ from app.models.email_whitelist import EmailWhitelist
 from app.models.conversation import Conversation, ConversationMessage
 from app.models.conversation_cleanup import ConversationCleanup
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.user_feedback import UserFeedback
+from app.models.queue_metrics import QueueMetrics
+from app.models.queue_alert import QueueAlert
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
