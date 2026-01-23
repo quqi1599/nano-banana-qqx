@@ -133,7 +133,7 @@ export const EmailSettings: React.FC = () => {
     if (!editingConfig) return;
     setSubmitting(true);
     try {
-      const updateData: any = { ...formData };
+      const updateData: Partial<SmtpConfigCreate> = { ...formData };
       // 只填充有值的字段
       Object.keys(updateData).forEach(key => {
         if (updateData[key] === '' || updateData[key] === null) {

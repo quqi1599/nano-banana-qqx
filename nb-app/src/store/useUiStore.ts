@@ -13,6 +13,8 @@ interface BaseDialogOptions {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  progress?: number;
+  progressLabel?: string;
 }
 
 export type DialogOptions =

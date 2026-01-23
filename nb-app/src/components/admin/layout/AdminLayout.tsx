@@ -42,7 +42,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab
                 collapsed={sidebarCollapsed}
             />
 
-            <div className={`relative z-10 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
+            <div className={`relative z-10 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-72'}`}>
                 <AdminHeader
                     title={getTitle()}
                     onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}

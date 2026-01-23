@@ -30,7 +30,7 @@ const SYNC_BASE_DELAY_MS = 1000;
 const getOrGenerateVisitorId = () => {
   let id = localStorage.getItem(VISITOR_ID_STORAGE);
   if (!id) {
-    id = crypto.randomUUID();
+    id = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     localStorage.setItem(VISITOR_ID_STORAGE, id);
   }
   return id;

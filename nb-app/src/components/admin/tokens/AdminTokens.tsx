@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, RefreshCw, Key } from 'lucide-react';
 import { getTokens, addToken, refreshAllTokensQuota, type TokenInfo } from '../../../services/adminService';
 import { getBackendUrl } from '../../../utils/backendUrl';
@@ -10,19 +10,30 @@ import { TokenTable } from './TokenTable';
 import { TokenMobileCard } from './TokenMobileCard';
 import { TokenDrawer } from './TokenDrawer';
 import { ADMIN_CONFIG } from '../../../constants/admin';
+import { useUiStore } from '../../../store/useUiStore';
 
 export const AdminTokens = () => {
     const apiBaseUrl = getBackendUrl();
     const [tokens, setTokens] = useState<TokenInfo[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Token secrets state
-    const [tokenSecrets, setTokenSecrets] = useState<Record<string, string>>({});
-    const [revealedTokenIds, setRevealedTokenIds] = useState<Record<string, boolean>>({});
     const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
 
     // Base URL drafts
-    const [tokenBaseUrlDrafts, setTokenBaseUrlDrafts] = useState<Record<string, string>>({});
+    const [tokenBaseUrlEdits, setTokenBaseUrlEdits] = useState<Record<string, string>>({});
+
+    const tokenBaseUrlDefaults = useMemo(() => {
+        const nextDrafts: Record<string, string> = {};
+        tokens.forEach((token) => {
+            nextDrafts[token.id] = token.base_url || '';
+        });
+        return nextDrafts;
+    }, [tokens]);
+
+    const tokenBaseUrlDrafts = useMemo(() => ({
+        ...tokenBaseUrlDefaults,
+        ...tokenBaseUrlEdits,
+    }), [tokenBaseUrlDefaults, tokenBaseUrlEdits]);
 
     // Sorting
     const { sortedTokens, sortConfig, handleSort } = useTokenSorting(tokens);
@@ -39,6 +50,8 @@ export const AdminTokens = () => {
         savingTokenUrl,
     } = useTokenActions();
 
+    const { showDialog } = useUiStore();
+
     // Token drawer state
     const [isTokenDrawerOpen, setIsTokenDrawerOpen] = useState(false);
     const [addingToken, setAddingToken] = useState(false);
@@ -46,15 +59,6 @@ export const AdminTokens = () => {
     // ===== 一键刷新所有 Token 额度 =====
     const [refreshingAll, setRefreshingAll] = useState(false);
     const [refreshSuccessMessage, setRefreshSuccessMessage] = useState<string | null>(null);
-
-    // Initialize base URL drafts when tokens change
-    useEffect(() => {
-        const nextDrafts: Record<string, string> = {};
-        tokens.forEach((token) => {
-            nextDrafts[token.id] = token.base_url || '';
-        });
-        setTokenBaseUrlDrafts(nextDrafts);
-    }, [tokens]);
 
     // Initial load
     useEffect(() => {
@@ -77,6 +81,12 @@ export const AdminTokens = () => {
     const handleSaveBaseUrl = async (id: string) => {
         await handleSaveTokenBaseUrl(id, tokenBaseUrlDrafts[id] || '', tokens, (updated) => {
             setTokens(updated);
+            setTokenBaseUrlEdits((prev) => {
+                if (!Object.prototype.hasOwnProperty.call(prev, id)) return prev;
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            });
         });
     };
 
@@ -106,9 +116,14 @@ export const AdminTokens = () => {
     const handleAddToken = async (data: { name: string; apiKey: string; baseUrl: string; priority: number }) => {
         setAddingToken(true);
         try {
-            const created = await addToken(data.name, data.apiKey, data.priority, data.baseUrl);
-            setTokenSecrets((prev) => ({ ...prev, [created.id]: data.apiKey }));
+            await addToken(data.name, data.apiKey, data.priority, data.baseUrl);
             setIsTokenDrawerOpen(false);
+            showDialog({
+                type: 'alert',
+                title: 'Token 创建成功',
+                message: `完整 Key 仅显示一次，请妥善保存：\n${data.apiKey}`,
+                confirmLabel: '我已保存',
+            });
 
             // Reload tokens
             const updated = await getTokens();
@@ -130,21 +145,6 @@ export const AdminTokens = () => {
         } catch (err) {
             setError('复制失败，请手动复制');
         }
-    };
-
-    // Handle reveal token key
-    const handleRevealTokenKey = (tokenId: string) => {
-        const secret = tokenSecrets[tokenId];
-        if (!secret) {
-            setError('完整 Key 仅创建时可见');
-            return;
-        }
-        if (!confirm('将在短时间内显示完整 Key，确认继续？')) return;
-        setRevealedTokenIds((prev) => ({ ...prev, [tokenId]: true }));
-        setTimeout(
-            () => setRevealedTokenIds((prev) => ({ ...prev, [tokenId]: false })),
-            10000
-        );
     };
 
     // ===== 一键刷新所有 Token 额度 =====
@@ -257,18 +257,15 @@ export const AdminTokens = () => {
                     sortConfig={sortConfig}
                     onSort={handleSort}
                     tokenBaseUrlDrafts={tokenBaseUrlDrafts}
-                    onBaseUrlDraftChange={(id, value) => setTokenBaseUrlDrafts(prev => ({ ...prev, [id]: value }))}
+                    onBaseUrlDraftChange={(id, value) => setTokenBaseUrlEdits(prev => ({ ...prev, [id]: value }))}
                     onSaveBaseUrl={handleSaveBaseUrl}
                     onCheckQuota={onCheckQuota}
                     onToggleToken={handleToggle}
                     onDeleteToken={handleDelete}
                     onCopyTokenKey={handleCopyTokenKey}
-                    onRevealTokenKey={handleRevealTokenKey}
                     checkingQuotaTokenId={checkingQuotaTokenId}
                     savingTokenUrl={savingTokenUrl}
                     copiedTokenId={copiedTokenId}
-                    tokenSecrets={tokenSecrets}
-                    revealedTokenIds={revealedTokenIds}
                 />
 
                 <div className="md:hidden p-3 space-y-3">

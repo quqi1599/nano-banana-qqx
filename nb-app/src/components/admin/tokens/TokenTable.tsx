@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronUp, ChevronDown, ArrowUpDown, Copy, Check, Eye, EyeOff, RefreshCw, Power, Trash2, Loader2, Key } from 'lucide-react';
+import { ChevronUp, ChevronDown, ArrowUpDown, Copy, Check, RefreshCw, Power, Trash2, Loader2, Key } from 'lucide-react';
 import { TokenInfo } from '../../../services/adminService';
 import { getTokenStatus, formatQuota, getQuotaProgress, isLowBalance, formatDateTime } from './utils/tokenUtils';
 
@@ -14,12 +14,9 @@ interface TokenTableProps {
     onToggleToken: (id: string, currentStatus: boolean) => void;
     onDeleteToken: (id: string) => void;
     onCopyTokenKey: (id: string, value: string) => void;
-    onRevealTokenKey: (id: string) => void;
     checkingQuotaTokenId: string | null;
     savingTokenUrl: Record<string, boolean>;
     copiedTokenId: string | null;
-    tokenSecrets: Record<string, string>;
-    revealedTokenIds: Record<string, boolean>;
 }
 
 export const TokenTable: React.FC<TokenTableProps> = ({
@@ -33,12 +30,9 @@ export const TokenTable: React.FC<TokenTableProps> = ({
     onToggleToken,
     onDeleteToken,
     onCopyTokenKey,
-    onRevealTokenKey,
     checkingQuotaTokenId,
     savingTokenUrl,
     copiedTokenId,
-    tokenSecrets,
-    revealedTokenIds,
 }) => {
     return (
         <div className="hidden md:block">
@@ -96,9 +90,7 @@ export const TokenTable: React.FC<TokenTableProps> = ({
                                 const baseUrlDraft = tokenBaseUrlDrafts[token.id] ?? '';
                                 const baseUrlCurrent = token.base_url ?? '';
                                 const baseUrlDirty = baseUrlDraft.trim() !== baseUrlCurrent.trim();
-                                const secretKey = tokenSecrets[token.id];
-                                const isRevealed = revealedTokenIds[token.id] && !!secretKey;
-                                const displayKey = isRevealed ? secretKey : token.api_key;
+                                const displayKey = token.api_key;
                                 return (
                                     <tr key={token.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/60 transition-colors">
                                         <td className="px-4 py-3.5 align-top">
@@ -114,15 +106,6 @@ export const TokenTable: React.FC<TokenTableProps> = ({
                                                 >
                                                     {copiedTokenId === token.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                                                 </button>
-                                                {secretKey && (
-                                                    <button
-                                                        onClick={() => onRevealTokenKey(token.id)}
-                                                        className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-cream-600 transition"
-                                                        title={isRevealed ? '隐藏完整 Key' : '显示完整 Key'}
-                                                    >
-                                                        {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                                    </button>
-                                                )}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3.5">

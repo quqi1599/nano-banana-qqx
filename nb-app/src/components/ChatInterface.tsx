@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, Suspense } from 'react';
+import React, { useRef, useEffect, useState, Suspense, useMemo } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -11,11 +11,12 @@ import { formatCost } from '../services/balanceService';
 import { convertMessagesToHistory, convertMessagesToHistoryAsync } from '../utils/messageUtils';
 import { ChatMessage, Attachment, Part } from '../types';
 import { lazyWithRetry } from '../utils/lazyLoadUtils';
-import { checkConversationLimit } from '../utils/historyUtils';
+import { calculateHistoryImageSize, checkConversationLimit } from '../utils/historyUtils';
 import { Pagination } from './Pagination';
 import { getCsrfToken } from '../utils/csrf';
 import { fileToBase64 } from '../utils/imageUtils';
 import { resolveMessageImageData } from '../utils/messageImageUtils';
+import { evaluateMemoryPressure, shouldShowMemoryAlert, formatMemoryAlertMessage, formatMemoryAlertTitle, getMemoryPressureProgress, formatMemoryPressureLabel } from '../utils/memoryGuard';
 
 // Lazy load components
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
@@ -52,7 +53,7 @@ export const ChatInterface: React.FC = () => {
 
   const { isAuthenticated, refreshCredits } = useAuthStore();
 
-  const { batchMode, batchCount, setBatchMode, addToast, setShowApiKeyModal } = useUiStore();
+  const { batchMode, batchCount, setBatchMode, addToast, setShowApiKeyModal, showDialog } = useUiStore();
 
   const [showArcade, setShowArcade] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -78,6 +79,44 @@ export const ChatInterface: React.FC = () => {
     }
     return convertMessagesToHistoryAsync(sourceMessages);
   };
+
+  const showMemoryAlert = React.useCallback((pendingUploadBytes: number = 0) => {
+    const currentMessages = useAppStore.getState().messages;
+    const historySnapshot = convertMessagesToHistory(currentMessages);
+    const imageBytes = calculateHistoryImageSize(historySnapshot) + pendingUploadBytes;
+    const result = evaluateMemoryPressure({
+      messageCount: currentMessages.length,
+      imageBytes,
+    });
+
+    if (result.level === 'none') return;
+    if (!shouldShowMemoryAlert(result)) return;
+    if (useUiStore.getState().dialog) return;
+
+    if (result.level === 'critical') {
+      const progress = getMemoryPressureProgress(result);
+      showDialog({
+        type: 'confirm',
+        title: formatMemoryAlertTitle(result.level),
+        message: formatMemoryAlertMessage(result, pendingUploadBytes),
+        confirmLabel: '新对话',
+        cancelLabel: '继续',
+        progress,
+        progressLabel: formatMemoryPressureLabel(progress, result),
+        onConfirm: () => clearHistory(),
+      });
+    } else {
+      const progress = getMemoryPressureProgress(result);
+      showDialog({
+        type: 'alert',
+        title: formatMemoryAlertTitle(result.level),
+        message: formatMemoryAlertMessage(result, pendingUploadBytes),
+        confirmLabel: '知道了',
+        progress,
+        progressLabel: formatMemoryPressureLabel(progress, result),
+      });
+    }
+  }, [clearHistory, showDialog]);
 
   const ensureAttachmentBase64 = async (items: Attachment[]): Promise<Attachment[]> => {
     return Promise.all(
@@ -150,6 +189,10 @@ export const ChatInterface: React.FC = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages.length, isLoading, showArcade]); // Optimized dependencies (removed full messages content check)
+
+  useEffect(() => {
+    showMemoryAlert();
+  }, [messages.length, showMemoryAlert]);
 
   const handleSend = async (text: string, attachments: Attachment[]) => {
     // 检查 API Key：游客（有 visitorId）也可以使用
@@ -261,7 +304,10 @@ export const ChatInterface: React.FC = () => {
     // 同步用户消息到服务器
     if (canSyncHistory) {
       syncCurrentMessage(userMessage)
-        .catch(console.error)
+        .catch(err => {
+          console.error('Sync failed:', err);
+          addToast('消息同步失败，但不影响使用', 'info');
+        })
         .finally(() => {
           offloadMessageImages(userMessage.id).catch(console.error);
         });
@@ -1064,10 +1110,19 @@ export const ChatInterface: React.FC = () => {
     }
   };
 
-  const visibleMessages = messages.length > MAX_RENDER_MESSAGES
-    ? messages.slice(-MAX_RENDER_MESSAGES)
-    : messages;
-  const hasHiddenMessages = messages.length > visibleMessages.length;
+  const { visibleMessages, hasHiddenMessages } = useMemo(() => {
+    const sliced = messages.length > MAX_RENDER_MESSAGES
+      ? messages.slice(-MAX_RENDER_MESSAGES)
+      : messages;
+    return {
+      visibleMessages: sliced,
+      hasHiddenMessages: messages.length > sliced.length,
+    };
+  }, [messages]);
+  const messageWrapperStyle = useMemo<React.CSSProperties>(() => ({
+    contentVisibility: 'auto',
+    containIntrinsicSize: '1px 200px',
+  }), []);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-dark-bg transition-colors duration-200 relative">
@@ -1125,17 +1180,19 @@ export const ChatInterface: React.FC = () => {
         )}
 
         {visibleMessages.map((msg, index) => (
-          <ErrorBoundary key={msg.id}>
-            <Suspense fallback={<div className="h-12 w-full animate-pulse bg-gray-50 dark:bg-gray-800/50 rounded-lg mb-4"></div>}>
-              <MessageBubble
-                message={msg}
-                isLast={index === visibleMessages.length - 1}
-                isGenerating={isGenerating}
-                onDelete={handleDelete}
-                onRegenerate={handleRegenerate}
-              />
-            </Suspense>
-          </ErrorBoundary>
+          <div key={msg.id} style={messageWrapperStyle}>
+            <ErrorBoundary>
+              <Suspense fallback={<div className="h-12 w-full animate-pulse bg-gray-50 dark:bg-gray-800/50 rounded-lg mb-4"></div>}>
+                <MessageBubble
+                  message={msg}
+                  isLast={index === visibleMessages.length - 1}
+                  isGenerating={isGenerating}
+                  onDelete={handleDelete}
+                  onRegenerate={handleRegenerate}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
         ))}
 
         {showArcade && (

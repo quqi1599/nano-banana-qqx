@@ -4,9 +4,14 @@ import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { Attachment } from '../types';
 import { PromptQuickPicker } from './PromptQuickPicker';
-import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
+import { validateAndCompressImage } from '../utils/imageValidation';
+import { getImageValidationMessage } from '../utils/validationMessages';
 import { base64ToBlob } from '../utils/imageUtils';
+import { convertMessagesToHistory } from '../utils/messageUtils';
+import { calculateHistoryImageSize } from '../utils/historyUtils';
+import { evaluateMemoryPressure, shouldShowMemoryAlert, formatMemoryAlertMessage, formatMemoryAlertTitle, getMemoryPressureProgress, formatMemoryPressureLabel } from '../utils/memoryGuard';
 
+const MAX_ATTACHMENTS = 14;
 interface Props {
   onSend: (text: string, attachments: Attachment[]) => void;
   onStop: () => void;
@@ -16,29 +21,9 @@ interface Props {
   disabled: boolean;
 }
 
-const formatMegabytes = (bytes: number) => Math.round(bytes / (1024 * 1024));
-
-const getImageValidationMessage = (error?: ImageValidationError) => {
-  switch (error) {
-    case 'not_image':
-      return '仅支持图片文件';
-    case 'file_too_large':
-      return `单张图片大小不得超过 ${formatMegabytes(MAX_IMAGE_BYTES)}MB`;
-    case 'total_too_large':
-      return `图片总大小不得超过 ${formatMegabytes(MAX_TOTAL_IMAGE_BYTES)}MB`;
-    case 'invalid_dimensions':
-      return '无法读取图片尺寸';
-    case 'dimension_too_large':
-      return `图片尺寸过大，最长边不得超过 ${MAX_IMAGE_DIMENSION}px`;
-    case 'pixels_too_large':
-      return `图片像素过大，建议小于 ${Math.round(MAX_IMAGE_PIXELS / 1_000_000)}MP`;
-    default:
-      return '图片不符合上传要求';
-  }
-};
 
 export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArcadeOpen, onOpenPipeline, disabled }) => {
-  const { inputText, setInputText } = useAppStore();
+  const { inputText, setInputText, clearHistory } = useAppStore();
   const { togglePromptLibrary, isPromptLibraryOpen, batchMode, batchCount, setBatchMode, setBatchCount, pendingReferenceImage, setPendingReferenceImage, addToast, showDialog } = useUiStore();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -54,6 +39,46 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
       URL.revokeObjectURL(attachment.preview);
     }
   }, []);
+
+  const showMemoryAlert = useCallback((pendingUploadBytes: number = 0) => {
+    const currentMessages = useAppStore.getState().messages;
+    const historySnapshot = convertMessagesToHistory(currentMessages);
+    const imageBytes = calculateHistoryImageSize(historySnapshot);
+
+    const result = evaluateMemoryPressure({
+      messageCount: currentMessages.length,
+      imageBytes,
+      pendingUploadBytes,
+    });
+
+    if (result.level === 'none') return;
+    if (!shouldShowMemoryAlert(result)) return;
+    if (useUiStore.getState().dialog) return;
+
+    if (result.level === 'critical') {
+      const progress = getMemoryPressureProgress(result);
+      showDialog({
+        type: 'confirm',
+        title: formatMemoryAlertTitle(result.level),
+        message: formatMemoryAlertMessage(result, pendingUploadBytes),
+        confirmLabel: '新对话',
+        cancelLabel: '继续',
+        progress,
+        progressLabel: formatMemoryPressureLabel(progress, result),
+        onConfirm: () => clearHistory(),
+      });
+    } else {
+      const progress = getMemoryPressureProgress(result);
+      showDialog({
+        type: 'alert',
+        title: formatMemoryAlertTitle(result.level),
+        message: formatMemoryAlertMessage(result, pendingUploadBytes),
+        confirmLabel: '知道了',
+        progress,
+        progressLabel: formatMemoryPressureLabel(progress, result),
+      });
+    }
+  }, [clearHistory, showDialog]);
 
   useEffect(() => {
     attachmentsRef.current = attachments;
@@ -82,7 +107,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
   // 监听待添加的参考图片
   useEffect(() => {
-    if (pendingReferenceImage && attachments.length < 14) {
+    if (pendingReferenceImage && attachments.length < MAX_ATTACHMENTS) {
       const { base64Data, mimeType, timestamp } = pendingReferenceImage;
 
       // 创建一个虚拟 File 对象
@@ -100,9 +125,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
 
       setAttachments(prev => {
         const next = [...prev, newAttachment];
-        const limited = next.slice(0, 14);
-        if (next.length > 14) {
-          next.slice(14).forEach(revokeAttachmentPreview);
+        const limited = next.slice(0, MAX_ATTACHMENTS);
+        if (next.length > MAX_ATTACHMENTS) {
+          next.slice(MAX_ATTACHMENTS).forEach(revokeAttachmentPreview);
         }
         return limited;
       });
@@ -114,7 +139,8 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
     // Use more reliable mobile detection:
     // 1. Check user agent for actual mobile devices
     // 2. Check for touch screen capability combined with screen width
-    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 13+
     const isTouchScreen = 'ontouchstart' in window;
     const isMobile = isMobileDevice || (isTouchScreen && window.innerWidth < 768);
 
@@ -138,6 +164,10 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
     if (attachments.length >= 14) {
       addToast('最多只能上传 14 张图片', 'info');
       return;
+    }
+    const pendingUploadBytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (pendingUploadBytes > 0) {
+      showMemoryAlert(pendingUploadBytes);
     }
     let totalBytes = attachments.reduce((sum, att) => sum + att.file.size, 0);
 
@@ -464,7 +494,6 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             disabled={disabled}
-            // @ts-ignore
             enterKeyHint="send"
             placeholder="描述一张图片来生成 或上传参考图来修改 或使用/t中模板"
             className="mb-0.5 xs:mb-1 max-h-[200px] min-h-[44px] w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2.5 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"

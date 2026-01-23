@@ -73,6 +73,7 @@ const InlineCode: React.FC<{ children: string }> = ({ children }) => (
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ text }) => (
   <ReactMarkdown
+    skipHtml
     remarkPlugins={[remarkGfm]}
     components={{
       p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,

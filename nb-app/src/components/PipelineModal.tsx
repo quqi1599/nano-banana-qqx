@@ -3,7 +3,12 @@ import { X, Plus, Trash2, ImagePlus, ChevronUp, ChevronDown, Layers, GitBranch, 
 import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
 import { useUiStore } from '../store/useUiStore';
-import { ImageValidationError, MAX_IMAGE_BYTES, MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, MAX_TOTAL_IMAGE_BYTES, validateAndCompressImage } from '../utils/imageValidation';
+import { validateAndCompressImage } from '../utils/imageValidation';
+import { getImageValidationMessage } from '../utils/validationMessages';
+import { useAppStore } from '../store/useAppStore';
+import { convertMessagesToHistory } from '../utils/messageUtils';
+import { calculateHistoryImageSize } from '../utils/historyUtils';
+import { evaluateMemoryPressure, shouldShowMemoryAlert, formatMemoryAlertMessage, formatMemoryAlertTitle, getMemoryPressureProgress, formatMemoryPressureLabel } from '../utils/memoryGuard';
 
 interface Props {
   isOpen: boolean;
@@ -18,29 +23,9 @@ const AVAILABLE_MODELS = [
 
 
 
-const formatMegabytes = (bytes: number) => Math.round(bytes / (1024 * 1024));
-
-const getImageValidationMessage = (error?: ImageValidationError) => {
-  switch (error) {
-    case 'not_image':
-      return '仅支持图片文件';
-    case 'file_too_large':
-      return `单张图片大小不得超过 ${formatMegabytes(MAX_IMAGE_BYTES)}MB`;
-    case 'total_too_large':
-      return `图片总大小不得超过 ${formatMegabytes(MAX_TOTAL_IMAGE_BYTES)}MB`;
-    case 'invalid_dimensions':
-      return '无法读取图片尺寸';
-    case 'dimension_too_large':
-      return `图片尺寸过大，最长边不得超过 ${MAX_IMAGE_DIMENSION}px`;
-    case 'pixels_too_large':
-      return `图片像素过大，建议小于 ${Math.round(MAX_IMAGE_PIXELS / 1_000_000)}MP`;
-    default:
-      return '图片不符合上传要求';
-  }
-};
-
 export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) => {
   const { addToast, showDialog } = useUiStore();
+  const { clearHistory } = useAppStore();
   const [mode, setMode] = useState<'serial' | 'parallel' | 'combination'>('serial');
   const [steps, setSteps] = useState<PipelineStep[]>([{
     id: Date.now().toString(),
@@ -59,6 +44,46 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
       URL.revokeObjectURL(attachment.preview);
     }
   }, []);
+
+  const showMemoryAlert = useCallback((pendingUploadBytes: number = 0) => {
+    const currentMessages = useAppStore.getState().messages;
+    const historySnapshot = convertMessagesToHistory(currentMessages);
+    const imageBytes = calculateHistoryImageSize(historySnapshot);
+
+    const result = evaluateMemoryPressure({
+      messageCount: currentMessages.length,
+      imageBytes,
+      pendingUploadBytes,
+    });
+
+    if (result.level === 'none') return;
+    if (!shouldShowMemoryAlert(result)) return;
+    if (useUiStore.getState().dialog) return;
+
+    if (result.level === 'critical') {
+      const progress = getMemoryPressureProgress(result);
+      showDialog({
+        type: 'confirm',
+        title: formatMemoryAlertTitle(result.level),
+        message: formatMemoryAlertMessage(result, pendingUploadBytes),
+        confirmLabel: '新对话',
+        cancelLabel: '继续',
+        progress,
+        progressLabel: formatMemoryPressureLabel(progress, result),
+        onConfirm: () => clearHistory(),
+      });
+    } else {
+      const progress = getMemoryPressureProgress(result);
+      showDialog({
+        type: 'alert',
+        title: formatMemoryAlertTitle(result.level),
+        message: formatMemoryAlertMessage(result, pendingUploadBytes),
+        confirmLabel: '知道了',
+        progress,
+        progressLabel: formatMemoryPressureLabel(progress, result),
+      });
+    }
+  }, [clearHistory, showDialog]);
 
   useEffect(() => {
     attachmentsRef.current = attachments;
@@ -128,6 +153,10 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
     if (attachments.length >= 14) {
       addToast('最多只能上传 14 张图片', 'info');
       return;
+    }
+    const pendingUploadBytes = files.reduce((sum, file) => sum + file.size, 0);
+    if (pendingUploadBytes > 0) {
+      showMemoryAlert(pendingUploadBytes);
     }
     let totalBytes = attachments.reduce((sum, att) => sum + att.file.size, 0);
 
@@ -203,12 +232,20 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
   const handleExecute = () => {
     const validSteps = steps.filter(s => s.prompt.trim().length > 0);
     if (validSteps.length === 0) {
-      alert('请至少添加一个步骤');
+      showDialog({
+        type: 'alert',
+        title: '无法执行',
+        message: '请至少添加一个步骤',
+      });
       return;
     }
     // 只有组合模式需要至少一张图片（n图×m词）
     if (mode === 'combination' && attachments.length === 0) {
-      alert('批量组合模式需要至少上传一张初始图片');
+      showDialog({
+        type: 'alert',
+        title: '无法执行',
+        message: '批量组合模式需要至少上传一张初始图片',
+      });
       return;
     }
     onExecute(mode, validSteps, attachments);

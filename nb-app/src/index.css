@@ -1120,3 +1120,405 @@ p {
     /* top right bottom left */
   }
 }
+
+/* ========== 微信内置浏览器兼容性优化 ========== */
+
+/* 微信浏览器字体大小强制修复 */
+.wechat-browser body,
+.qq-browser body {
+  -webkit-text-size-adjust: 100% !important;
+}
+
+/* 微信浏览器 Flexbox 兼容性增强 */
+.wechat-browser .flex,
+.qq-browser .flex,
+.wechat-browser .inline-flex,
+.qq-browser .inline-flex {
+  display: -webkit-box !important;
+  display: -ms-flexbox !important;
+  display: -webkit-flex !important;
+}
+
+/* 微信浏览器 backdrop-filter 降级处理（不支持则用纯色） */
+@supports not (-webkit-backdrop-filter: blur(1px)) {
+  .wechat-browser .backdrop-blur-sm,
+  .qq-browser .backdrop-blur-sm {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  .wechat-browser .backdrop-blur-md,
+  .qq-browser .backdrop-blur-md {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+  }
+
+  .wechat-browser .backdrop-blur-lg,
+  .qq-browser .backdrop-blur-lg {
+    background-color: rgba(255, 255, 255, 0.97) !important;
+  }
+
+  .dark.wechat-browser .backdrop-blur-sm,
+  .dark.qq-browser .backdrop-blur-sm {
+    background-color: rgba(10, 10, 15, 0.9) !important;
+  }
+
+  .dark.wechat-browser .backdrop-blur-md,
+  .dark.qq-browser .backdrop-blur-md {
+    background-color: rgba(10, 10, 15, 0.95) !important;
+  }
+
+  .dark.wechat-browser .backdrop-blur-lg,
+  .dark.qq-browser .backdrop-blur-lg {
+    background-color: rgba(10, 10, 15, 0.97) !important;
+  }
+}
+
+/* 微信浏览器不支持 gap 的降级处理 */
+@supports not (gap: 1px) {
+  .wechat-browser .gap-1 > * + *,
+  .qq-browser .gap-1 > * + * {
+    margin-left: 0.25rem;
+  }
+
+  .wechat-browser .gap-2 > * + *,
+  .qq-browser .gap-2 > * + * {
+    margin-left: 0.5rem;
+  }
+
+  .wechat-browser .gap-3 > * + *,
+  .qq-browser .gap-3 > * + * {
+    margin-left: 0.75rem;
+  }
+
+  .wechat-browser .gap-4 > * + *,
+  .qq-browser .gap-4 > * + * {
+    margin-left: 1rem;
+  }
+
+  /* 垂直 gap */
+  .wechat-browser .flex-col.gap-1 > * + *,
+  .qq-browser .flex-col.gap-1 > * + *,
+  .wechat-browser .flex.flex-col.gap-1 > * + * {
+    margin-top: 0.25rem;
+    margin-left: 0;
+  }
+
+  .wechat-browser .flex-col.gap-2 > * + *,
+  .qq-browser .flex-col.gap-2 > * + *,
+  .wechat-browser .flex.flex-col.gap-2 > * + * {
+    margin-top: 0.5rem;
+    margin-left: 0;
+  }
+
+  .wechat-browser .flex-col.gap-3 > * + *,
+  .qq-browser .flex-col.gap-3 > * + *,
+  .wechat-browser .flex.flex-col.gap-3 > * + * {
+    margin-top: 0.75rem;
+    margin-left: 0;
+  }
+
+  .wechat-browser .flex-col.gap-4 > * + *,
+  .qq-browser .flex-col.gap-4 > * + *,
+  .wechat-browser .flex.flex-col.gap-4 > * + * {
+    margin-top: 1rem;
+    margin-left: 0;
+  }
+}
+
+/* 微信浏览器 sticky 定位兼容性修复 */
+.wechat-browser .sticky,
+.qq-browser .sticky {
+  position: -webkit-sticky !important;
+}
+
+/* 微信浏览器 object-fit 兼容性 */
+.wechat-browser img,
+.qq-browser img,
+.wechat-browser video,
+.qq-browser video {
+  -o-object-fit: cover;
+  object-fit: cover;
+}
+
+/* 微信浏览器 overflow-x 修复（防止横向滚动条） */
+.wechat-browser body,
+.qq-browser body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 微信浏览器输入框优化 */
+.wechat-browser input,
+.wechat-browser textarea,
+.qq-browser input,
+.qq-browser textarea {
+  -webkit-appearance: none;
+  -webkit-border-radius: 0;
+}
+
+/* 微信浏览器按钮优化 */
+.wechat-browser button,
+.qq-browser button {
+  -webkit-appearance: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 微信浏览器选择框优化 */
+.wechat-browser select,
+.qq-browser select {
+  -webkit-appearance: none;
+  -webkit-border-radius: 0;
+  background-color: #fff;
+}
+
+/* 微信浏览器禁用默认的点击高亮 */
+.wechat-browser button,
+.wechat-browser a,
+.qq-browser button,
+.qq-browser a {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+}
+
+/* 微信浏览器不支持 aspect-ratio 的降级方案 */
+@supports not (aspect-ratio: 1 / 1) {
+  .wechat-browser .aspect-square,
+  .qq-browser .aspect-square {
+    width: 100%;
+    position: relative;
+  }
+
+  .wechat-browser .aspect-square::before,
+  .qq-browser .aspect-square::before {
+    content: '';
+    display: block;
+    padding-top: 100%;
+  }
+
+  .wechat-browser .aspect-square > *,
+  .qq-browser .aspect-square > * {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* 微信浏览器动画性能优化 */
+.wechat-browser *,
+.qq-browser * {
+  /* 启用硬件加速 */
+  -webkit-transform: translateZ(0);
+  -webkit-transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* 微信浏览器禁止长按选中文本（除了输入框） */
+.wechat-browser .no-select,
+.qq-browser .no-select {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* 微信浏览器滚动优化 */
+.wechat-browser .scroll-smooth-touch,
+.qq-browser .scroll-smooth-touch {
+  -webkit-overflow-scrolling: touch;
+  overflow-scrolling: touch;
+}
+
+/* 微信浏览器圆角兼容性 */
+.wechat-browser .rounded-full,
+.qq-browser .rounded-full {
+  -webkit-border-radius: 9999px;
+  border-radius: 9999px;
+}
+
+/* 微信浏览器阴影兼容性（部分旧版本不支持某些阴影参数） */
+.wechat-browser .shadow-lg,
+.qq-browser .shadow-lg {
+  -webkit-box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* 微信浏览器渐变兼容性 */
+.wechat-browser .bg-gradient-to-r,
+.qq-browser .bg-gradient-to-r {
+  background-image: -webkit-linear-gradient(left, var(--tw-gradient-stops));
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+}
+
+/* 微信浏览器不支持 place-content 的降级 */
+.wechat-browser .place-content-center,
+.qq-browser .place-content-center {
+  -webkit-align-content: center;
+  align-content: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+}
+
+/* 微信浏览器不支持 place-items 的降级 */
+.wechat-browser .place-items-center,
+.qq-browser .place-items-center {
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-items: center;
+  justify-items: center;
+}
+
+/* 微信浏览器自定义滚动条样式修复 */
+.wechat-browser ::-webkit-scrollbar,
+.qq-browser ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.wechat-browser ::-webkit-scrollbar-track,
+.qq-browser ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wechat-browser ::-webkit-scrollbar-thumb,
+.qq-browser ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  -webkit-border-radius: 3px;
+  border-radius: 3px;
+}
+
+.wechat-browser ::-webkit-scrollbar-thumb:hover,
+.qq-browser ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark.wechat-browser ::-webkit-scrollbar-thumb,
+.dark.qq-browser ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark.wechat-browser ::-webkit-scrollbar-thumb:hover,
+.dark.qq-browser ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 微信浏览器 flex-direction 兼容性 */
+.wechat-browser .flex-col,
+.qq-browser .flex-col {
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -ms-flex-direction: column;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+/* 微信浏览器 flex-wrap 兼容性 */
+.wechat-browser .flex-wrap,
+.qq-browser .flex-wrap {
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+/* 微信浏览器 justify-content 兼容性 */
+.wechat-browser .justify-center,
+.qq-browser .justify-center {
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+}
+
+.wechat-browser .justify-between,
+.qq-browser .justify-between {
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+}
+
+.wechat-browser .justify-end,
+.qq-browser .justify-end {
+  -webkit-box-pack: end;
+  -ms-flex-pack: end;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+}
+
+/* 微信浏览器 align-items 兼容性 */
+.wechat-browser .items-center,
+.qq-browser .items-center {
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+.wechat-browser .items-end,
+.qq-browser .items-end {
+  -webkit-box-align: end;
+  -ms-flex-align: end;
+  -webkit-align-items: flex-end;
+  align-items: flex-end;
+}
+
+/* 微信浏览器不支持 grid 的简单降级 */
+@supports not (display: grid) {
+  .wechat-browser .grid-cols-2,
+  .qq-browser .grid-cols-2 {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-wrap: wrap;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+  }
+
+  .wechat-browser .grid-cols-2 > *,
+  .qq-browser .grid-cols-2 > * {
+    -webkit-box-flex: 0 0 50%;
+    -ms-flex: 0 0 50%;
+    -webkit-flex: 0 0 50%;
+    flex: 0 0 50%;
+  }
+}
+
+/* 微信浏览器 transition 兼容性 */
+.wechat-browser .transition-all,
+.qq-browser .transition-all {
+  -webkit-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
+}
+
+.wechat-browser .transition-colors,
+.qq-browser .transition-colors {
+  -webkit-transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+/* 微信浏览器 transform 兼容性 */
+.wechat-browser .transform,
+.qq-browser .transform {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* 微信浏览器 opacity 兼容性 */
+.wechat-browser .opacity-0,
+.qq-browser .opacity-0 {
+  opacity: 0;
+  filter: alpha(opacity=0);
+}
+
+.wechat-browser .opacity-50,
+.qq-browser .opacity-50 {
+  opacity: 0.5;
+  filter: alpha(opacity=50);
+}
+
+.wechat-browser .opacity-100,
+.qq-browser .opacity-100 {
+  opacity: 1;
+  filter: alpha(opacity=100);
+}
