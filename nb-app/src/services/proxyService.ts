@@ -192,7 +192,7 @@ export const streamContentViaProxy = async function* (
         const decoder = new TextDecoder();
         let buffer = '';
         let currentParts: Part[] = [];
-        let hasProcessed = false; // 标记是否已经处理过数据
+        let lastParseWarnAt = 0;
 
         while (true) {
             if (signal?.aborted) {
@@ -204,18 +204,25 @@ export const streamContentViaProxy = async function* (
 
             buffer += decoder.decode(value, { stream: true });
 
-            // 尝试解析整个 buffer（如果是单个 JSON 对象）
-            if (!hasProcessed) {
-                try {
-                    const data = JSON.parse(buffer);
-                    // 成功解析，说明是单个 JSON 对象（格式化的）
-                    hasProcessed = true;
-                    buffer = '';
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
 
-                    // 验证数据结构
+            for (const rawLine of lines) {
+                let line = rawLine.trim();
+                if (!line) continue;
+
+                if (line.startsWith('data:')) {
+                    line = line.slice(5).trim();
+                }
+
+                if (!line || line === '[DONE]') {
+                    continue;
+                }
+
+                try {
+                    const data = JSON.parse(line);
                     const candidates = data.candidates;
                     if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
-                        console.warn('Proxy API 返回数据格式异常: 缺少 candidates 数组');
                         continue;
                     }
 
@@ -230,42 +237,37 @@ export const streamContentViaProxy = async function* (
                         modelParts: currentParts
                     };
                 } catch (parseError) {
-                    // 解析失败，可能是 NDJSON 格式，继续累积
-                    // 只有当 buffer 过大时才清空
-                    if (buffer.length > 50000) {
-                        console.warn('Proxy API buffer 过大，清空重试:', parseError);
-                        buffer = '';
+                    const now = Date.now();
+                    if (now - lastParseWarnAt > 2000) {
+                        console.warn('Proxy API JSON 解析失败，跳过该行:', parseError, line.substring(0, 120));
+                        lastParseWarnAt = now;
                     }
                 }
             }
         }
 
-        // 如果还没有处理过，尝试作为 NDJSON 处理
-        if (!hasProcessed && buffer.trim()) {
-            const lines = buffer.split('\n');
-            for (const line of lines) {
-                if (!line.trim()) continue;
-
+        if (buffer.trim()) {
+            let line = buffer.trim();
+            if (line.startsWith('data:')) {
+                line = line.slice(5).trim();
+            }
+            if (line && line !== '[DONE]') {
                 try {
                     const data = JSON.parse(line);
-
                     const candidates = data.candidates;
-                    if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
-                        continue;
+                    if (candidates && Array.isArray(candidates) && candidates.length > 0) {
+                        const newParts = candidates[0].content?.parts || [];
+                        for (const part of newParts) {
+                            appendSdkPart(currentParts, part);
+                        }
+
+                        yield {
+                            userContent: currentUserContent,
+                            modelParts: currentParts
+                        };
                     }
-
-                    const newParts = candidates[0].content?.parts || [];
-
-                    for (const part of newParts) {
-                        appendSdkPart(currentParts, part);
-                    }
-
-                    yield {
-                        userContent: currentUserContent,
-                        modelParts: currentParts
-                    };
                 } catch (parseError) {
-                    console.warn('Proxy API JSON 解析失败，跳过该行:', parseError, line.substring(0, 100));
+                    console.warn('Proxy API JSON 解析失败，忽略尾部数据:', parseError, line.substring(0, 120));
                 }
             }
         }
