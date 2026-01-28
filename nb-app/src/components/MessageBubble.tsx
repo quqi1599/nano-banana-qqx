@@ -459,7 +459,7 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
           {/* Actions */}
           {!actionsDisabled && (
-            <div className={`flex items-center gap-0.5 xs:gap-1 transition-opacity duration-200 ${showActions ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`flex items-center gap-0.5 xs:gap-1 transition-opacity duration-200 touch-show-actions ${showActions ? 'opacity-100' : 'opacity-0'}`}>
               <button
                 onClick={() => onRegenerate(message.id)}
                 className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-cream-600 dark:hover:text-cream-400"

@@ -79,31 +79,28 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onClose }) => {
         <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-100 dark:border-gray-800">
           <button
             onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === 'all'
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'all'
                 ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+              }`}
           >
             全部 ({availableFlows.length})
           </button>
           <button
             onClick={() => setFilter('completed')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === 'completed'
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'completed'
                 ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+              }`}
           >
             已完成 ({completedGuides.length})
           </button>
           <button
             onClick={() => setFilter('available')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === 'available'
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'available'
                 ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+              }`}
           >
             未完成 ({availableFlows.length - completedGuides.length})
           </button>
@@ -127,13 +124,12 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onClose }) => {
               return (
                 <div
                   key={flow.id}
-                  className={`p-4 rounded-xl border transition-all hover:shadow-lg ${
-                    isCompleted
+                  className={`p-4 rounded-xl border transition-all hover:shadow-lg ${isCompleted
                       ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
                       : isSkipped
-                      ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                  }`}
+                        ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -219,11 +215,11 @@ export const HelpButton: React.FC<HelpButtonProps> = ({ onClick, badge }) => {
   return (
     <button
       onClick={onClick}
-      className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+      className="relative flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group touch-feedback"
     >
       <BookOpen className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-amber-500 transition-colors" />
       {badge && (
-        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+        <span className="absolute top-2 xs:-top-1 right-2 xs:-right-1 w-2 h-2 xs:w-3 xs:h-3 bg-red-500 rounded-full animate-pulse" />
       )}
     </button>
   );

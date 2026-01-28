@@ -272,21 +272,21 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 touch-show-actions transition-opacity">
                     <button
                       onClick={(e) => handleReEdit(image, e)}
-                      className="p-1.5 rounded-md bg-cream-500/90 hover:bg-cream-400 text-white backdrop-blur-sm transition-colors"
+                      className="p-1.5 rounded-md bg-cream-500/90 hover:bg-cream-400 text-white backdrop-blur-sm transition-colors btn-compact"
                       title="再次编辑"
                     >
                       <Edit className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={(e) => handleDownload(image, e)}
-                      className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
+                      className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors btn-compact"
                       title="下载"
                     >
                       <Download className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={(e) => handleDeleteImage(image, e)}
-                      className="p-1.5 rounded-md bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-sm transition-colors"
+                      className="p-1.5 rounded-md bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-sm transition-colors btn-compact"
                       title="删除"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

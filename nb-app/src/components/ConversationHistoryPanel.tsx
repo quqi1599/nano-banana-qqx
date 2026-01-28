@@ -90,6 +90,7 @@ function groupConversationsByUser(
 
     // 未登录用户：按 API Key 和 URL 分组
     const groupsMap = new Map<string, Conversation[]>();
+    const groupLabels = new Map<string, string>();
 
     conversations.forEach(conv => {
         const isDefaultUrl = !conv.custom_endpoint || conv.custom_endpoint === DEFAULT_API_ENDPOINT;
@@ -118,6 +119,7 @@ function groupConversationsByUser(
 
         if (!groupsMap.has(groupKey)) {
             groupsMap.set(groupKey, []);
+            groupLabels.set(groupKey, groupLabel);
         }
         groupsMap.get(groupKey)!.push(conv);
     });
@@ -125,7 +127,7 @@ function groupConversationsByUser(
     // 转换为数组，按对话数量排序（多的在前）
     return Array.from(groupsMap.entries()).map(([key, convs]) => ({
         key,
-        label: groupsMap.get(key)?.[0] || key,
+        label: groupLabels.get(key) || key,
         conversations: convs
     })).sort((a, b) => b.conversations.length - a.conversations.length);
 }
@@ -203,7 +205,7 @@ export const ConversationHistoryPanel = ({
         }));
     }, [userGroups]);
 
-    const handleDelete = async (id: string, e: React.MouseEvent) => {
+    const handleDelete = async (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
         if (!confirm('确定要删除这个对话吗？')) return;
         if (useLocalHistory) {
@@ -213,13 +215,13 @@ export const ConversationHistoryPanel = ({
         await deleteConversation(id);
     };
 
-    const handleStartEdit = (id: string, currentTitle: string | null, e: React.MouseEvent) => {
+    const handleStartEdit = (id: string, currentTitle: string | null, e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
         setEditingId(id);
         setEditingTitle(currentTitle || '未命名对话');
     };
 
-    const handleSaveEdit = async (id: string, e: React.MouseEvent) => {
+    const handleSaveEdit = async (id: string, e: React.MouseEvent<HTMLButtonElement | HTMLInputElement>) => {
         e.stopPropagation();
         if (editingTitle.trim()) {
             if (useLocalHistory) {
@@ -232,7 +234,7 @@ export const ConversationHistoryPanel = ({
         setEditingTitle('');
     };
 
-    const handleCancelEdit = (e: React.MouseEvent) => {
+    const handleCancelEdit = (e: React.MouseEvent<HTMLButtonElement | HTMLInputElement>) => {
         e.stopPropagation();
         setEditingId(null);
         setEditingTitle('');
@@ -264,7 +266,7 @@ export const ConversationHistoryPanel = ({
                     {/* 展开/收起按钮 */}
                     <button
                         onClick={onToggleCollapse}
-                        className="mb-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        className="mb-4 flex items-center justify-center h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                         title="展开"
                     >
                         <ChevronRight className="w-5 h-5 text-gray-500" />
@@ -336,7 +338,7 @@ export const ConversationHistoryPanel = ({
                             {/* 关闭按钮（仅移动端） */}
                             <button
                                 onClick={onClose}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition lg:hidden"
+                                className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition lg:hidden"
                             >
                                 <X className="w-5 h-5 text-gray-500" />
                             </button>
@@ -416,8 +418,8 @@ export const ConversationHistoryPanel = ({
                                                                 ${useLocalHistory
                                                                     ? localConversationId === conv.id
                                                                     : currentConversationId === conv.id
-                                                                    ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
-                                                                    : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
+                                                                        ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
+                                                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
                                                                 }
                                                             `}
                                                         >
@@ -427,8 +429,8 @@ export const ConversationHistoryPanel = ({
                                                                 ${useLocalHistory
                                                                     ? localConversationId === conv.id
                                                                     : currentConversationId === conv.id
-                                                                    ? 'bg-amber-500'
-                                                                    : 'bg-gray-300 dark:bg-gray-600'
+                                                                        ? 'bg-amber-500'
+                                                                        : 'bg-gray-300 dark:bg-gray-600'
                                                                 }
                                                             `} />
 
@@ -437,7 +439,7 @@ export const ConversationHistoryPanel = ({
                                                                     <input
                                                                         type="text"
                                                                         value={editingTitle}
-                                                                        onChange={(e) => setEditingTitle(e.target.value)}
+                                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTitle(e.currentTarget.value)}
                                                                         className="flex-1 px-2 py-1 text-sm border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
                                                                         autoFocus
                                                                         onKeyDown={(e) => {
@@ -475,17 +477,17 @@ export const ConversationHistoryPanel = ({
                                                                                 <span>{conv.message_count} 条消息</span>
                                                                             </div>
                                                                         </div>
-                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity touch-show-actions">
                                                                             <button
                                                                                 onClick={(e) => handleStartEdit(conv.id, conv.title, e)}
-                                                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition"
+                                                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition btn-compact"
                                                                                 title="重命名"
                                                                             >
                                                                                 <Edit2 className="w-3.5 h-3.5" />
                                                                             </button>
                                                                             <button
                                                                                 onClick={(e) => handleDelete(conv.id, e)}
-                                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition btn-compact"
                                                                                 title="删除"
                                                                             >
                                                                                 <Trash2 className="w-3.5 h-3.5" />

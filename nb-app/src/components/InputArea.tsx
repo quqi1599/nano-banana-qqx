@@ -28,6 +28,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isQuickPickerOpen, setIsQuickPickerOpen] = useState(false);
+  const [isCameraSupported, setIsCameraSupported] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -104,6 +105,16 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   useEffect(() => {
     autoResizeTextarea();
   }, [inputText, autoResizeTextarea]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const input = document.createElement('input');
+    const supportsCapture = 'capture' in input;
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isLikelyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || isTouchDevice;
+    const hasCameraApi = !!navigator.mediaDevices?.getUserMedia;
+    setIsCameraSupported(supportsCapture && isLikelyMobile && hasCameraApi);
+  }, []);
 
   // 监听待添加的参考图片
   useEffect(() => {
@@ -397,7 +408,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
                 />
                 <button
                   onClick={() => removeAttachment(i)}
-                  className="absolute -right-1.5 xs:-right-2 -top-1.5 xs:-top-2 flex h-4 w-4 xs:h-5 xs:w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600"
+                  className="absolute -right-1.5 xs:-right-2 -top-1.5 xs:-top-2 flex h-4 w-4 xs:h-5 xs:w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600 btn-compact"
                 >
                   <X className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
                 </button>
@@ -405,6 +416,31 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             ))}
           </div>
         )}
+
+        {/* Mobile Upload Actions */}
+        <div className="sm:hidden flex items-center gap-2 px-2 xs:px-3 mb-2">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled || attachments.length >= 14}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50"
+          >
+            <ImagePlus className="h-4 w-4" />
+            上传图片
+          </button>
+          {isCameraSupported && (
+            <button
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={disabled || attachments.length >= 14}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50"
+            >
+              <Camera className="h-4 w-4" />
+              拍照
+            </button>
+          )}
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">
+            {attachments.length}/{MAX_ATTACHMENTS}
+          </span>
+        </div>
 
         <div
           className={`relative flex flex-wrap md:flex-nowrap items-end gap-0.5 xs:gap-1 rounded-xl xs:rounded-2xl bg-gray-50 dark:bg-gray-800 p-1.5 xs:p-2 shadow-inner ring-1 transition-all duration-200 ${isDragging
@@ -439,7 +475,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
           <input
             type="file"
             accept="image/*"
-            capture="environment"
+            capture={isCameraSupported ? 'environment' : undefined}
             className="hidden"
             ref={cameraInputRef}
             onChange={handleFileSelect}
@@ -448,43 +484,43 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled || attachments.length >= 14}
-            className="mb-0.5 xs:mb-1 flex h-9 w-9 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-cream-600 dark:hover:text-cream-400 transition disabled:opacity-50 touch-feedback"
+            className="mb-0.5 xs:mb-1 hidden sm:flex h-11 w-11 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-cream-600 dark:hover:text-cream-400 transition disabled:opacity-50 touch-feedback"
             title="上传图片"
           >
-            <ImagePlus className="h-4 w-4 xs:h-5 xs:w-5" />
+            <ImagePlus className="h-5 w-5 xs:h-5 xs:w-5" />
           </button>
 
           {/* 拍照按钮（仅移动端显示） */}
           <button
             onClick={() => cameraInputRef.current?.click()}
             disabled={disabled || attachments.length >= 14}
-            className="mb-0.5 xs:mb-1 flex h-9 w-9 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-cream-600 dark:hover:text-cream-400 transition disabled:opacity-50 sm:hidden touch-feedback"
+            className="hidden"
             title="拍照上传"
           >
-            <Camera className="h-4 w-4 xs:h-5 xs:w-5" />
+            <Camera className="h-5 w-5 xs:h-5 xs:w-5" />
           </button>
 
           <button
             onClick={() => setIsQuickPickerOpen(true)}
-            className={`mb-0.5 xs:mb-1 flex h-9 w-9 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl transition touch-feedback ${isQuickPickerOpen
+            className={`mb-0.5 xs:mb-1 flex h-11 w-11 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl transition touch-feedback ${isQuickPickerOpen
               ? 'bg-cream-100 dark:bg-cream-900/30 text-cream-600 dark:text-cream-400'
               : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-cream-600 dark:hover:text-cream-400'
               }`}
             title="快速选择提示词 (也可输入 /t)"
           >
-            <Sparkles className="h-4 w-4 xs:h-5 xs:w-5" />
+            <Sparkles className="h-5 w-5 xs:h-5 xs:w-5" />
           </button>
 
           {onOpenArcade && (
             <button
               onClick={onOpenArcade}
-              className={`mb-0.5 xs:mb-1 flex h-9 w-9 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl transition touch-feedback ${isArcadeOpen
+              className={`mb-0.5 xs:mb-1 flex h-11 w-11 xs:h-10 xs:w-10 shrink-0 items-center justify-center rounded-lg xs:rounded-xl transition touch-feedback ${isArcadeOpen
                 ? 'bg-cream-100 dark:bg-cream-900/30 text-cream-600 dark:text-cream-400'
                 : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-cream-600 dark:hover:text-cream-400'
                 }`}
               title={isArcadeOpen ? "关闭 Arcade" : "打开 Arcade"}
             >
-              <Gamepad2 className="h-4 w-4 xs:h-5 xs:w-5" />
+              <Gamepad2 className="h-5 w-5 xs:h-5 xs:w-5" />
             </button>
           )}
 
@@ -495,8 +531,8 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             onKeyDown={handleKeyDown}
             disabled={disabled}
             enterKeyHint="send"
-            placeholder="描述一张图片来生成 或上传参考图来修改 或使用/t中模板"
-            className="mb-0.5 xs:mb-1 max-h-[200px] min-h-[44px] w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2.5 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
+            placeholder="描述一张图片..."
+            className="mb-0.5 xs:mb-1 max-h-[200px] min-h-[44px] w-full md:w-full order-first md:order-0 resize-none bg-transparent py-2.5 px-1 text-base text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
             rows={1}
             style={{ height: '44px' }}
           />

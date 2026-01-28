@@ -140,11 +140,11 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
 
       {/* 快速选择器 */}
       <div
-        className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 mx-auto max-w-6xl"
+        className="fixed inset-x-2 sm:inset-x-4 top-12 sm:top-1/2 sm:-translate-y-1/2 z-50 mx-auto max-w-6xl"
         role="dialog"
         aria-modal="true"
       >
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl overflow-hidden max-h-[85dvh]">
 
           {/* 搜索框 */}
           <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 px-4 py-3 bg-gradient-to-r from-cream-100 to-cream-100 dark:from-gray-800 dark:to-gray-900">
@@ -185,9 +185,9 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
           </div>
 
           {/* 主体区域：左右布局 */}
-          <div className="flex h-[500px]">
+          <div className="flex flex-col sm:flex-row h-[70dvh] sm:h-[500px]">
             {/* 左侧：提示词列表 */}
-            <div className="flex-1 border-r border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+            <div className="flex-1 sm:border-r border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col min-h-0">
               <div
                 ref={listRef}
                 className="flex-1 overflow-y-auto overscroll-contain"
@@ -274,7 +274,7 @@ export const PromptQuickPicker: React.FC<PromptQuickPickerProps> = ({
             </div>
 
             {/* 右侧：详情预览 */}
-            <div className="w-80 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
+            <div className="w-full sm:w-80 bg-gray-50 dark:bg-gray-900 overflow-y-auto border-t sm:border-t-0 sm:border-l border-gray-200 dark:border-gray-700 max-h-[35dvh] sm:max-h-none">
               {hoveredPrompt ? (
                 <PromptDetailPreview prompt={hoveredPrompt} />
               ) : (

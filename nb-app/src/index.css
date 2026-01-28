@@ -525,6 +525,17 @@ body {
   bottom: var(--sab);
 }
 
+/* 浮动按钮在移动端避开安全区与输入栏 */
+.floating-cta {
+  bottom: calc(5rem + var(--sab));
+}
+
+@media (min-width: 640px) {
+  .floating-cta {
+    bottom: calc(1.5rem + var(--sab));
+  }
+}
+
 /* ===== 折叠屏与双屏优化 ===== */
 /* 
    检测跨屏模式 (Dual Screen / Foldable)
@@ -742,6 +753,12 @@ select {
   button {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  button.absolute,
+  button.btn-compact {
+    min-height: 0;
+    min-width: 0;
   }
 
   /* 减小卡片阴影 */

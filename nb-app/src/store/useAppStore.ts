@@ -591,6 +591,7 @@ export const useAppStore = create<AppState>()(
         set({
           currentConversationId: null,
           localConversationId: null,
+          localConversations: [],
           messages: [],
           messagesTotal: 0,
           messagesPage: 1,

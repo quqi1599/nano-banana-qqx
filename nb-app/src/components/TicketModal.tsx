@@ -137,7 +137,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md h-[600px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md h-[90dvh] sm:h-[600px] max-h-[90dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur">
                     <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900">
+                <div className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 pb-safe">
                     {error && (
                         <div className="m-4 p-3 bg-red-100 text-red-600 rounded-lg text-sm flex justify-between items-center">
                             <span>{error}</span>

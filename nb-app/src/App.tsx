@@ -16,7 +16,7 @@ import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
 import { getAvailableGuideFlows } from './data/guideFlows';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare } from 'lucide-react';
+import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, MoreVertical } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -193,6 +193,8 @@ const App: React.FC = () => {
   const [isImageHistoryOpen, setIsImageHistoryOpen] = useState(false);
   const [showFloatingWeChatQR, setShowFloatingWeChatQR] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // 首次访问检测
   useEffect(() => {
@@ -245,6 +247,38 @@ const App: React.FC = () => {
     setSkipApiKeyPrompt(true);
     setShowApiKeyModal(false);
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const viewport = window.visualViewport;
+    const updateKeyboardState = () => {
+      if (!window.visualViewport) {
+        setIsKeyboardVisible(false);
+        return;
+      }
+      const heightDiff = window.innerHeight - window.visualViewport.height;
+      setIsKeyboardVisible(heightDiff > 120);
+    };
+
+    updateKeyboardState();
+    viewport?.addEventListener('resize', updateKeyboardState);
+    window.addEventListener('resize', updateKeyboardState);
+
+    return () => {
+      viewport?.removeEventListener('resize', updateKeyboardState);
+      window.removeEventListener('resize', updateKeyboardState);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 640) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -327,6 +361,61 @@ const App: React.FC = () => {
     return () => systemTheme.removeEventListener('change', applyTheme);
   }, [settings.theme]);
 
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  const handleOpenSettings = () => {
+    if (!isSettingsOpen) toggleSettings();
+    closeMobileMenu();
+  };
+
+  const handleOpenPromptLibrary = () => {
+    if (!isPromptLibraryOpen) togglePromptLibrary();
+    closeMobileMenu();
+  };
+
+  const handleToggleTheme = () => {
+    updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
+    closeMobileMenu();
+  };
+
+  const handleOpenImageHistory = () => {
+    setIsImageHistoryOpen(true);
+    closeMobileMenu();
+  };
+
+  const handleOpenAuth = () => {
+    setShowAuthModal(true);
+    closeMobileMenu();
+  };
+
+  const handleOpenApiKey = () => {
+    setShowApiKeyModal(true);
+    closeMobileMenu();
+  };
+
+  const handleOpenTicket = () => {
+    setShowTicketModal(true);
+    closeMobileMenu();
+  };
+
+  const handleOpenHelp = () => {
+    setShowHelpCenter(true);
+    closeMobileMenu();
+  };
+
+  const handleLogout = () => {
+    showDialog({
+      title: '退出登录',
+      message: '确定要退出登录吗？',
+      confirmLabel: '退出',
+      cancelLabel: '取消',
+      onConfirm: () => {
+        logout();
+        addToast('已退出登录', 'success');
+      }
+    });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -344,7 +433,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-0.5 xs:gap-1 sm:gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-0.5 xs:gap-1 sm:gap-2">
           {/* Credits Display - Show when authenticated */}
           {isAuthenticated && user && (
             <div className="hidden md:flex items-center gap-1.5 sm:gap-2 mr-1">
@@ -411,20 +500,20 @@ const App: React.FC = () => {
           {canUseHistory && (
             <button
               onClick={() => setIsConversationHistoryOpen(true)}
-              className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              className="flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title="对话历史"
             >
-              <MessageSquare className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-5 sm:w-5" />
+              <MessageSquare className="h-5 w-5 xs:h-5 xs:w-5 sm:h-5 sm:w-5" />
             </button>
           )}
 
           {installPrompt && (
             <button
               onClick={handleInstallClick}
-              className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              className="hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-700 dark:hover:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title="安装应用"
             >
-              <Download className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6 animate-attract" />
+              <Download className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6 animate-attract" />
             </button>
           )}
 
@@ -432,12 +521,12 @@ const App: React.FC = () => {
           {isAuthenticated && user?.is_admin && (
             <a
               href="/admin/"
-              className="relative rounded-md xs:rounded-lg p-1.5 xs:p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
+              className="relative hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-purple-600 dark:text-purple-400 transition hover:bg-purple-100 dark:hover:bg-purple-900/30 focus:outline-none focus:ring-2 focus:ring-purple-500 touch-feedback"
               title="管理后台"
             >
-              <ShieldCheck className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+              <ShieldCheck className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               {adminUnreadCount > 0 && (
-                <span className="absolute top-0.5 xs:top-1 right-0.5 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
+                <span className="absolute top-2 xs:top-1 right-2 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 xs:h-2 w-1.5 xs:w-2 bg-red-500"></span>
                 </span>
@@ -448,12 +537,12 @@ const App: React.FC = () => {
           {isAuthenticated && ( // 3. Add Header button
             <button
               onClick={() => setShowTicketModal(true)}
-              className="relative rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
+              className="relative hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white transition hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 touch-feedback"
               title="提交工单/反馈"
             >
-              <MessageCircle className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+              <MessageCircle className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               {ticketUnreadCount > 0 && (
-                <span className="absolute top-0.5 xs:top-1 right-0.5 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
+                <span className="absolute top-2 xs:top-1 right-2 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-1.5 xs:h-2 w-1.5 xs:w-2 bg-red-500"></span>
                 </span>
@@ -466,28 +555,17 @@ const App: React.FC = () => {
             <div className="flex items-center gap-0.5 xs:gap-1">
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                className="flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title={user?.nickname || user?.email || '账户'}
               >
-                <User className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+                <User className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               </button>
               <button
-                onClick={() => {
-                  showDialog({
-                    title: '退出登录',
-                    message: '确定要退出登录吗？',
-                    confirmLabel: '退出',
-                    cancelLabel: '取消',
-                    onConfirm: () => {
-                      logout();
-                      addToast('已退出登录', 'success');
-                    }
-                  });
-                }}
-                className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                onClick={handleLogout}
+                className="hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title="退出登录"
               >
-                <LogOut className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+                <LogOut className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
           ) : (
@@ -505,32 +583,32 @@ const App: React.FC = () => {
           {!isAuthenticated && (
             <button
               data-guide="api-key-button"
-              onClick={() => setShowApiKeyModal(true)}
-              className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              onClick={handleOpenApiKey}
+              className="hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title={apiKey ? "更换 API Key" : "设置 API Key"}
             >
-              <Key className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+              <Key className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
             </button>
           )}
 
           {(apiKey || isAuthenticated) && (
             <>
               <button
-                onClick={() => setIsImageHistoryOpen(true)}
-                className="relative rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                onClick={handleOpenImageHistory}
+                className="relative hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title="图片历史"
               >
-                <ImageIcon className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+                <ImageIcon className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
                 {imageHistory.length > 0 && (
-                  <span className="absolute top-0.5 xs:top-1 right-0.5 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
+                  <span className="absolute top-2 xs:top-1 right-2 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-1.5 xs:h-2 w-1.5 xs:w-2 bg-amber-500"></span>
                   </span>
                 )}
               </button>
               <button
-                onClick={togglePromptLibrary}
-                className={`flex items-center gap-1 xs:gap-1.5 rounded-md xs:rounded-lg px-2 xs:px-3 py-1.5 xs:py-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
+                onClick={handleOpenPromptLibrary}
+                className={`hidden sm:flex items-center gap-1 xs:gap-1.5 rounded-md xs:rounded-lg px-2 xs:px-3 py-1.5 xs:py-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isPromptLibraryOpen
                   ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
                   }`}
@@ -543,31 +621,162 @@ const App: React.FC = () => {
           )}
 
           <button
-            onClick={() => updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })}
-            className="rounded-md xs:rounded-lg p-1.5 xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+            onClick={handleToggleTheme}
+            className="hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
             title="切换主题"
           >
-            {settings.theme === 'dark' ? <Sun className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" /> : <Moon className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />}
+            {settings.theme === 'dark' ? <Sun className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" /> : <Moon className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />}
           </button>
 
           {/* 帮助按钮 */}
-          <HelpButton
-            onClick={() => setShowHelpCenter(true)}
-            badge={showOnboardingBadge && getAvailableGuideFlows().some(g => isGuideAvailable(g.id))}
-          />
+          <div className="hidden sm:block">
+            <HelpButton
+              onClick={() => setShowHelpCenter(true)}
+              badge={showOnboardingBadge && getAvailableGuideFlows().some(g => isGuideAvailable(g.id))}
+            />
+          </div>
 
           <button
             onClick={toggleSettings}
-            className={`rounded-md xs:rounded-lg p-1.5 xs:p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isSettingsOpen
+            className={`hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 transition focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback ${isSettingsOpen
               ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
               : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
               }`}
             title="设置"
           >
-            <Settings className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+            <Settings className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+          </button>
+
+          <button
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="flex sm:hidden items-center justify-center h-10 w-10 rounded-md text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+            title="更多功能"
+          >
+            <MoreVertical className="h-5 w-5" />
           </button>
         </div>
       </header>
+
+      {/* Mobile Overflow Menu */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-30 sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={closeMobileMenu}
+          />
+          <div className="absolute top-14 left-2 right-2 rounded-xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-800 p-2">
+            <div className="flex flex-col gap-1 text-sm">
+              <button
+                onClick={handleOpenAuth}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                <User className="h-4 w-4" />
+                {isAuthenticated ? '账户中心' : '登录/注册'}
+              </button>
+
+              {installPrompt && (
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    handleInstallClick();
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                >
+                  <Download className="h-4 w-4 text-amber-500" />
+                  安装应用
+                </button>
+              )}
+
+              {isAuthenticated && user?.is_admin && (
+                <a
+                  href="/admin/"
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  管理后台
+                </a>
+              )}
+
+              {isAuthenticated && (
+                <button
+                  onClick={handleOpenTicket}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  工单/反馈
+                </button>
+              )}
+
+              {!isAuthenticated && (
+                <button
+                  onClick={handleOpenApiKey}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                >
+                  <Key className="h-4 w-4" />
+                  {apiKey ? '更换 API Key' : '设置 API Key'}
+                </button>
+              )}
+
+              {(apiKey || isAuthenticated) && (
+                <>
+                  <button
+                    onClick={handleOpenImageHistory}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    图片历史
+                  </button>
+                  <button
+                    onClick={handleOpenPromptLibrary}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    提示词库
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={handleToggleTheme}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                {settings.theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                切换主题
+              </button>
+
+              <button
+                onClick={handleOpenHelp}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                <MessageSquare className="h-4 w-4" />
+                帮助中心
+              </button>
+
+              <button
+                onClick={handleOpenSettings}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                <Settings className="h-4 w-4" />
+                设置
+              </button>
+
+              {isAuthenticated && (
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+                >
+                  <LogOut className="h-4 w-4" />
+                  退出登录
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 relative overflow-hidden flex flex-row min-h-0">
@@ -665,16 +874,18 @@ const App: React.FC = () => {
       <GlobalDialog />
 
       {/* 悬浮微信群按钮 */}
-      <button
-        onClick={() => setShowFloatingWeChatQR(true)}
-        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
-        title="加入交流群"
-      >
-        <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />
-        <span className="absolute right-full mr-3 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-          加入交流群
-        </span>
-      </button>
+      {!isKeyboardVisible && (
+        <button
+          onClick={() => setShowFloatingWeChatQR(true)}
+          className="fixed floating-cta right-4 sm:right-6 z-40 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
+          title="加入交流群"
+        >
+          <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
+            加入交流群
+          </span>
+        </button>
+      )}
       <WeChatQRModal isOpen={showFloatingWeChatQR} onClose={() => setShowFloatingWeChatQR(false)} />
 
       {/* 首次访问欢迎弹窗 */}

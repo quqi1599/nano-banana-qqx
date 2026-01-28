@@ -237,10 +237,10 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative flex flex-col max-h-[90dvh]">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                         {isAuthenticated
                             ? '账户中心'
@@ -261,7 +261,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
+                <div className="p-6 flex-1 overflow-y-auto pb-safe">
                     {isAuthenticated && user ? (
                         // 已登录 - 显示用户信息和兑换码
                         <div className="space-y-4">
