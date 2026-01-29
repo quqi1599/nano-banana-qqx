@@ -151,6 +151,10 @@ async def use_redeem_code(
     flash_balance = locked_user.flash_balance
     total_balance = general_balance + pro3_balance + flash_balance
 
+    # 提交所有数据库更改
+    await db.commit()
+    await db.refresh(locked_user)
+
     return RedeemResponse(
         success=True,
         message="兑换成功",

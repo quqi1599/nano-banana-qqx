@@ -269,7 +269,24 @@ class ChangePasswordRequest(BaseModel):
 
 
 def validate_password_strength(password: str) -> None:
-    return
+    """验证密码强度"""
+    if not password or len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码长度至少8位",
+        )
+    # 检查是否包含至少一个数字
+    if not any(c.isdigit() for c in password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码必须包含至少一个数字",
+        )
+    # 检查是否包含至少一个字母
+    if not any(c.isalpha() for c in password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="密码必须包含至少一个字母",
+        )
 
 
 async def get_active_email_whitelist(db: AsyncSession) -> List[str]:
@@ -380,7 +397,7 @@ async def send_code(
     code = generate_code()
     expires_at = now + timedelta(minutes=settings.email_code_expire_minutes)
 
-    logger.info(f"[验证码] 生成验证码成功: 邮箱={data.email}, 用途={data.purpose}, 验证码={code}, 过期时间={expires_at}")
+    logger.info(f"[验证码] 生成验证码成功: 邮箱={data.email}, 用途={data.purpose}, 过期时间={expires_at}")
 
     # 保存验证码（同时作废历史未使用验证码）
     email_code = EmailCode(
@@ -626,8 +643,9 @@ async def login(
             detail="账户已被禁用",
         )
     
-    # 登录成功，清除失败计数
+    # 登录成功，清除失败计数（包括邮箱和 IP 锁）
     await redis_client.delete(email_key)
+    await redis_client.delete(ip_key)
     
     access_token = create_access_token(data={"sub": user.id})
     _set_auth_cookies(response, access_token)
