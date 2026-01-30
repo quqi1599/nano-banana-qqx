@@ -6,8 +6,8 @@ WORKDIR /app
 # 复制依赖文件
 COPY package.json bun.lock ./
 
-# 安装依赖
-RUN bun install --frozen-lockfile
+# 安装依赖 (不使用 frozen-lockfile，因为 lockfile 版本可能不兼容)
+RUN bun install
 
 # 复制源代码
 COPY . .
