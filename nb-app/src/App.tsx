@@ -41,8 +41,8 @@ const App: React.FC = () => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('nbnb_skip_api_key') === '1';
   });
-  // 任何有身份标识的用户都能使用历史对话：登录用户、API Key用户、游客（visitorId）
-  const canUseHistory = isAuthenticated || !!apiKey || !!visitorId;
+  // 所有用户都可以使用历史对话（包括游客使用本地历史）
+  const canUseHistory = true;
   // 对话历史侧边栏状态
   const [isConversationHistoryOpen, setIsConversationHistoryOpen] = useState(false);
   const [isConversationHistoryCollapsed, setIsConversationHistoryCollapsed] = useState(false);
@@ -195,6 +195,16 @@ const App: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  // 微信群气泡是否被用户关闭（持久化到 localStorage）
+  const [wechatBubbleDismissed, setWechatBubbleDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('nbnb_wechat_bubble_dismissed') === '1';
+  });
+
+  const dismissWechatBubble = () => {
+    setWechatBubbleDismissed(true);
+    localStorage.setItem('nbnb_wechat_bubble_dismissed', '1');
+  };
 
   // 首次访问检测
   useEffect(() => {
@@ -873,18 +883,28 @@ const App: React.FC = () => {
       <ToastContainer />
       <GlobalDialog />
 
-      {/* 悬浮微信群按钮 */}
-      {!isKeyboardVisible && (
-        <button
-          onClick={() => setShowFloatingWeChatQR(true)}
-          className="fixed floating-cta left-4 sm:left-auto sm:right-6 z-40 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
-          title="加入交流群"
-        >
-          <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />
-          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
+      {/* 悬浮微信群按钮 - 仅在桌面端显示，用户可关闭 */}
+      {!isKeyboardVisible && !wechatBubbleDismissed && (
+        <div className="fixed floating-cta right-6 z-40 hidden sm:flex items-center gap-2 group">
+          <button
+            onClick={() => setShowFloatingWeChatQR(true)}
+            className="flex items-center justify-center w-14 h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+            title="加入交流群"
+          >
+            <MessageCircle className="h-7 w-7" />
+          </button>
+          {/* 关闭按钮 */}
+          <button
+            onClick={dismissWechatBubble}
+            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/30 dark:hover:text-red-400 flex items-center justify-center text-xs font-bold shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+            title="关闭"
+          >
+            ×
+          </button>
+          <span className="absolute right-full mr-3 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
             加入交流群
           </span>
-        </button>
+        </div>
       )}
       <WeChatQRModal isOpen={showFloatingWeChatQR} onClose={() => setShowFloatingWeChatQR(false)} />
 
