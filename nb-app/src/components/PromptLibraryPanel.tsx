@@ -120,8 +120,8 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
         onClick={closePromptLibrary}
       />
 
-      {/* 面板主体 */}
-      <div className={`fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white dark:bg-gray-900 shadow-2xl transform transition-all duration-200 ease-out overflow-hidden flex flex-col ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
+      {/* 面板主体 - 手机全屏，桌面右侧边栏 */}
+      <div className={`fixed inset-0 sm:inset-y-0 sm:left-auto sm:right-0 z-50 h-dvh sm:h-full w-full sm:w-[600px] bg-white dark:bg-gray-900 shadow-2xl transform transition-all duration-200 ease-out overflow-hidden flex flex-col ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
 
         {/* 头部 */}
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-cream-100 to-cream-100 dark:from-gray-800 dark:to-gray-900 px-4 sm:px-6 py-3 sm:py-4">

@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore';
 import { downloadImage, openImageInNewTab, downloadDatasetZip } from '../utils/imageUtils';
 import { resolveMessageImageData } from '../utils/messageImageUtils';
 import { WeChatQRModal } from './WeChatQRModal';
+import { ImageGallery } from './ImageGallery';
 const MarkdownRenderer = React.lazy(() => import('./MarkdownRenderer'));
 
 // Lazy-loaded markdown component with Suspense fallback
@@ -382,8 +383,50 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
       );
     }
 
-    // 3. Handle Images
+    // 3. Handle Images - 单张图片使用 ImageWithDownload，多张使用 ImageGallery
     if (part.inlineData) {
+      // 检查接下来连续的图片数量
+      const startIndex = groupedParts.indexOf(part);
+      if (startIndex === index) {
+        // 收集从当前位置开始的所有连续图片
+        const consecutiveImages: Part[] = [];
+        for (let i = index; i < groupedParts.length; i++) {
+          const p = groupedParts[i];
+          if (!Array.isArray(p) && p.inlineData && !p.thought) {
+            consecutiveImages.push(p);
+          } else {
+            break;
+          }
+        }
+
+        // 如果有多张连续图片，使用 ImageGallery
+        if (consecutiveImages.length > 1) {
+          return <ImageGallery key={`gallery-${index}`} parts={consecutiveImages} />;
+        }
+      }
+
+      // 单张图片或非首个连续图片（已被合并到 Gallery 中）
+      // 检查是否已经被之前的 Gallery 处理
+      for (let i = 0; i < index; i++) {
+        const p = groupedParts[i];
+        if (!Array.isArray(p) && p.inlineData && !p.thought) {
+          // 检查从 i 开始的连续图片是否包含当前 index
+          let j = i;
+          while (j < groupedParts.length) {
+            const pp = groupedParts[j];
+            if (!Array.isArray(pp) && pp.inlineData && !pp.thought) {
+              if (j === index && j > i) {
+                // 当前图片已被之前的 Gallery 包含，跳过渲染
+                return null;
+              }
+              j++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
       return <ImageWithDownload key={index} part={part} index={index} />;
     }
     return null;
