@@ -605,6 +605,10 @@ body {
 
 /* ===== 滚动优化 ===== */
 /* 流畅滚动 */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
 .scroll-smooth-touch {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
@@ -1357,7 +1361,9 @@ p {
 
 /* 微信浏览器滚动优化 */
 .wechat-browser .scroll-smooth-touch,
-.qq-browser .scroll-smooth-touch {
+.wechat-browser .scroll-touch,
+.qq-browser .scroll-smooth-touch,
+.qq-browser .scroll-touch {
   -webkit-overflow-scrolling: touch;
   overflow-scrolling: touch;
 }

@@ -63,6 +63,7 @@ export const ChatInterface: React.FC = () => {
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pipelineAbortControllerRef = useRef<AbortController | null>(null);
   const balanceRefreshStateRef = useRef({ lastRefreshAt: 0, inFlight: false });
@@ -185,11 +186,34 @@ export const ChatInterface: React.FC = () => {
     await loadConversation(currentConversationId, nextPage);
   };
 
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+
+    const handleScroll = () => {
+      const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+      isAtBottomRef.current = distanceFromBottom < 120;
+    };
+
+    handleScroll();
+    node.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      node.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentConversationId) {
+      isAtBottomRef.current = true;
+    }
+  }, [currentConversationId]);
+
   // Scroll to bottom when messages change or loading state changes
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    const node = scrollRef.current;
+    if (!node) return;
+    if (!isAtBottomRef.current) return;
+    node.scrollTop = node.scrollHeight;
   }, [messages.length, isLoading, showArcade]); // Optimized dependencies (removed full messages content check)
 
   useEffect(() => {
@@ -1121,16 +1145,12 @@ export const ChatInterface: React.FC = () => {
       hasHiddenMessages: messages.length > sliced.length,
     };
   }, [messages]);
-  const messageWrapperStyle = useMemo<React.CSSProperties>(() => ({
-    contentVisibility: 'auto',
-    containIntrinsicSize: '1px 200px',
-  }), []);
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-dark-bg transition-colors duration-200 relative">
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-2 xs:px-3 sm:px-4 lg:px-6 py-3 xs:py-4 sm:py-6 space-y-4 xs:space-y-6 sm:space-y-8 overscroll-y-contain scroll-smooth-touch scrollbar-hide"
+        className="flex-1 overflow-y-auto px-2 xs:px-3 sm:px-4 lg:px-6 py-3 xs:py-4 sm:py-6 space-y-4 xs:space-y-6 sm:space-y-8 overscroll-y-contain scroll-touch scrollbar-hide"
       >
         {/* Batch Progress Indicator */}
         {batchProgress.total > 0 && (
@@ -1189,7 +1209,7 @@ export const ChatInterface: React.FC = () => {
         )}
 
         {visibleMessages.map((msg, index) => (
-          <div key={msg.id} style={messageWrapperStyle}>
+          <div key={msg.id}>
             <ErrorBoundary>
               <Suspense fallback={<div className="h-12 w-full animate-pulse bg-gray-50 dark:bg-gray-800/50 rounded-lg mb-4"></div>}>
                 <MessageBubble

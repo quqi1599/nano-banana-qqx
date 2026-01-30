@@ -1,5 +1,5 @@
 """
-对话清理服务 - 14天自动清理
+对话清理服务 - 30天自动清理
 使用东八区时间 (UTC+8)
 
 ⚠️ 重要：此服务仅清理用户的对话历史数据，不会影响其他任何表：
@@ -28,7 +28,7 @@ from app.utils.timezone import CHINA_TZ, china_now, to_utc
 logger = logging.getLogger(__name__)
 
 # 保留天数
-RETENTION_DAYS = 14
+RETENTION_DAYS = 30
 
 
 def get_china_now() -> datetime:
@@ -43,7 +43,7 @@ def get_cutoff_time() -> datetime:
 
 async def cleanup_old_conversations(db: AsyncSession, dry_run: bool = False) -> dict:
     """
-    清理超过14天的用户对话数据
+    清理超过30天的用户对话数据
 
     安全保证：
     1. 仅查询和删除 Conversation 表
@@ -62,7 +62,7 @@ async def cleanup_old_conversations(db: AsyncSession, dry_run: bool = False) -> 
     cutoff_time_utc = to_utc(cutoff_time)
 
     logger.info(f"=" * 60)
-    logger.info(f"开始清理用户对话数据（14天前的对话）")
+    logger.info(f"开始清理用户对话数据（30天前的对话）")
     logger.info(f"截止时间（东八区）: {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"截止时间（UTC）: {cutoff_time_utc.strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"试运行模式: {dry_run}")
@@ -130,7 +130,7 @@ async def cleanup_old_conversations(db: AsyncSession, dry_run: bool = False) -> 
             message_count=conv.message_count,
             conversation_created_at=conv.created_at,
             conversation_updated_at=conv.updated_at,
-            cleanup_reason="auto_14days",
+            cleanup_reason="auto_30days",
         )
         cleanup_records.append(record)
 

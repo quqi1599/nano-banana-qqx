@@ -877,7 +877,7 @@ const App: React.FC = () => {
       {!isKeyboardVisible && (
         <button
           onClick={() => setShowFloatingWeChatQR(true)}
-          className="fixed floating-cta right-4 sm:right-6 z-40 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
+          className="fixed floating-cta left-4 sm:left-auto sm:right-6 z-40 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 group"
           title="加入交流群"
         >
           <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />

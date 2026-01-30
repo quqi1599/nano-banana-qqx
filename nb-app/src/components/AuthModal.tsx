@@ -263,7 +263,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
     return (
         <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative flex flex-col max-h-[90dvh] transition-all duration-200 transform ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-[90%] md:w-full max-w-sm md:max-w-md overflow-hidden relative flex flex-col max-h-[90dvh] transition-all duration-200 transform ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -286,7 +286,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 </div>
 
                 {/* Content */}
-                <div className="p-6 flex-1 overflow-y-auto pb-safe">
+                <div className="p-4 md:p-6 flex-1 overflow-y-auto pb-safe">
                     <div key={isAuthenticated ? 'account' : activeTab} className="animate-fade-in">
                         {isAuthenticated && user ? (
                             // 已登录 - 显示用户信息和兑换码
@@ -392,7 +392,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                 type="button"
                                                 onClick={initiateResetCode}
                                                 disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
-                                                className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[100px]"
                                             >
                                                 {codeSending
                                                     ? '发送中...'
@@ -527,7 +527,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                     type="button"
                                                     onClick={initiateRegisterCode}
                                                     disabled={registerCodeSending || registerCodeCooldown > 0 || !email.trim()}
-                                                    className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[100px]"
                                                 >
                                                     {registerCodeSending
                                                         ? '发送中...'

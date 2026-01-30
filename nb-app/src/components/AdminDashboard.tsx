@@ -86,14 +86,14 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
         try {
             const [data, failures] = await Promise.all([
                 getDashboardStats(undefined, undefined, {
-                    includeDailyStats: false,
-                    includeModelStats: false,
+                    includeDailyStats: true,
+                    includeModelStats: true,
                 }),
                 getLoginFailureIps(ADMIN_CONFIG.LOGIN_FAILURE_LIMIT),
             ]);
             setStats(data);
-            setDailyStatsLoaded(false);
-            setModelStatsLoaded(false);
+            setDailyStatsLoaded(true);
+            setModelStatsLoaded(true);
             setLoginFailures(failures);
         } catch (err) {
             setError((err as Error).message);
@@ -101,6 +101,7 @@ export const AdminDashboard = ({ onLogout, onExit }: AdminDashboardProps) => {
             setIsLoading(false);
         }
     };
+
 
     const loadModelStats = async () => {
         if (!stats || modelStatsLoading) return;

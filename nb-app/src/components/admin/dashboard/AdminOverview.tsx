@@ -121,47 +121,36 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         </div>
                         模型使用分布
                     </h3>
-                    {modelStatsLoaded ? (
-                        stats.model_stats.length > 0 ? (
-                            <div className="space-y-5">
-                                {stats.model_stats.map((m, idx) => {
-                                    const colors = ADMIN_CONFIG.CHART_COLORS;
-                                    const percent = Math.min(100, (m.total_requests / Math.max(1, stats.total_requests_today)) * 100);
-                                    return (
-                                        <div key={m.model_name}>
-                                            <div className="flex justify-between text-sm mb-1.5">
-                                                <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
-                                                <div className="text-gray-500 text-xs flex gap-2">
-                                                    <span>{m.total_requests.toLocaleString()} 次请求</span>
-                                                    <span>{m.total_credits_used.toLocaleString()} 积分</span>
-                                                </div>
-                                            </div>
-                                            <div className="h-2.5 bg-gray-50 dark:bg-gray-800 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full ${colors[idx % colors.length]} transition-all duration-1000 ease-out`}
-                                                    style={{ width: `${percent}%` }}
-                                                />
+                    {modelStatsLoading ? (
+                        <div className="text-center py-12 text-gray-400">加载中...</div>
+                    ) : stats.model_stats.length > 0 ? (
+                        <div className="space-y-5">
+                            {stats.model_stats.map((m, idx) => {
+                                const colors = ADMIN_CONFIG.CHART_COLORS;
+                                const percent = Math.min(100, (m.total_requests / Math.max(1, stats.total_requests_today)) * 100);
+                                return (
+                                    <div key={m.model_name}>
+                                        <div className="flex justify-between text-sm mb-1.5">
+                                            <span className="font-medium text-gray-700 dark:text-gray-300">{m.model_name}</span>
+                                            <div className="text-gray-500 text-xs flex gap-2">
+                                                <span>{m.total_requests.toLocaleString()} 次请求</span>
+                                                <span>{m.total_credits_used.toLocaleString()} 积分</span>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-gray-800/10 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
-                                <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm">今日暂无使用数据</p>
-                            </div>
-                        )
+                                        <div className="h-2.5 bg-gray-50 dark:bg-gray-800 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full ${colors[idx % colors.length]} transition-all duration-1000 ease-out`}
+                                                style={{ width: `${percent}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     ) : (
-                        <div className="text-center py-12">
-                            <button
-                                type="button"
-                                onClick={onLoadModelStats}
-                                disabled={modelStatsLoading}
-                                className="px-5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-cream-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-sm font-medium transition-all"
-                            >
-                                {modelStatsLoading ? '加载数据中...' : '加载模型分析'}
-                            </button>
+                        <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-gray-800/10 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
+                            <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                            <p className="text-sm">今日暂无使用数据</p>
                         </div>
                     )}
                 </div>
@@ -174,51 +163,40 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                         </div>
                         近7日使用趋势
                     </h3>
-                    {dailyStatsLoaded ? (
-                        stats.daily_stats.length > 0 ? (
-                            <div className="pt-4 h-full flex flex-col justify-end gap-2">
-                                {/* Simple bar chart visualization */}
-                                <div className="flex items-end justify-between h-48 gap-2">
-                                    {stats.daily_stats.map(day => {
-                                        const max = Math.max(1, ...stats.daily_stats.map(d => d.total_requests));
-                                        const percent = (day.total_requests / max) * 100;
-                                        return (
-                                            <div key={day.date} className="flex-1 flex flex-col items-center group">
-                                                <div className="relative w-full flex-1 flex items-end justify-center">
-                                                    <div
-                                                        className="w-full max-w-[24px] bg-green-100 dark:bg-green-900/20 rounded-t-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/40 transition-colors relative"
-                                                        style={{ height: `${percent}%` }}
-                                                    >
-                                                        <div className="absolute bottom-0 inset-x-0 h-full bg-gradient-to-t from-green-500/20 to-transparent rounded-t-lg"></div>
-                                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            {day.total_requests}
-                                                        </div>
+                    {dailyStatsLoading ? (
+                        <div className="text-center py-12 text-gray-400">加载中...</div>
+                    ) : stats.daily_stats.length > 0 ? (
+                        <div className="pt-4 h-full flex flex-col justify-end gap-2">
+                            {/* Simple bar chart visualization */}
+                            <div className="flex items-end justify-between h-48 gap-2">
+                                {stats.daily_stats.map(day => {
+                                    const max = Math.max(1, ...stats.daily_stats.map(d => d.total_requests));
+                                    const percent = (day.total_requests / max) * 100;
+                                    return (
+                                        <div key={day.date} className="flex-1 flex flex-col items-center group">
+                                            <div className="relative w-full flex-1 flex items-end justify-center">
+                                                <div
+                                                    className="w-full max-w-[24px] bg-green-100 dark:bg-green-900/20 rounded-t-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/40 transition-colors relative"
+                                                    style={{ height: `${percent}%` }}
+                                                >
+                                                    <div className="absolute bottom-0 inset-x-0 h-full bg-gradient-to-t from-green-500/20 to-transparent rounded-t-lg"></div>
+                                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        {day.total_requests}
                                                     </div>
                                                 </div>
-                                                <span className="mt-2 text-[10px] text-gray-400 font-medium rotate-0 truncate w-full text-center">
-                                                    {day.date.slice(5)}
-                                                </span>
                                             </div>
-                                        )
-                                    })}
-                                </div>
+                                            <span className="mt-2 text-[10px] text-gray-400 font-medium rotate-0 truncate w-full text-center">
+                                                {day.date.slice(5)}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
                             </div>
-                        ) : (
-                            <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-gray-800/10 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
-                                <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-20" />
-                                <p className="text-sm">暂无历史数据</p>
-                            </div>
-                        )
+                        </div>
                     ) : (
-                        <div className="text-center py-12">
-                            <button
-                                type="button"
-                                onClick={onLoadDailyStats}
-                                disabled={dailyStatsLoading}
-                                className="px-5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-cream-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-sm font-medium transition-all"
-                            >
-                                {dailyStatsLoading ? '加载图表中...' : '加载7日趋势'}
-                            </button>
+                        <div className="text-center py-12 text-gray-400 bg-gray-50/50 dark:bg-gray-800/10 rounded-xl border border-dashed border-gray-200 dark:border-gray-800">
+                            <TrendingUp className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                            <p className="text-sm">暂无历史数据</p>
                         </div>
                     )}
                 </div>
