@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { Key, ChevronDown, ChevronRight, Settings2, X, MessageCircle, Globe, AlertTriangle } from 'lucide-react';
@@ -14,12 +14,16 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
   const { apiKey, setApiKey, updateSettings, settings } = useAppStore();
   const { showDialog } = useUiStore();
   const [inputKey, setInputKey] = useState('');
+  const [isVisible, setIsVisible] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [model, setModel] = useState(settings.modelName || 'gemini-3-pro-image-preview');
   const [showWeChatQR, setShowWeChatQR] = useState(false);
   const [customEndpoint, setCustomEndpoint] = useState(settings.customEndpoint || DEFAULT_API_ENDPOINT);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [renderDisclaimer, setRenderDisclaimer] = useState(false);
+  const [disclaimerVisible, setDisclaimerVisible] = useState(false);
   const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
 
   // Sync local state with store settings (e.g. when updated via URL params)
   useEffect(() => {
@@ -29,6 +33,46 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
   useEffect(() => {
     setCustomEndpoint(settings.customEndpoint || DEFAULT_API_ENDPOINT);
   }, [settings.customEndpoint]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setIsVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (showDisclaimer) {
+      setRenderDisclaimer(true);
+      const frame = window.requestAnimationFrame(() => setDisclaimerVisible(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    if (renderDisclaimer) {
+      setDisclaimerVisible(false);
+      const timer = window.setTimeout(() => setRenderDisclaimer(false), 200);
+      return () => window.clearTimeout(timer);
+    }
+  }, [showDisclaimer, renderDisclaimer]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const requestClose = (callback?: () => void) => {
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    setShowWeChatQR(false);
+    setShowDisclaimer(false);
+    setIsVisible(false);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      callback?.();
+    }, 200);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,9 +99,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
     });
     setApiKey(effectiveKey);
 
-    // 调用 onClose 如果提供
     if (onClose) {
-      onClose();
+      requestClose(onClose);
     }
   };
 
@@ -76,17 +119,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
     setApiKey(effectiveKey);
 
     if (onClose) {
-      onClose();
+      requestClose(onClose);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm px-4 no-select">
-      <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-4 sm:p-8 modal-mobile-padding touch-manipulation transition-colors duration-200 relative">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm px-4 no-select transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-4 sm:p-8 modal-mobile-padding touch-manipulation transition-all duration-200 relative ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {/* Close button (only show if onClose provided) */}
         {onClose && (
           <button
-            onClick={onClose}
+            onClick={() => requestClose(onClose)}
             className="absolute top-4 right-4 p-3 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
             title="关闭"
           >
@@ -241,7 +284,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
           {onSkip && (
             <button
               type="button"
-              onClick={onSkip}
+              onClick={() => requestClose(onSkip)}
               className="w-full mt-2 rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
             >
               暂不输入
@@ -263,9 +306,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
         <WeChatQRModal isOpen={showWeChatQR} onClose={() => setShowWeChatQR(false)} />
 
         {/* 自定义中转接口免责声明弹窗 */}
-        {showDisclaimer && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-6">
+        {renderDisclaimer && (
+          <div className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 transition-opacity duration-200 ${disclaimerVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <div className={`w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-6 transition-all duration-200 ${disclaimerVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
                   <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />

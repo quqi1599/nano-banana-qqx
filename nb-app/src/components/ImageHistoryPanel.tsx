@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { get as getItem } from 'idb-keyval';
 import { X, Download, Trash2, ImageIcon, Search, Copy, ArrowRight, ArrowLeft, RefreshCw, Loader2, Edit } from 'lucide-react';
 import { ImageHistoryItem } from '../types';
@@ -14,10 +15,14 @@ interface Props {
 export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   const { imageHistory, clearImageHistory, deleteImageFromHistory, setInputText, cleanInvalidHistory } = useAppStore();
   const { showDialog, addToast, setPendingReferenceImage } = useUiStore();
+  const prefersReducedMotion = useReducedMotion();
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [isVisible, setIsVisible] = useState(isOpen);
   const [selectedImage, setSelectedImage] = useState<ImageHistoryItem | null>(null);
   const [fullResData, setFullResData] = useState<string | null>(null);
   const [loadingFullRes, setLoadingFullRes] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const closeTimerRef = useRef<number | null>(null);
   const getThumbnailMimeType = (image: ImageHistoryItem) =>
     image.thumbnailMimeType || (image.mimeType === 'image/png' ? 'image/png' : 'image/jpeg');
 
@@ -25,6 +30,46 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   useEffect(() => {
     cleanInvalidHistory();
   }, [cleanInvalidHistory]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      if (prefersReducedMotion) {
+        setIsVisible(true);
+      } else {
+        const frame = window.requestAnimationFrame(() => setIsVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+      }
+    } else {
+      if (prefersReducedMotion) {
+        setIsVisible(false);
+        setShouldRender(false);
+      } else {
+        setIsVisible(false);
+        const timer = window.setTimeout(() => setShouldRender(false), 200);
+        return () => window.clearTimeout(timer);
+      }
+    }
+  }, [isOpen, shouldRender, prefersReducedMotion]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const requestClose = () => {
+    setIsVisible(false);
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      requestClose();
+    }, 200);
+  };
 
   // 加载大图数据
   useEffect(() => {
@@ -128,7 +173,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
 
   const handleReusePrompt = (prompt: string) => {
     setInputText(prompt);
-    onClose(); // Close panel to go back to chat
+    requestClose(); // Close panel to go back to chat
     addToast('提示词已填入输入框', 'success');
   };
 
@@ -159,7 +204,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         mimeType: image.mimeType,
         timestamp: Date.now()
       });
-      onClose(); // Close panel to return to chat
+      requestClose(); // Close panel to return to chat
       addToast('图片已添加为参考图', 'success');
     } else {
       addToast('加载失败：找不到原图', 'error');
@@ -179,18 +224,23 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
     });
   };
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return (
-    <>
+    <div
+      aria-hidden={!isVisible}
+      className={`${!isVisible ? 'pointer-events-none' : ''}`}
+      // @ts-ignore
+      inert={!isVisible ? "" : undefined}
+    >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-        onClick={onClose}
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+        onClick={requestClose}
       />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white dark:bg-gray-950 shadow-2xl z-50 flex flex-col transition-transform duration-300 pt-safe">
+      <div className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white dark:bg-gray-950 shadow-2xl z-50 flex flex-col transition-all duration-200 pt-safe ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
         {/* Header */}
         <div className="flex flex-col border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-10">
           <div className="flex items-center justify-between p-4 pb-2">
@@ -210,7 +260,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
                 </button>
               )}
               <button
-                onClick={onClose}
+                onClick={requestClose}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition"
               >
                 <X className="h-5 w-5" />
@@ -416,6 +466,6 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };

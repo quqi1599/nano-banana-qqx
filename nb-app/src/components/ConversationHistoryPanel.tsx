@@ -8,7 +8,7 @@
  * - 未登录 + 自定义URL/API：按 api_key_prefix 分组
  */
 import { useEffect, useState, useMemo } from 'react';
-import { MessageSquare, Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageSquare, Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { Conversation } from '../services/conversationService';
@@ -163,9 +163,12 @@ export const ConversationHistoryPanel = ({
         conversationListTotal,
         conversationListPage,
         conversationListPageSize,
+        isConversationListLoading,
         currentConversationId,
         localConversationId,
         localConversations,
+        isConversationLoading,
+        loadingConversationId,
         loadConversationList,
         loadLocalConversation,
         deleteConversation,
@@ -239,6 +242,8 @@ export const ConversationHistoryPanel = ({
         setEditingId(null);
         setEditingTitle('');
     };
+
+    const showRemoteListLoading = !useLocalHistory && isConversationListLoading;
 
     // 收起状态：只显示图标
     if (isCollapsed) {
@@ -365,6 +370,22 @@ export const ConversationHistoryPanel = ({
                             <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p className="text-sm">请登录或配置 API Key 后查看对话历史</p>
                         </div>
+                    ) : showRemoteListLoading && sourceConversations.length === 0 ? (
+                        <div className="py-4 space-y-3">
+                            <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                                <span>正在加载对话历史...</span>
+                            </div>
+                            {Array.from({ length: 6 }).map((_, index) => (
+                                <div
+                                    key={`history-skeleton-${index}`}
+                                    className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 animate-pulse"
+                                >
+                                    <div className="h-3 w-3/5 bg-gray-200/80 dark:bg-gray-700/70 rounded mb-2" />
+                                    <div className="h-2 w-2/5 bg-gray-200/80 dark:bg-gray-700/70 rounded" />
+                                </div>
+                            ))}
+                        </div>
                     ) : sourceConversations.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                             <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -372,6 +393,14 @@ export const ConversationHistoryPanel = ({
                         </div>
                     ) : (
                         <div className="space-y-4">
+                            {showRemoteListLoading && (
+                                <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/85 dark:bg-gray-900/85 backdrop-blur">
+                                    <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                                        <span>加载历史中...</span>
+                                    </div>
+                                </div>
+                            )}
                             {/* 渲染用户/API 分组，每个组内再按日期分组 */}
                             {groupsWithDateSubgroups.map((userGroup) => (
                                 <div key={userGroup.key} className="space-y-2">
@@ -402,102 +431,112 @@ export const ConversationHistoryPanel = ({
 
                                                 {/* 对话列表 */}
                                                 <div className="space-y-2">
-                                                    {convs.map((conv) => (
-                                                        <div
-                                                            key={conv.id}
-                                                            onClick={() => {
-                                                                if (useLocalHistory) {
-                                                                    loadLocalConversation(conv.id);
-                                                                } else {
-                                                                    onSelectConversation(conv.id);
-                                                                }
-                                                                if (window.innerWidth < 1024) onClose();
-                                                            }}
-                                                            className={`
+                                                    {convs.map((conv) => {
+                                                        const isActive = useLocalHistory
+                                                            ? localConversationId === conv.id
+                                                            : currentConversationId === conv.id;
+                                                        const isConvLoading = !useLocalHistory
+                                                            && isConversationLoading
+                                                            && loadingConversationId === conv.id;
+
+                                                        return (
+                                                            <div
+                                                                key={conv.id}
+                                                                onClick={() => {
+                                                                    if (useLocalHistory) {
+                                                                        loadLocalConversation(conv.id);
+                                                                    } else {
+                                                                        onSelectConversation(conv.id);
+                                                                    }
+                                                                    if (window.innerWidth < 1024) onClose();
+                                                                }}
+                                                                className={`
                                                                 group p-3 rounded-xl cursor-pointer transition relative
-                                                                ${useLocalHistory
-                                                                    ? localConversationId === conv.id
-                                                                    : currentConversationId === conv.id
+                                                                ${isActive
                                                                         ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
                                                                         : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
-                                                                }
+                                                                    }
+                                                                ${isConvLoading ? 'opacity-70' : ''}
                                                             `}
-                                                        >
-                                                            {/* 时间线圆点 */}
-                                                            <div className={`
+                                                            >
+                                                                {/* 时间线圆点 */}
+                                                                <div className={`
                                                                 absolute left-0 top-4 w-2 h-2 rounded-full -translate-x-[1px]
-                                                                ${useLocalHistory
-                                                                    ? localConversationId === conv.id
-                                                                    : currentConversationId === conv.id
-                                                                        ? 'bg-amber-500'
-                                                                        : 'bg-gray-300 dark:bg-gray-600'
-                                                                }
+                                                                ${isActive ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}
                                                             `} />
 
-                                                            {editingId === conv.id ? (
-                                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                                    <input
-                                                                        type="text"
-                                                                        value={editingTitle}
-                                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTitle(e.currentTarget.value)}
-                                                                        className="flex-1 px-2 py-1 text-sm border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                                                        autoFocus
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter') {
-                                                                                handleSaveEdit(conv.id, e as any);
-                                                                            } else if (e.key === 'Escape') {
-                                                                                handleCancelEdit(e as any);
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <button
-                                                                        onClick={(e) => handleSaveEdit(conv.id, e as any)}
-                                                                        className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                                                    >
-                                                                        <Check className="w-4 h-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={handleCancelEdit}
-                                                                        className="p-1 text-gray-400 hover:bg-gray-100 rounded"
-                                                                    >
-                                                                        <X className="w-4 h-4" />
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        <div className="flex-1 min-w-0 pl-2">
-                                                                            <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                                                                                {conv.title || '未命名对话'}
-                                                                            </h3>
-                                                                            <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                                                                                <Clock className="w-3 h-3" />
-                                                                                <span>{formatTime(conv.updated_at)}</span>
-                                                                                <span>·</span>
-                                                                                <span>{conv.message_count} 条消息</span>
+                                                                {editingId === conv.id ? (
+                                                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={editingTitle}
+                                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTitle(e.currentTarget.value)}
+                                                                            className="flex-1 px-2 py-1 text-sm border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                                            autoFocus
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    handleSaveEdit(conv.id, e as any);
+                                                                                } else if (e.key === 'Escape') {
+                                                                                    handleCancelEdit(e as any);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <button
+                                                                            onClick={(e) => handleSaveEdit(conv.id, e as any)}
+                                                                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                                                        >
+                                                                            <Check className="w-4 h-4" />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={handleCancelEdit}
+                                                                            className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <>
+                                                                        <div className="flex items-start justify-between gap-2">
+                                                                            <div className="flex-1 min-w-0 pl-2">
+                                                                                <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                                                                                    {conv.title || '未命名对话'}
+                                                                                </h3>
+                                                                                <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                                                                    <Clock className="w-3 h-3" />
+                                                                                    <span>{formatTime(conv.updated_at)}</span>
+                                                                                    <span>·</span>
+                                                                                    <span>{conv.message_count} 条消息</span>
+                                                                                    {isConvLoading && (
+                                                                                        <>
+                                                                                            <span>·</span>
+                                                                                            <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+                                                                                            <span className="text-amber-600 dark:text-amber-400">加载中</span>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity touch-show-actions">
+                                                                                <button
+                                                                                    onClick={(e) => handleStartEdit(conv.id, conv.title, e)}
+                                                                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition btn-compact"
+                                                                                    title="重命名"
+                                                                                >
+                                                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={(e) => handleDelete(conv.id, e)}
+                                                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition btn-compact"
+                                                                                    title="删除"
+                                                                                >
+                                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                                </button>
                                                                             </div>
                                                                         </div>
-                                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity touch-show-actions">
-                                                                            <button
-                                                                                onClick={(e) => handleStartEdit(conv.id, conv.title, e)}
-                                                                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition btn-compact"
-                                                                                title="重命名"
-                                                                            >
-                                                                                <Edit2 className="w-3.5 h-3.5" />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={(e) => handleDelete(conv.id, e)}
-                                                                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition btn-compact"
-                                                                                title="删除"
-                                                                            >
-                                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    ))}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         ) : null

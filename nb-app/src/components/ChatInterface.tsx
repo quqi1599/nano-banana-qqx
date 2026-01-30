@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, Suspense, useMemo } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -49,6 +50,7 @@ export const ChatInterface: React.FC = () => {
     offloadMessageImages,
     clearHistory,
     loadConversation,
+    isConversationLoading,
   } = useAppStore();
 
   const { isAuthenticated, refreshCredits } = useAuthStore();
@@ -1147,6 +1149,13 @@ export const ChatInterface: React.FC = () => {
                 style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {isConversationLoading && (
+          <div className="sticky top-0 z-10 mb-3 xs:mb-4 flex items-center justify-center gap-2 rounded-lg xs:rounded-xl bg-white/85 dark:bg-gray-900/70 border border-gray-200 dark:border-gray-800 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 backdrop-blur">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+            <span>正在加载历史对话...</span>
           </div>
         )}
 

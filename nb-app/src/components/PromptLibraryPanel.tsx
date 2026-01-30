@@ -4,6 +4,7 @@ import { useUiStore } from '../store/useUiStore';
 import { useAppStore } from '../store/useAppStore';
 import { PromptItem } from '../types';
 import { fetchPrompts, getCategories } from '../services/promptService';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface PromptLibraryPanelProps {
   onSelectPrompt?: (prompt: string) => void;
@@ -12,7 +13,10 @@ interface PromptLibraryPanelProps {
 export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelectPrompt }) => {
   const { isPromptLibraryOpen, closePromptLibrary, addToast } = useUiStore();
   const { setInputText, inputText } = useAppStore();
+  const prefersReducedMotion = useReducedMotion();
 
+  const [shouldRender, setShouldRender] = useState(isPromptLibraryOpen);
+  const [isVisible, setIsVisible] = useState(isPromptLibraryOpen);
   const [prompts, setPrompts] = useState<PromptItem[]>([]);
   const [filteredPrompts, setFilteredPrompts] = useState<PromptItem[]>([]);
   const [categories, setCategories] = useState<string[]>(['全部']);
@@ -46,6 +50,33 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
     }
   }, [isPromptLibraryOpen]);
 
+  useEffect(() => {
+    if (isPromptLibraryOpen) {
+      setShouldRender(true);
+      if (prefersReducedMotion) {
+        setIsVisible(true);
+      } else {
+        const frame = window.requestAnimationFrame(() => setIsVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+      }
+    } else {
+      if (prefersReducedMotion) {
+        setIsVisible(false);
+        setShouldRender(false);
+      } else {
+        setIsVisible(false);
+        const timer = window.setTimeout(() => setShouldRender(false), 200);
+        return () => window.clearTimeout(timer);
+      }
+    }
+  }, [isPromptLibraryOpen, prefersReducedMotion]);
+
+  // Handle cleanup when shouldRender changes
+  useEffect(() => {
+    // This effect is partially redundant with the logic above but kept for safety if needed, 
+    // though the main logic is now in the dependency on isPromptLibraryOpen
+  }, [shouldRender]);
+
   // 分类筛选
   useEffect(() => {
     if (selectedCategory === '全部') {
@@ -74,18 +105,23 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
     closePromptLibrary();
   };
 
-  if (!isPromptLibraryOpen) return null;
+  if (!shouldRender) return null;
 
   return (
-    <>
+    <div
+      aria-hidden={!isVisible}
+      className={`${!isVisible ? 'pointer-events-none' : ''}`}
+      // @ts-ignore - inert is not yet in @types/react
+      inert={!isVisible ? "" : undefined}
+    >
       {/* 遮罩层 */}
       <div
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-sm transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
         onClick={closePromptLibrary}
       />
 
       {/* 面板主体 */}
-      <div className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col">
+      <div className={`fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white dark:bg-gray-900 shadow-2xl transform transition-all duration-200 ease-out overflow-hidden flex flex-col ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
 
         {/* 头部 */}
         <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-cream-100 to-cream-100 dark:from-gray-800 dark:to-gray-900 px-4 sm:px-6 py-3 sm:py-4">
@@ -177,7 +213,7 @@ export const PromptLibraryPanel: React.FC<PromptLibraryPanelProps> = ({ onSelect
           </p>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

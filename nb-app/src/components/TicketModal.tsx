@@ -12,6 +12,8 @@ interface TicketModalProps {
 }
 
 export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
+    const [shouldRender, setShouldRender] = useState(isOpen);
+    const [isVisible, setIsVisible] = useState(isOpen);
     const [activeView, setActiveView] = useState<'list' | 'create' | 'detail'>('list');
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -133,11 +135,25 @@ export const TicketModal = ({ isOpen, onClose }: TicketModalProps) => {
         }
     };
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (isOpen) {
+            setShouldRender(true);
+            const frame = window.requestAnimationFrame(() => setIsVisible(true));
+            return () => window.cancelAnimationFrame(frame);
+        }
+
+        if (shouldRender) {
+            setIsVisible(false);
+            const timer = window.setTimeout(() => setShouldRender(false), 200);
+            return () => window.clearTimeout(timer);
+        }
+    }, [isOpen, shouldRender]);
+
+    if (!shouldRender) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md h-[90dvh] sm:h-[600px] max-h-[90dvh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <div className={`bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md h-[90dvh] sm:h-[600px] max-h-[90dvh] flex flex-col overflow-hidden transition-all duration-200 transform ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur">
                     <div className="flex items-center gap-2">

@@ -107,9 +107,12 @@ interface AppState {
   conversationListTotal: number;
   conversationListPage: number;
   conversationListPageSize: number;
+  isConversationListLoading: boolean;
   messagesPage: number;
   messagesPageSize: number;
   messagesTotal: number;
+  isConversationLoading: boolean;
+  loadingConversationId: string | null;
   isSyncing: boolean;
   pendingSyncQueue: PendingSyncItem[];
   isSyncQueueRunning: boolean;
@@ -187,9 +190,12 @@ export const useAppStore = create<AppState>()(
       conversationListTotal: 0,
       conversationListPage: 1,
       conversationListPageSize: 20,
+      isConversationListLoading: false,
       messagesPage: 1,
       messagesPageSize: 50,
       messagesTotal: 0,
+      isConversationLoading: false,
+      loadingConversationId: null,
       isSyncing: false,
       pendingSyncQueue: [],
       isSyncQueueRunning: false,
@@ -719,6 +725,7 @@ export const useAppStore = create<AppState>()(
       },
 
       loadConversation: async (id, page) => {
+        set({ isConversationLoading: true, loadingConversationId: id });
         try {
           console.log('[Conversation] 加载对话:', id);
           const pageSize = get().messagesPageSize;
@@ -828,6 +835,10 @@ export const useAppStore = create<AppState>()(
           console.log(`[Conversation] 已加载 ${messages.length} 条消息`);
         } catch (error) {
           console.error('Failed to load conversation:', error);
+        } finally {
+          if (get().loadingConversationId === id) {
+            set({ isConversationLoading: false, loadingConversationId: null });
+          }
         }
       },
 
@@ -854,6 +865,7 @@ export const useAppStore = create<AppState>()(
       },
 
       loadConversationList: async (page, pageSize) => {
+        set({ isConversationListLoading: true });
         try {
           const resolvedPage = page ?? get().conversationListPage;
           const resolvedPageSize = pageSize ?? get().conversationListPageSize;
@@ -881,6 +893,8 @@ export const useAppStore = create<AppState>()(
           });
         } catch (error) {
           console.error('Failed to load conversation list:', error);
+        } finally {
+          set({ isConversationListLoading: false });
         }
       },
 

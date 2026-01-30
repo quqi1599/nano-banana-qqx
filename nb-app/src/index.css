@@ -409,6 +409,18 @@
   }
 }
 
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .animate-scale-in {
   animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -419,6 +431,10 @@
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .fade-in-up {

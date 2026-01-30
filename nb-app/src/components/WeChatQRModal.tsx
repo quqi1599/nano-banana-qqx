@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, MessageCircle } from 'lucide-react';
 
 interface WeChatQRModalProps {
@@ -7,15 +7,32 @@ interface WeChatQRModalProps {
 }
 
 export const WeChatQRModal: React.FC<WeChatQRModalProps> = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
+    const [shouldRender, setShouldRender] = useState(isOpen);
+    const [isVisible, setIsVisible] = useState(isOpen);
+
+    useEffect(() => {
+        if (isOpen) {
+            setShouldRender(true);
+            const frame = window.requestAnimationFrame(() => setIsVisible(true));
+            return () => window.cancelAnimationFrame(frame);
+        }
+
+        if (shouldRender) {
+            setIsVisible(false);
+            const timer = window.setTimeout(() => setShouldRender(false), 200);
+            return () => window.clearTimeout(timer);
+        }
+    }, [isOpen, shouldRender]);
+
+    if (!shouldRender) return null;
 
     return (
         <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+            className={`fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             onClick={onClose}
         >
             <div
-                className="relative bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                className={`relative bg-gray-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl transition-all duration-200 ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <button
