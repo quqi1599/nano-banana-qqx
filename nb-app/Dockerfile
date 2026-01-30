@@ -1,5 +1,5 @@
-# 构建阶段
-FROM oven/bun:1.2 AS builder
+# 构建阶段 - 使用 Bun 1.1 (1.2 有 segfault bug)
+FROM oven/bun:1.1 AS builder
 
 WORKDIR /app
 
