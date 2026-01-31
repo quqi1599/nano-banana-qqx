@@ -290,16 +290,25 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // 确保 setMounted 总是被调用（不依赖其他状态）
   useEffect(() => {
+    // 立即设置为 mounted，确保页面能渲染
     setMounted(true);
+    console.log('[App] Mounted state set to true');
 
     // 在组件 mounted 后移除加载屏幕
     const removeSplash = (window as any).__removeSplashScreen;
     if (typeof removeSplash === 'function') {
       // 延迟一点点，确保 DOM 已经开始渲染
-      setTimeout(removeSplash, 100);
+      setTimeout(() => {
+        removeSplash();
+        console.log('[App] Splash screen remove called');
+      }, 100);
     }
+  }, []); // 空依赖数组，只在组件挂载时执行一次
 
+  // 原来的 URL 参数处理逻辑，独立出来
+  useEffect(() => {
     if (!hasHydrated) return;
 
     const params = new URLSearchParams(window.location.search);
