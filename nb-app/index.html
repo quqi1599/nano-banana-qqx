@@ -96,9 +96,10 @@
     html {
       /* 防止 FOUC (Flash of Unstyled Content) */
       visibility: visible !important;
+      /* 防止横向滚动 */
+      overflow-x: hidden;
     }
 
-    /* 基础重置 - 防止微信浏览器调整字体大小 */
     body {
       -webkit-text-size-adjust: 100% !important;
       -moz-text-size-adjust: 100% !important;
@@ -108,6 +109,8 @@
       color: #111827;
       margin: 0;
       padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* 深色模式兜底 */
@@ -115,6 +118,130 @@
     .dark body {
       background-color: #0a0a0f;
       color: #e4e4e7;
+    }
+
+    /* ========== 关键布局样式（Tailwind 加载前的兜底） ========== */
+    #root {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-orient: vertical;
+      -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    /* 通用 flex 容器 */
+    .flex {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+    }
+
+    .flex-col {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-orient: vertical;
+      -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+    }
+
+    .items-center {
+      -webkit-box-align: center;
+      -ms-flex-align: center;
+      -webkit-align-items: center;
+      align-items: center;
+    }
+
+    .justify-between {
+      -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+      -webkit-justify-content: space-between;
+      justify-content: space-between;
+    }
+
+    .justify-center {
+      -webkit-box-pack: center;
+      -ms-flex-pack: center;
+      -webkit-justify-content: center;
+      justify-content: center;
+    }
+
+    .gap-1 {
+      gap: 0.25rem;
+    }
+
+    .gap-2 {
+      gap: 0.5rem;
+    }
+
+    .gap-3 {
+      gap: 0.75rem;
+    }
+
+    /* 通用间距 */
+    .p-2 { padding: 0.5rem; }
+    .p-3 { padding: 0.75rem; }
+    .p-4 { padding: 1rem; }
+    .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+    /* 通用显示 */
+    .hidden { display: none !important; }
+
+    /* 通用文字 */
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
+    .font-bold { font-weight: 700; }
+    .font-medium { font-weight: 500; }
+
+    /* 通用颜色 */
+    .text-amber-600 { color: #d97706; }
+    .text-amber-400 { color: #fbbf24; }
+    .text-gray-500 { color: #6b7280; }
+    .text-gray-700 { color: #374151; }
+    .text-gray-900 { color: #111827; }
+    .bg-white { background-color: #ffffff; }
+    .bg-gray-100 { background-color: #f3f4f6; }
+    .bg-amber-100 { background-color: #fef3c7; }
+    .border-gray-200 { border-color: #e5e7eb; }
+
+    /* 深色模式颜色 */
+    .dark .text-amber-400 { color: #fbbf24; }
+    .dark .text-gray-400 { color: #9ca3af; }
+    .dark .text-gray-300 { color: #d1d5db; }
+    .dark .bg-white { background-color: #1a1a24; }
+    .dark .bg-gray-800 { background-color: #1f2937; }
+    .dark .bg-gray-900 { background-color: #111827; }
+    .dark .border-gray-800 { border-color: #1f2937; }
+
+    /* 按钮基础样式 */
+    button {
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: inherit;
+    }
+
+    /* 输入框基础样式 */
+    input, textarea {
+      font-family: inherit;
+      font-size: 16px; /* 防止 iOS 自动缩放 */
     }
 
     /* 微信浏览器 flexbox 兼容性修复 */

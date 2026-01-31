@@ -9,36 +9,27 @@ if (!rootElement) {
 
 render(<App />, rootElement);
 
-// Remove splash screen with a fade-out effect
-const splashScreen = document.getElementById('app-loading');
-if (splashScreen) {
-  // 确保加载屏幕被移除的兜底逻辑
-  const removeSplashScreen = () => {
-    if (!splashScreen || !splashScreen.parentNode) return;
-    splashScreen.style.opacity = '0';
-    setTimeout(() => {
-      if (splashScreen && splashScreen.parentNode) {
-        splashScreen.remove();
-      }
-    }, 300);
-  };
+// 移除加载屏幕的函数
+const removeSplashScreen = () => {
+  const splashScreen = document.getElementById('app-loading');
+  if (!splashScreen || !splashScreen.parentNode) return;
 
-  // 方法1: 等待 DOMContentLoaded
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', removeSplashScreen, { once: true });
-  } else {
-    // DOM 已经加载完成
-    removeSplashScreen();
-  }
+  // 标记为正在移除，防止重复移除
+  if (splashScreen.dataset.removing === 'true') return;
+  splashScreen.dataset.removing = 'true';
 
-  // 方法2: 使用 requestAnimationFrame (现代浏览器)
-  requestAnimationFrame(() => {
-    requestAnimationFrame(removeSplashScreen);
-  });
+  splashScreen.style.opacity = '0';
+  setTimeout(() => {
+    if (splashScreen && splashScreen.parentNode) {
+      splashScreen.remove();
+    }
+  }, 300);
+};
 
-  // 方法3: 兜底定时器 - 确保即使上面方法都失败也能移除
-  setTimeout(removeSplashScreen, 2000);
+// 将移除函数暴露到 window，供 App 组件调用
+(window as any).__removeSplashScreen = removeSplashScreen;
 
-  // 方法4: window load 事件作为最终兜底
-  window.addEventListener('load', removeSplashScreen, { once: true });
-}
+// 兜底逻辑：如果 App 没有在 5 秒内调用移除函数，强制移除
+setTimeout(() => {
+  removeSplashScreen();
+}, 5000);

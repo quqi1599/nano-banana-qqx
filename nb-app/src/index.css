@@ -1,3 +1,11 @@
+/* ========== 浏览器兼容性修复 ========== */
+/* 确保在所有浏览器中 CSS 都能正确加载 */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+}
+
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));

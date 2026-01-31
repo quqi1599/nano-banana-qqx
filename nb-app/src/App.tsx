@@ -292,6 +292,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setMounted(true);
+
+    // 在组件 mounted 后移除加载屏幕
+    const removeSplash = (window as any).__removeSplashScreen;
+    if (typeof removeSplash === 'function') {
+      // 延迟一点点，确保 DOM 已经开始渲染
+      setTimeout(removeSplash, 100);
+    }
+
     if (!hasHydrated) return;
 
     const params = new URLSearchParams(window.location.search);
