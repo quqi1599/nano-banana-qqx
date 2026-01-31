@@ -6,7 +6,13 @@
   }
 }
 
+/* Tailwind CSS v4 导入 */
 @import "tailwindcss";
+
+/* 传统 Tailwind 指令作为兜底（如果 v4 不支持） */
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities; */
 
 @variant dark (&:where(.dark, .dark *));
 

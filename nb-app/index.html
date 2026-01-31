@@ -367,6 +367,44 @@
   <script>
     (function() {
       try {
+        // ========== CSS 加载诊断 ==========
+        window.__cssLoadDiagnostics = {
+          startTime: Date.now(),
+          cssLoaded: false,
+          tailwindLoaded: false,
+          errors: []
+        };
+
+        // 检测 CSS 是否加载
+        setTimeout(function() {
+          var testDiv = document.createElement('div');
+          testDiv.className = 'flex hidden';
+          testDiv.style.display = 'none';
+          document.body.appendChild(testDiv);
+          var computedStyle = window.getComputedStyle(testDiv);
+          window.__cssLoadDiagnostics.cssLoaded = computedStyle.getPropertyValue('display') === 'none';
+
+          // 检测 Tailwind 是否工作
+          var tailwindTest = document.createElement('div');
+          tailwindTest.className = 'bg-amber-100 text-amber-600';
+          tailwindTest.style.display = 'none';
+          document.body.appendChild(tailwindTest);
+          var tailwindStyle = window.getComputedStyle(tailwindTest);
+          window.__cssLoadDiagnostics.tailwindLoaded = tailwindStyle.backgroundColor === 'rgb(254, 253, 232)' ||
+            tailwindStyle.backgroundColor === '#fef3c7';
+
+          if (!window.__cssLoadDiagnostics.tailwindLoaded) {
+            console.warn('[CSS Diagnostics] Tailwind CSS 可能未正确加载');
+            window.__cssLoadDiagnostics.errors.push('Tailwind CSS not loaded');
+          }
+
+          // 清理
+          document.body.removeChild(testDiv);
+          document.body.removeChild(tailwindTest);
+
+          console.log('[CSS Diagnostics]', window.__cssLoadDiagnostics);
+        }, 1000);
+
         // 检测微信/QQ浏览器
         var ua = navigator.userAgent.toLowerCase();
         var isWechat = ua.indexOf('micromessenger') > -1;
@@ -467,6 +505,47 @@
     </div>
   </div>
   <div id="root"></div>
+
+  <!-- 清除旧的 Service Worker 缓存 -->
+  <script>
+    (function() {
+      try {
+        // 清除所有已注册的 Service Worker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            if (registrations.length > 0) {
+              console.log('[SW Cleanup] Found ' + registrations.length + ' old service workers, cleaning up...');
+              registrations.forEach(function(registration) {
+                registration.unregister();
+                console.log('[SW Cleanup] Unregistered:', registration.scope);
+              });
+              // 清除后刷新页面
+              if (sessionStorage.getItem('swCleaned') !== 'true') {
+                sessionStorage.setItem('swCleaned', 'true');
+                window.location.reload();
+              }
+            }
+          });
+        }
+
+        // 清除所有缓存
+        if ('caches' in window) {
+          caches.keys().then(function(cacheNames) {
+            if (cacheNames.length > 0) {
+              console.log('[Cache Cleanup] Found ' + cacheNames.length + ' caches, cleaning up...');
+              cacheNames.forEach(function(cacheName) {
+                caches.delete(cacheName);
+                console.log('[Cache Cleanup] Deleted cache:', cacheName);
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[Cleanup] Error:', e);
+      }
+    })();
+  </script>
+
   <script type="module" src="/src/index.tsx"></script>
 </body>
 

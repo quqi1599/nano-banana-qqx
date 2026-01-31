@@ -11,8 +11,6 @@ export default defineConfig(({ mode }) => {
     // 移动端优化配置
     css: {
       devSourcemap: false,
-      // 确保 CSS 正确加载
-      transformer: 'postcss',
     },
     server: {
       port: 3000,
@@ -60,8 +58,38 @@ export default defineConfig(({ mode }) => {
       preact(),
       tailwindcss(),
       VitePWA({
-        selfDestroying: false, // 保留旧 SW 直到新版本激活，避免更新失败时丢失离线功能
+        selfDestroying: false,
         registerType: 'autoUpdate',
+        // 禁用预缓存，避免 404 错误
+        strategies: 'generateSW',
+        // 不预缓存任何文件，只运行时缓存
+        workbox: {
+          globIgnores: ['**/DinoGame*', '**/SnakeGame*', '**/LifeGame*', '**/Puzzle2048*'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'jsdelivr-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                }
+              }
+            },
+            {
+              urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'image-cache',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                }
+              }
+            }
+          ]
+        },
         manifest: {
           name: 'nbnb',
           short_name: 'nbnb',
