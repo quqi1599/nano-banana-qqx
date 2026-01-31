@@ -506,9 +506,15 @@
   </div>
   <div id="root"></div>
 
-  <!-- 清除旧的 Service Worker 缓存 -->
+  <!-- 清除旧的 Service Worker 缓存（只执行一次） -->
   <script>
     (function() {
+      // 使用 localStorage 确保只执行一次
+      var cleanupKey = 'nbnb_sw_cleanup_v2';
+      if (localStorage.getItem(cleanupKey) === 'done') {
+        return;
+      }
+
       try {
         // 清除所有已注册的 Service Worker
         if ('serviceWorker' in navigator) {
@@ -519,11 +525,6 @@
                 registration.unregister();
                 console.log('[SW Cleanup] Unregistered:', registration.scope);
               });
-              // 清除后刷新页面
-              if (sessionStorage.getItem('swCleaned') !== 'true') {
-                sessionStorage.setItem('swCleaned', 'true');
-                window.location.reload();
-              }
             }
           });
         }
@@ -533,15 +534,21 @@
           caches.keys().then(function(cacheNames) {
             if (cacheNames.length > 0) {
               console.log('[Cache Cleanup] Found ' + cacheNames.length + ' caches, cleaning up...');
-              cacheNames.forEach(function(cacheName) {
-                caches.delete(cacheName);
-                console.log('[Cache Cleanup] Deleted cache:', cacheName);
+              Promise.all(cacheNames.map(function(cacheName) {
+                return caches.delete(cacheName);
+              })).then(function() {
+                console.log('[Cache Cleanup] All caches cleared');
+                // 标记完成
+                localStorage.setItem(cleanupKey, 'done');
               });
             }
           });
+        } else {
+          localStorage.setItem(cleanupKey, 'done');
         }
       } catch (e) {
         console.warn('[Cleanup] Error:', e);
+        localStorage.setItem(cleanupKey, 'done');
       }
     })();
   </script>
