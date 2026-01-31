@@ -60,11 +60,21 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         selfDestroying: false,
         registerType: 'autoUpdate',
-        // 禁用预缓存，避免 404 错误
         strategies: 'generateSW',
-        // 不预缓存任何文件，只运行时缓存
+        // 只预缓存核心文件，排除懒加载组件
+        includeAssets: ['*.js', '*.css', '*.png', '*.jpg', '*.jpeg', '*.svg', '*.ico', '*.webp', '*.woff2'],
+        // 排除懒加载的游戏组件
+        exclude: [
+          'DinoGame.*.js',
+          'SnakeGame.*.js',
+          'LifeGame.*.js',
+          'Puzzle2048.*.js',
+          /ticketService.*/,
+          /promptService.*/,
+        ],
         workbox: {
-          globIgnores: ['**/DinoGame*', '**/SnakeGame*', '**/LifeGame*', '**/Puzzle2048*'],
+          // 允许预缓存失败，不阻塞 Service Worker 安装
+          navigateFallback: null,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
@@ -73,7 +83,7 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'jsdelivr-cache',
                 expiration: {
                   maxEntries: 50,
-                  maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+                  maxAgeSeconds: 60 * 60 * 24 * 7
                 }
               }
             },
@@ -84,7 +94,7 @@ export default defineConfig(({ mode }) => {
                 cacheName: 'image-cache',
                 expiration: {
                   maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                  maxAgeSeconds: 60 * 60 * 24 * 30
                 }
               }
             }
