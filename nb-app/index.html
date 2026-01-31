@@ -92,11 +92,29 @@
 
   <!-- ========== 微信内置浏览器 CSS 兼容 ========== -->
   <style>
+    /* ========== 基础兜底样式 - 确保 CSS 加载前页面可见 ========== */
+    html {
+      /* 防止 FOUC (Flash of Unstyled Content) */
+      visibility: visible !important;
+    }
+
     /* 基础重置 - 防止微信浏览器调整字体大小 */
     body {
       -webkit-text-size-adjust: 100% !important;
       -moz-text-size-adjust: 100% !important;
       text-size-adjust: 100% !important;
+      /* 兜底背景色 */
+      background-color: #ffffff;
+      color: #111827;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* 深色模式兜底 */
+    html.dark body,
+    .dark body {
+      background-color: #0a0a0f;
+      color: #e4e4e7;
     }
 
     /* 微信浏览器 flexbox 兼容性修复 */
@@ -123,7 +141,10 @@
       z-index: 9999;
       -webkit-transition: opacity 0.3s ease-out;
       transition: opacity 0.3s ease-out;
-      pointer-events: none;
+      pointer-events: auto !important;
+      /* 确保加载动画始终在最上层 */
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
     }
 
     /* 支持 dark 类（JS 提前应用）和系统偏好 */
@@ -261,9 +282,49 @@
             }
           }, 100);
         }
+
+        // ========== 加载屏幕兜底移除逻辑 ==========
+        // 防止加载屏幕永远卡住
+        var splashScreen = document.getElementById('app-loading');
+        if (splashScreen) {
+          var removed = false;
+
+          var safeRemove = function() {
+            if (removed || !splashScreen || !splashScreen.parentNode) return;
+            removed = true;
+            splashScreen.style.opacity = '0';
+            setTimeout(function() {
+              if (splashScreen && splashScreen.parentNode) {
+                splashScreen.parentNode.removeChild(splashScreen);
+              }
+            }, 300);
+          };
+
+          // 多种触发方式确保移除
+          // 1. DOM 加载完成后
+          if (document.readyState === 'complete') {
+            setTimeout(safeRemove, 100);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(safeRemove, 100);
+            });
+          }
+
+          // 2. 兜底定时器 - 最多5秒后强制移除
+          setTimeout(safeRemove, 5000);
+
+          // 3. 存储到 window 供后续使用
+          window.__removeSplashScreen = safeRemove;
+        }
       } catch (e) {
         // 忽略解析错误，防止页面崩溃
         console.warn('Theme initialization failed:', e);
+
+        // 出错时也要确保加载屏幕被移除
+        var splashScreen = document.getElementById('app-loading');
+        if (splashScreen && splashScreen.parentNode) {
+          splashScreen.parentNode.removeChild(splashScreen);
+        }
       }
     })();
   </script>

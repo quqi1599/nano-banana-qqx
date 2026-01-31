@@ -8,9 +8,17 @@ import { DEFAULT_API_ENDPOINT } from './src/config/api';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
+    // 移动端优化配置
+    css: {
+      devSourcemap: false,
+      // 确保 CSS 正确加载
+      transformer: 'postcss',
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',
+      // 移动端开发时禁用 HTTPS 检查
+      https: false,
       proxy: {
         '/api/prompts': {
           target: 'https://cdn.jsdelivr.net',
