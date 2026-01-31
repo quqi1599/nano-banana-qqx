@@ -1,18 +1,37 @@
 /* ========== 浏览器兼容性修复 ========== */
 /* 确保在所有浏览器中 CSS 都能正确加载 */
-@layer base {
-  * {
-    box-sizing: border-box;
-  }
+
+/* 基础重置 */
+* {
+  box-sizing: border-box;
+}
+
+/* ========== 关键兜底样式（Tailwind 加载前） ========== */
+html {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 确保 #root 有基本布局 */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
 }
 
 /* Tailwind CSS v4 导入 */
 @import "tailwindcss";
-
-/* 传统 Tailwind 指令作为兜底（如果 v4 不支持） */
-/* @tailwind base;
-@tailwind components;
-@tailwind utilities; */
 
 @variant dark (&:where(.dark, .dark *));
 

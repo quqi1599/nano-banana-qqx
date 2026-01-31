@@ -128,7 +128,10 @@ export default defineConfig(({ mode }) => {
             'markdown-libs': ['react-markdown', 'remark-gfm']
           }
         }
-      }
+      },
+      // 强制提取 CSS 到独立文件
+      cssCodeSplit: false,
+      cssMinify: true,
     }
   };
 });
