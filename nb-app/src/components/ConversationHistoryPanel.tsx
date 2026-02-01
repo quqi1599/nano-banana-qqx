@@ -257,15 +257,15 @@ export const ConversationHistoryPanel = ({
                     />
                 )}
 
-                {/* 收起状态侧边栏 */}
+                {/* 收起状态侧边栏 - 移动端只在isOpen时显示，桌面端始终显示 */}
                 <div
                     className={`
                         fixed lg:relative z-50 h-full
-                        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                         w-16 flex-shrink-0
                         bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
                         transition-all duration-300
                         flex flex-col items-center py-4
+                        ${isOpen ? 'flex' : 'hidden lg:flex'}
                     `}
                 >
                     {/* 展开/收起按钮 */}
@@ -312,15 +312,15 @@ export const ConversationHistoryPanel = ({
                 />
             )}
 
-            {/* 侧边栏 */}
+            {/* 侧边栏 - 移动端只在isOpen时显示，桌面端始终显示 */}
             <div
                 className={`
                     fixed lg:relative z-50 h-full
-                    ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                     w-72 sm:w-80 flex-shrink-0
                     bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
                     transition-all duration-300
-                    flex flex-col
+                    flex-col
+                    ${isOpen ? 'flex' : 'hidden lg:flex'}
                 `}
             >
                 {/* 头部 */}
