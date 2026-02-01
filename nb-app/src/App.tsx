@@ -582,17 +582,17 @@ const App: React.FC = () => {
             <div className="flex items-center gap-0.5 xs:gap-1">
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                className="relative flex items-center justify-center h-10 w-10 sm:h-auto sm:w-auto sm:p-2 sm:px-3 sm:py-1.5 rounded-lg text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 touch-feedback"
                 title={user?.nickname || user?.email || '账户'}
               >
-                <User className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+                <User className="h-6 w-6" />
               </button>
               <button
                 onClick={handleLogout}
-                className="hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+                className="hidden sm:flex items-center justify-center h-10 w-10 rounded-lg text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 touch-feedback"
                 title="退出登录"
               >
-                <LogOut className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+                <LogOut className="h-6 w-6" />
               </button>
             </div>
           ) : (

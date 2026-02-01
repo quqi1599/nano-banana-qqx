@@ -316,7 +316,7 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
   const [showActions, setShowActions] = useState(false);
   const [showWeChatQR, setShowWeChatQR] = useState(false);
   const actionsDisabled = isGenerating;
-  const { showDialog, addToast } = useUiStore();
+  const { showDialog, addToast, setPendingReferenceImage } = useUiStore();
 
   const handleDelete = () => {
     showDialog({
@@ -346,7 +346,7 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
         })
       );
 
-      const validParts = datasetParts.filter((p): p is { mimeType: string; data: string; prompt?: string } => !!p);
+      const validParts = datasetParts.filter((p): p is NonNullable<typeof p> => !!p);
       if (validParts.length === 0) {
         addToast('没有可下载的图片', 'error');
         return;

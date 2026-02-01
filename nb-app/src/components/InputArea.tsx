@@ -361,9 +361,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
               {onOpenPipeline && (
                 <button
                   onClick={onOpenPipeline}
-                  className="px-2 xs:px-3 py-1 xs:py-1.5 rounded-md xs:rounded-lg text-[10px] xs:text-xs font-medium transition bg-cream-100 dark:bg-cream-900/30 text-cream-600 dark:text-cream-400 hover:bg-cream-200 dark:hover:bg-cream-800/40"
+                  className="flex items-center gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-md xs:rounded-lg text-[10px] xs:text-xs font-medium transition bg-cream-100 dark:bg-cream-900/30 text-cream-600 dark:text-cream-400 hover:bg-cream-200 dark:hover:bg-cream-800/40"
                 >
-                  <Workflow className="h-2.5 w-2.5 xs:h-3 xs:w-3 inline mr-0.5 xs:mr-1" />
+                  <Workflow className="h-3 w-3" />
                   <span className="hidden sm:inline">批量编排(实验功能)</span>
                   <span className="sm:hidden">编排</span>
                 </button>
@@ -550,14 +550,14 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
               onClick={handleSubmit}
               disabled={!inputText.trim() && attachments.length === 0}
               className={`mb-0.5 ml-auto md:ml-0 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition touch-feedback active:scale-95 ${!inputText.trim() && attachments.length === 0
-                  ? 'bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600'
-                  : 'bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-xl shadow-amber-500/40 ring-2 ring-amber-400/30'
+                ? 'bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600'
+                : 'bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-xl shadow-amber-500/40 ring-2 ring-amber-400/30'
                 }`}
             >
               <Send
                 className={`h-6 w-6 ${!inputText.trim() && attachments.length === 0
-                    ? 'text-gray-400 dark:text-gray-500'
-                    : 'text-white'
+                  ? 'text-gray-400 dark:text-gray-500'
+                  : 'text-white'
                   }`}
                 strokeWidth={2.5}
               />

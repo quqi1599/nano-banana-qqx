@@ -164,7 +164,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) =
                 })
             );
 
-            const validParts = datasetParts.filter((p): p is { mimeType: string; data: string; prompt?: string } => !!p);
+            const validParts = datasetParts.filter((p): p is NonNullable<typeof p> => !!p);
             if (validParts.length === 0) {
                 addToast('没有可下载的图片', 'error');
                 return;
@@ -261,6 +261,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) =
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
                         isDownloading={isDownloading}
+                        onThumbnailClick={(i) => { setCurrentIndex(i); loadFullData(i); }}
                     />
                 )}
             </div>
@@ -336,6 +337,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) =
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                     isDownloading={isDownloading}
+                    onThumbnailClick={(i) => { setCurrentIndex(i); loadFullData(i); }}
                 />
             )}
         </div>
@@ -358,6 +360,7 @@ interface LightboxProps {
     onTouchMove: (e: React.TouchEvent<HTMLDivElement>) => void;
     onTouchEnd: () => void;
     isDownloading: boolean;
+    onThumbnailClick?: (index: number) => void;
 }
 
 const Lightbox: React.FC<LightboxProps> = ({
@@ -374,7 +377,8 @@ const Lightbox: React.FC<LightboxProps> = ({
     onTouchStart,
     onTouchMove,
     onTouchEnd,
-    isDownloading
+    isDownloading,
+    onThumbnailClick
 }) => {
     const part = parts[currentIndex];
     const fullData = fullDataCache[currentIndex];
@@ -470,7 +474,7 @@ const Lightbox: React.FC<LightboxProps> = ({
                     {parts.map((p, i) => (
                         <button
                             key={i}
-                            onClick={(e) => { e.stopPropagation(); setCurrentIndex(i); loadFullData(i); }}
+                            onClick={(e) => { e.stopPropagation(); onThumbnailClick?.(i); }}
                             className={`w-2 h-2 rounded-full transition-colors touch-feedback ${i === currentIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60 active:scale-125'}`}
                             aria-label={`Go to image ${i + 1}`}
                         />
