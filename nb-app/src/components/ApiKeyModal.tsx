@@ -124,22 +124,22 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm px-4 no-select transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-      <div className={`w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-4 sm:p-8 modal-mobile-padding touch-manipulation transition-all duration-200 relative ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+    <div className={`fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 dark:bg-black/80 backdrop-blur-sm px-4 pt-12 sm:pt-0 no-select transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`w-full max-w-md max-h-[85dvh] sm:max-h-[90dvh] overflow-y-auto rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-4 sm:p-8 touch-manipulation transition-all duration-200 relative ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {/* Close button (only show if onClose provided) */}
         {onClose && (
           <button
             onClick={() => requestClose(onClose)}
-            className="absolute top-4 right-4 p-3 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 sm:p-3 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
             title="关闭"
           >
             <X className="h-5 w-5" />
           </button>
         )}
 
-        <div className="mb-6 flex justify-center">
-          <div className="rounded-full bg-cream-50 dark:bg-cream-500/10 p-4 ring-1 ring-cream-200 dark:ring-cream-500/50">
-            <Key className="h-8 w-8 text-cream-600 dark:text-cream-500" />
+        <div className="mb-4 sm:mb-6 flex justify-center">
+          <div className="rounded-full bg-cream-50 dark:bg-cream-500/10 p-3 sm:p-4 ring-1 ring-cream-200 dark:ring-cream-500/50">
+            <Key className="h-6 w-6 sm:h-8 sm:w-8 text-cream-600 dark:text-cream-500" />
           </div>
         </div>
 
