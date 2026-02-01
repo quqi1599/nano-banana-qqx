@@ -121,6 +121,8 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
+      // 兼容 X5 内核浏览器 (QQ/UC/夸克等)
+      target: ['es2018', 'chrome70', 'safari12'],
       rollupOptions: {
         input: {
           main: path.resolve(__dirname, 'index.html'),
@@ -142,6 +144,10 @@ export default defineConfig(({ mode }) => {
       // 强制提取 CSS 到独立文件
       cssCodeSplit: false,
       cssMinify: true,
+    },
+    // esbuild 编译目标
+    esbuild: {
+      target: 'es2018',
     }
   };
 });

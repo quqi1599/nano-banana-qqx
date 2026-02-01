@@ -457,8 +457,9 @@ const Lightbox: React.FC<LightboxProps> = ({
                     {parts.map((p, i) => (
                         <button
                             key={i}
-                            onClick={(e) => { e.stopPropagation(); }}
-                            className={`w-2 h-2 rounded-full transition-colors ${i === currentIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60'}`}
+                            onClick={(e) => { e.stopPropagation(); setCurrentIndex(i); loadFullData(i); }}
+                            className={`w-2 h-2 rounded-full transition-colors touch-feedback ${i === currentIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60 active:scale-125'}`}
+                            aria-label={`Go to image ${i + 1}`}
                         />
                     ))}
                 </div>

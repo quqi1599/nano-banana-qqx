@@ -88,8 +88,15 @@ interface Props {
 
 const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
   const [isImageHovered, setIsImageHovered] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const { setPendingReferenceImage, addToast } = useUiStore();
   const { fullData, containerRef } = useLazyFullImage(part);
+
+  // 检测是否为触摸设备
+  useEffect(() => {
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    setIsTouchDevice(isTouch);
+  }, []);
 
   if (part.text) {
     return (
@@ -157,8 +164,8 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
           title="点击查看大图"
         />
 
-        {/* Action Buttons - touch-show-actions makes them visible on touch devices */}
-        <div className={`absolute top-2 right-2 flex gap-2 transition-all touch-show-actions ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Action Buttons - always visible on touch devices, hover on desktop */}
+        <div className={`absolute top-2 right-2 flex gap-2 transition-all ${isTouchDevice || isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
           <button
             onClick={handleReEdit}
             className="p-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all touch-feedback active:scale-90"
@@ -183,8 +190,15 @@ const ThinkingContentItem: React.FC<{ part: Part }> = ({ part }) => {
 
 const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, index }) => {
   const [isImageHovered, setIsImageHovered] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const { setPendingReferenceImage, addToast } = useUiStore();
   const { fullData, containerRef } = useLazyFullImage(part);
+
+  // 检测是否为触摸设备
+  useEffect(() => {
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    setIsTouchDevice(isTouch);
+  }, []);
 
   if (!part.inlineData) return null;
 
@@ -244,8 +258,8 @@ const ImageWithDownload: React.FC<{ part: Part; index: number }> = ({ part, inde
         title="点击查看大图"
       />
 
-      {/* Action Buttons - touch-show-actions makes them visible on touch devices */}
-      <div className={`absolute top-3 right-3 flex gap-2 transition-all touch-show-actions ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Action Buttons - always visible on touch devices, hover on desktop */}
+      <div className={`absolute top-3 right-3 flex gap-2 transition-all ${isTouchDevice || isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
         <button
           onClick={handleReEdit}
           className="p-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all"
