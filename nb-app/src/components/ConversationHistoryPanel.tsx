@@ -316,7 +316,7 @@ export const ConversationHistoryPanel = ({
             <div
                 className={`
                     fixed lg:relative z-50 h-full
-                    w-72 sm:w-80 flex-shrink-0
+                    w-full max-w-sm sm:w-80 lg:w-72 flex-shrink-0
                     bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
                     transition-all duration-300
                     flex-col

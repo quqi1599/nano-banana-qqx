@@ -514,11 +514,11 @@ const App: React.FC = () => {
                 onConfirm: handleClear
               });
             }}
-            className="flex items-center justify-center p-1.5 xs:p-2 sm:px-3 sm:py-1.5 rounded-md xs:rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition touch-feedback"
+            className="flex items-center justify-center h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition touch-feedback"
             title={isAuthenticated ? "开始新对话" : "清空会话"}
           >
-            <Plus className="h-4.5 w-4.5 xs:h-5 xs:w-5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline text-xs xs:text-sm font-medium ml-0.5 xs:ml-1">
+            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline text-sm font-medium ml-1">
               {isAuthenticated ? "新对话" : "清空"}
             </span>
           </button>
@@ -527,10 +527,10 @@ const App: React.FC = () => {
           {canUseHistory && (
             <button
               onClick={() => setIsConversationHistoryOpen(true)}
-              className="flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
+              className="flex items-center justify-center h-9 w-9 sm:h-10 sm:w-10 rounded-lg text-amber-600 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-900/30 focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
               title="对话历史"
             >
-              <MessageSquare className="h-5 w-5 xs:h-5 xs:w-5 sm:h-5 sm:w-5" />
+              <MessageSquare className="h-5 w-5" />
             </button>
           )}
 
@@ -598,11 +598,11 @@ const App: React.FC = () => {
           ) : (
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-md xs:rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs xs:text-sm font-medium hover:from-blue-600 hover:to-purple-600 transition touch-feedback"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs sm:text-sm font-medium hover:from-blue-600 hover:to-purple-600 transition touch-feedback shadow-lg shadow-purple-500/20"
               title="登录/注册"
             >
-              <User className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
-              <span className="hidden sm:inline">登录</span>
+              <User className="h-4 w-4" />
+              <span>登录</span>
             </button>
           )}
 
@@ -805,26 +805,26 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Conversation History Sidebar - 放在 main 外面，确保 fixed 定位和遮罩正常工作 */}
+      {canUseHistory && (
+        <ConversationHistoryPanel
+          isOpen={isConversationHistoryOpen}
+          isCollapsed={isConversationHistoryCollapsed}
+          onClose={() => setIsConversationHistoryOpen(false)}
+          onToggleCollapse={() => setIsConversationHistoryCollapsed(!isConversationHistoryCollapsed)}
+          onSelectConversation={async (id) => {
+            await loadConversation(id);
+          }}
+          onNewConversation={async () => {
+            await createNewConversation();
+            clearHistory();
+            addToast('已开始新对话', 'success');
+          }}
+        />
+      )}
+
       {/* Main Content */}
       <main className="flex-1 relative overflow-hidden flex flex-row min-h-0">
-        {/* Conversation History Sidebar */}
-        {canUseHistory && (
-          <ConversationHistoryPanel
-            isOpen={isConversationHistoryOpen}
-            isCollapsed={isConversationHistoryCollapsed}
-            onClose={() => setIsConversationHistoryOpen(false)}
-            onToggleCollapse={() => setIsConversationHistoryCollapsed(!isConversationHistoryCollapsed)}
-            onSelectConversation={async (id) => {
-              await loadConversation(id);
-            }}
-            onNewConversation={async () => {
-              await createNewConversation();
-              clearHistory();
-              addToast('已开始新对话', 'success');
-            }}
-          />
-        )}
-
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
           <ChatInterface />
