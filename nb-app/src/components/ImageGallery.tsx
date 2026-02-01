@@ -29,6 +29,18 @@ const getPreviewMimeType = (part: Part, fullData: string | null) => {
     return getThumbnailMimeType(part);
 };
 
+// 检测是否为触摸设备的 hook
+const useIsTouchDevice = () => {
+    const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+    useEffect(() => {
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        setIsTouchDevice(isTouch);
+    }, []);
+
+    return isTouchDevice;
+};
+
 export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) => {
     const { setPendingReferenceImage, addToast } = useUiStore();
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -37,6 +49,7 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) =
     const [isDownloading, setIsDownloading] = useState(false);
     const touchStartX = useRef<number>(0);
     const touchEndX = useRef<number>(0);
+    const isTouchDevice = useIsTouchDevice();
 
     // 预加载当前图片的完整数据
     const loadFullData = useCallback(async (index: number) => {
@@ -213,8 +226,8 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) =
                     title="点击查看大图"
                 />
 
-                {/* 操作按钮 */}
-                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity touch-show-actions">
+                {/* 操作按钮 - 触摸设备始终可见，桌面端悬停显示 */}
+                <div className={`absolute top-3 right-3 flex gap-2 transition-opacity ${isTouchDevice ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     <button
                         onClick={(e) => { e.stopPropagation(); handleReEdit(); }}
                         className="p-2.5 rounded-lg bg-cream-500 hover:bg-cream-600 text-white shadow-lg backdrop-blur-sm transition-all"
@@ -285,8 +298,8 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ parts, onReEdit }) =
                                 </div>
                             )}
 
-                            {/* 悬停时显示放大图标 */}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            {/* 悬停时显示放大图标 - 触摸设备始终显示 */}
+                            <div className={`absolute inset-0 bg-black/0 transition-colors flex items-center justify-center ${isTouchDevice ? 'bg-black/10 opacity-100' : 'group-hover:bg-black/20 opacity-0 group-hover:opacity-100'}`}>
                                 <ZoomIn className="h-6 w-6 text-white drop-shadow-lg" />
                             </div>
                         </div>

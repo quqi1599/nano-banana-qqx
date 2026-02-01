@@ -415,7 +415,20 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
         // 如果有多张连续图片，使用 ImageGallery
         if (consecutiveImages.length > 1) {
-          return <ImageGallery key={`gallery-${index}`} parts={consecutiveImages} />;
+          // 创建 onReEdit 回调
+          const handleGalleryReEdit = async (imgPart: Part) => {
+            const resolved = await resolveMessageImageData(imgPart);
+            if (!resolved?.data) {
+              addToast('图片加载失败，请重试', 'error');
+              return;
+            }
+            setPendingReferenceImage({
+              base64Data: resolved.data,
+              mimeType: resolved.mimeType,
+              timestamp: Date.now()
+            });
+          };
+          return <ImageGallery key={`gallery-${index}`} parts={consecutiveImages} onReEdit={handleGalleryReEdit} />;
         }
       }
 
