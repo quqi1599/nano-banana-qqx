@@ -549,12 +549,18 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             <button
               onClick={handleSubmit}
               disabled={!inputText.trim() && attachments.length === 0}
-              className={`mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-12 w-12 xs:h-11 xs:w-11 shrink-0 items-center justify-center rounded-xl transition touch-feedback active:scale-95 ${(!inputText.trim() && attachments.length === 0)
-                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 border-2 border-gray-200 dark:border-gray-700'
-                  : 'bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white shadow-xl shadow-amber-500/40 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 ring-2 ring-amber-400/30'
+              className={`mb-0.5 ml-auto md:ml-0 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition touch-feedback active:scale-95 ${!inputText.trim() && attachments.length === 0
+                  ? 'bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600'
+                  : 'bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-xl shadow-amber-500/40 ring-2 ring-amber-400/30'
                 }`}
             >
-              <Send className="h-6 w-6 xs:h-5 xs:w-5" />
+              <Send
+                className={`h-6 w-6 ${!inputText.trim() && attachments.length === 0
+                    ? 'text-gray-400 dark:text-gray-500'
+                    : 'text-white'
+                  }`}
+                strokeWidth={2.5}
+              />
             </button>
           )}
         </div>
