@@ -12,6 +12,7 @@ interface AdminLayoutProps {
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab, children }) => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     const getTitle = () => {
         switch (activeTab) {
@@ -40,12 +41,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ activeTab, onChangeTab
                 activeTab={activeTab}
                 onChangeTab={onChangeTab}
                 collapsed={sidebarCollapsed}
+                mobileOpen={mobileSidebarOpen}
+                onMobileClose={() => setMobileSidebarOpen(false)}
             />
 
             <div className={`relative z-10 transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'md:pl-20' : 'md:pl-72'}`}>
                 <AdminHeader
                     title={getTitle()}
-                    onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    onToggleSidebar={() => {
+                        // 移动端打开/关闭侧边栏，桌面端折叠/展开
+                        if (window.innerWidth < 768) {
+                            setMobileSidebarOpen(!mobileSidebarOpen);
+                        } else {
+                            setSidebarCollapsed(!sidebarCollapsed);
+                        }
+                    }}
                 />
 
                 <main className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto min-h-[calc(100vh-4rem)]">

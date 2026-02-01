@@ -549,9 +549,12 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             <button
               onClick={handleSubmit}
               disabled={!inputText.trim() && attachments.length === 0}
-              className="mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg xs:rounded-xl bg-cream-500 text-white shadow-lg shadow-cream-500/20 hover:bg-cream-600 disabled:opacity-50 disabled:bg-gray-200 dark:disabled:bg-gray-700 disabled:shadow-none transition touch-feedback active:scale-95"
+              className={`mb-0.5 xs:mb-1 ml-auto md:ml-0 flex h-12 w-12 xs:h-11 xs:w-11 shrink-0 items-center justify-center rounded-xl xs:rounded-xl transition touch-feedback active:scale-95 ${(!inputText.trim() && attachments.length === 0)
+                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
+                  : 'bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white shadow-xl shadow-amber-500/40 hover:from-amber-600 hover:via-orange-600 hover:to-amber-700 ring-2 ring-amber-400/30'
+                }`}
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-6 w-6 xs:h-5 xs:w-5" />
             </button>
           )}
         </div>
