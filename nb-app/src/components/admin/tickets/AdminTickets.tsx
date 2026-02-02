@@ -168,7 +168,7 @@ export const AdminTickets = ({ onGotoUser }: AdminTicketsProps) => {
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {selectedTicket.messages?.map(msg => (
                                     <div key={msg.id} className={`flex gap-3 ${msg.is_admin ? 'flex-row-reverse' : 'flex-row'}`}>
-                                        <div className={`p-3 rounded-2xl max-w-[80%] ${msg.is_admin ? 'bg-cream-500 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'}`}>
+                                        <div className={`p-3 rounded-2xl max-w-[80%] ${msg.is_admin ? 'bg-cream-500 text-white dark:bg-cream-600 rounded-tr-none' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'}`}>
                                             <p className="text-sm">{msg.content}</p>
                                         </div>
                                     </div>

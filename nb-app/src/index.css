@@ -464,6 +464,50 @@ body {
   text-rendering: optimizeLegibility;
   /* iOS 优化 */
   -webkit-tap-highlight-color: transparent;
+  /* 禁用文本自动识别（电话号码、邮箱、地址等） */
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+
+/* ===== 禁用移动端自动识别 ===== */
+/* 防止浏览器自动识别电话号码、邮箱、地址等为链接 */
+/* 应用于所有文本元素 */
+a[href^="tel:"],
+a[href^="sms:"],
+a[href^="mailto:"] {
+  color: inherit;
+  text-decoration: none;
+  pointer-events: none;
+}
+
+/* 禁用数字自动识别为电话号码 */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* 对特定元素禁用长按菜单（按钮、图标等） */
+button, .touch-feedback, .select-none-touch {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* UC/QQ 浏览器禁用字体调整 */
+* {
+  -webkit-text-size-adjust: none !important;
+  text-size-adjust: none !important;
+}
+
+/* 微信 X5 内核禁用字体调整 */
+html {
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
 }
 
 /* ===== 安全区域工具类 Enhanced ===== */

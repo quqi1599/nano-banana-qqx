@@ -68,12 +68,14 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
     const [showDetailModal, setShowDetailModal] = useState(false);
 
     // Load conversations when filters or viewMode changes
+    // Note: loadConversations is wrapped in useCallback in the hook, stable reference
     useEffect(() => {
         if (viewMode === 'list') {
             loadConversations();
         }
         // Timeline is loaded automatically by the hook when userId changes
-    }, [viewMode, loadConversations, filters, searchQuery, userId, page, pageSize]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewMode, filters, searchQuery, userId, page, pageSize]);
 
     const reloadCurrentView = useCallback(() => {
         if (viewMode === 'list') {

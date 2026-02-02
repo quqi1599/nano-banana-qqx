@@ -1192,7 +1192,7 @@ export const ChatInterface: React.FC = () => {
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center text-center opacity-60 select-none px-4 animate-fade-in">
             <div className="mb-4 xs:mb-6 rounded-3xl bg-amber-50 dark:bg-amber-900/10 p-6 xs:p-8 shadow-sm ring-1 ring-amber-100 dark:ring-amber-900/20 transition-all duration-300">
-              <img src="/logo.png" alt="DEAI" className="h-16 w-16 xs:h-20 xs:w-20 mb-4 mx-auto object-contain" />
+              <img src="/logo.png?v=2" alt="DEAI" className="h-16 w-16 xs:h-20 xs:w-20 mb-4 mx-auto object-contain" />
               <h3 className="text-xl xs:text-2xl font-bold text-gray-900 dark:text-white mb-2">DEAI Banana</h3>
               <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
                 输入描述，即刻生成。<br />

@@ -176,7 +176,7 @@ export const AdminApp: React.FC = () => {
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="text-center mb-8">
-          <img src="/logo_new.png" alt="DEAI Admin" className="h-12 w-12 mx-auto mb-4 rounded-lg shadow-sm" />
+          <img src="/logo.png?v=2" alt="DEAI Admin" className="h-12 w-12 mx-auto mb-4 rounded-lg shadow-sm" />
           <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
             DEAI Admin
           </h2>

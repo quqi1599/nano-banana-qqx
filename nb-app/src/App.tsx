@@ -434,7 +434,7 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-200 dark:border-dark-border bg-white/80 dark:bg-dark-surface/80 px-2 xs:px-3 sm:px-4 lg:px-6 py-2 xs:py-3 sm:py-4 backdrop-blur-md z-10 transition-colors duration-200 pt-safe shrink-0">
         <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
-          <img src="/logo.png" alt="Logo" className="h-6 w-6 xs:h-7 xs:w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 object-contain" />
+          <img src="/logo.png?v=2" alt="Logo" className="h-6 w-6 xs:h-7 xs:w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 object-contain" />
           <div className="hidden xs:block">
             <h1 className="text-sm xs:text-base sm:text-lg lg:text-xl font-bold tracking-tight text-amber-600 dark:text-amber-400">DEAI</h1>
             <p className="text-[10px] xs:text-xs text-gray-500 dark:text-gray-400 hidden md:block">
