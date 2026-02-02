@@ -442,20 +442,20 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
   return (
     <div
-      className={`flex w-full gap-3 ${isUser ? 'justify-end' : 'justify-start'} group message-bubble`}
+      className={`flex w-full gap-2 sm:gap-3 ${isUser ? 'justify-end' : 'justify-start'} group message-bubble`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
 
       {!isUser && (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cream-400 via-amber-500 to-orange-500 shadow-lg shadow-amber-500/25 mt-1 ring-2 ring-white dark:ring-gray-800">
-          <Sparkles className="h-4 w-4 text-white drop-shadow-sm" />
+        <div className="flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-cream-400 via-amber-500 to-orange-500 shadow-lg shadow-amber-500/25 mt-0.5 sm:mt-1 ring-2 ring-white dark:ring-gray-800">
+          <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-white drop-shadow-sm" />
         </div>
       )}
 
-      <div className={`flex max-w-[88%] sm:max-w-[80%] md:max-w-[75%] flex-col gap-1.5 ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex max-w-[85%] xs:max-w-[82%] sm:max-w-[78%] md:max-w-[72%] flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
         <div
-          className={`relative rounded-2xl px-5 py-4 shadow-sm w-full transition-all duration-200 ${isUser
+          className={`relative rounded-2xl px-3.5 py-2.5 sm:px-5 sm:py-4 shadow-sm w-full transition-all duration-200 ${isUser
             ? 'bg-gradient-to-br from-cream-400 to-amber-500 text-white rounded-tr-sm shadow-amber-500/20'
             : 'bg-white dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200/80 dark:border-gray-700/50 shadow-sm'
             }`}
@@ -513,7 +513,7 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
           )}
         </div>
 
-        <div className="flex items-center gap-2 px-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-1">
           <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium tracking-wide">
             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
@@ -523,17 +523,17 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
             <div className={`flex items-center gap-0.5 transition-all duration-200 touch-show-actions ${showActions ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`}>
               <button
                 onClick={() => onRegenerate(message.id)}
-                className="p-1.5 rounded-lg hover:bg-cream-100 dark:hover:bg-cream-900/30 text-gray-400 hover:text-cream-600 dark:hover:text-cream-400 transition-colors"
+                className="p-1 sm:p-1.5 rounded-lg hover:bg-cream-100 dark:hover:bg-cream-900/30 text-gray-400 hover:text-cream-600 dark:hover:text-cream-400 transition-colors"
                 title="重新生成"
               >
-                <RotateCcw className="h-3 w-3" />
+                <RotateCcw className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               </button>
               <button
                 onClick={handleDelete}
-                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                className="p-1 sm:p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                 title="删除消息"
               >
-                <Trash2 className="h-3 w-3" />
+                <Trash2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               </button>
             </div>
           )}
@@ -541,8 +541,8 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
       </div>
 
       {isUser && (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 mt-1 ring-2 ring-white dark:ring-gray-800">
-          <User className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+        <div className="flex h-7 w-7 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 mt-0.5 sm:mt-1 ring-2 ring-white dark:ring-gray-800">
+          <User className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600 dark:text-gray-300" />
         </div>
       )}
     </div>

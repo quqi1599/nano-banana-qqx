@@ -1,5 +1,5 @@
 /**
- * 对话历史侧边栏组件
+ * 对话历史侧边栏组件 - Liquid Glass 优化版
  * 支持收缩折叠、时间线、移动端优化
  *
  * 分组逻辑：
@@ -8,7 +8,7 @@
  * - 未登录 + 自定义URL/API：按 api_key_prefix 分组
  */
 import { useEffect, useState, useMemo } from 'react';
-import { MessageSquare, Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { MessageSquare, Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { Conversation } from '../services/conversationService';
@@ -257,13 +257,13 @@ export const ConversationHistoryPanel = ({
                     />
                 )}
 
-                {/* 收起状态侧边栏 */}
+                {/* 收起状态侧边栏 - Liquid Glass 效果 */}
                 <div
                     className={`
                         fixed lg:relative z-50 h-full
                         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                         w-16 flex-shrink-0
-                        bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+                        liquid-glass border-r border-white/20 dark:border-white/10
                         transition-all duration-300
                         flex flex-col items-center py-4
                     `}
@@ -271,10 +271,10 @@ export const ConversationHistoryPanel = ({
                     {/* 展开/收起按钮 */}
                     <button
                         onClick={onToggleCollapse}
-                        className="mb-4 flex items-center justify-center h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        className="mb-4 flex items-center justify-center h-10 w-10 rounded-xl liquid-glass-btn"
                         title="展开"
                     >
-                        <ChevronRight className="w-5 h-5 text-gray-500" />
+                        <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
 
                     {/* 新建对话按钮 */}
@@ -283,7 +283,7 @@ export const ConversationHistoryPanel = ({
                             onNewConversation();
                             if (window.innerWidth < 1024) onClose();
                         }}
-                        className="mb-4 p-3 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-lg shadow-amber-500/30 hover:from-amber-600 hover:to-yellow-600 transition"
+                        className="mb-4 p-3 rounded-xl liquid-glass-btn text-amber-600 dark:text-amber-400 shadow-lg"
                         title="新建对话"
                     >
                         <Plus className="w-6 h-6" />
@@ -291,7 +291,7 @@ export const ConversationHistoryPanel = ({
 
                     {/* 对话数量指示 */}
                     <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full liquid-glass flex items-center justify-center">
                             <MessageSquare className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         </div>
                         <span className="text-xs text-gray-500">{totalCount}</span>
@@ -312,62 +312,66 @@ export const ConversationHistoryPanel = ({
                 />
             )}
 
-            {/* 侧边栏 */}
+            {/* 侧边栏 - Liquid Glass 效果 */}
             <div
                 className={`
                     fixed lg:relative z-50 h-full
                     ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
                     w-72 sm:w-80 flex-shrink-0
-                    bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+                    liquid-glass border-r border-white/20 dark:border-white/10
                     transition-all duration-300
                     flex flex-col
                 `}
             >
-                {/* 头部 */}
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                {/* 头部 - 玻璃效果 */}
+                <div className="p-4 border-b border-white/20 dark:border-white/10 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5">
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <MessageSquare className="w-5 h-5 text-amber-500" />
+                            <div className="w-8 h-8 rounded-lg liquid-glass flex items-center justify-center">
+                                <MessageSquare className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            </div>
                             <span>对话历史</span>
-                            <span className="text-xs text-gray-400">{totalCount}</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full liquid-glass text-gray-500">{totalCount}</span>
                         </h2>
                         <div className="flex items-center gap-1">
                             {/* 收起按钮 */}
                             <button
                                 onClick={onToggleCollapse}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition hidden lg:block"
+                                className="p-2 rounded-lg liquid-glass-btn hidden lg:block"
                                 title="收起"
                             >
-                                <ChevronLeft className="w-4 h-4 text-gray-500" />
+                                <ChevronLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                             </button>
                             {/* 关闭按钮（仅移动端） */}
                             <button
                                 onClick={onClose}
-                                className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition lg:hidden"
+                                className="flex items-center justify-center h-10 w-10 rounded-lg liquid-glass-btn lg:hidden"
                             >
-                                <X className="w-5 h-5 text-gray-500" />
+                                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                             </button>
                         </div>
                     </div>
 
-                    {/* 新建对话按钮 */}
+                    {/* 新建对话按钮 - Liquid Glass */}
                     <button
                         onClick={() => {
                             onNewConversation();
                             if (window.innerWidth < 1024) onClose();
                         }}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transition font-medium shadow-lg shadow-amber-500/30"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 liquid-glass-btn text-amber-700 dark:text-amber-300 font-medium"
                     >
                         <Plus className="w-5 h-5" />
                         新建对话
                     </button>
                 </div>
 
-                {/* 对话列表 */}
-                <div className="flex-1 overflow-y-auto px-3 pb-4">
+                {/* 对话列表 - 优雅滚动条 */}
+                <div className="flex-1 overflow-y-auto px-2 sm:px-3 pb-4 scrollbar-elegant">
                     {!canUseHistory ? (
                         <div className="text-center py-12 text-gray-400">
-                            <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl liquid-glass flex items-center justify-center">
+                                <MessageSquare className="w-8 h-8 text-gray-400" />
+                            </div>
                             <p className="text-sm">请登录或配置 API Key 后查看对话历史</p>
                         </div>
                     ) : showRemoteListLoading && sourceConversations.length === 0 ? (
@@ -379,7 +383,7 @@ export const ConversationHistoryPanel = ({
                             {Array.from({ length: 6 }).map((_, index) => (
                                 <div
                                     key={`history-skeleton-${index}`}
-                                    className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 animate-pulse"
+                                    className="p-3 rounded-xl liquid-glass animate-pulse"
                                 >
                                     <div className="h-3 w-3/5 bg-gray-200/80 dark:bg-gray-700/70 rounded mb-2" />
                                     <div className="h-2 w-2/5 bg-gray-200/80 dark:bg-gray-700/70 rounded" />
@@ -388,13 +392,15 @@ export const ConversationHistoryPanel = ({
                         </div>
                     ) : sourceConversations.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
-                            <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl liquid-glass flex items-center justify-center">
+                                <MessageSquare className="w-8 h-8 text-gray-400" />
+                            </div>
                             <p className="text-sm">暂无对话历史</p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-4 pt-2">
                             {showRemoteListLoading && (
-                                <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-white/85 dark:bg-gray-900/85 backdrop-blur">
+                                <div className="sticky top-0 z-10 -mx-3 px-3 py-2 liquid-glass">
                                     <div className="flex items-center justify-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                         <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
                                         <span>加载历史中...</span>
@@ -406,12 +412,12 @@ export const ConversationHistoryPanel = ({
                                 <div key={userGroup.key} className="space-y-2">
                                     {/* 用户组标题（仅未登录用户有多组时显示） */}
                                     {!isAuthenticated && userGroups.length > 1 && (
-                                        <div className="flex items-center gap-2 py-1">
+                                        <div className="flex items-center gap-2 py-2 px-1">
                                             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                                                 {userGroup.label}
                                             </span>
-                                            <span className="text-xs text-gray-400">
-                                                ({userGroup.conversations.length})
+                                            <span className="text-xs px-2 py-0.5 rounded-full liquid-glass text-gray-400">
+                                                {userGroup.conversations.length}
                                             </span>
                                         </div>
                                     )}
@@ -420,13 +426,13 @@ export const ConversationHistoryPanel = ({
                                     {(Object.entries(userGroup.dateGroups) as [string, Conversation[]][]).map(([period, convs]) =>
                                         convs.length > 0 ? (
                                             <div key={`${userGroup.key}-${period}`}>
-                                                {/* 时间线标题 */}
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-                                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">
+                                                {/* 时间线标题 - Liquid Glass 风格 */}
+                                                <div className="flex items-center gap-2 mb-2 px-1">
+                                                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
+                                                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full liquid-glass">
                                                         {period}
                                                     </span>
-                                                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                                                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></div>
                                                 </div>
 
                                                 {/* 对话列表 */}
@@ -451,19 +457,19 @@ export const ConversationHistoryPanel = ({
                                                                     if (window.innerWidth < 1024) onClose();
                                                                 }}
                                                                 className={`
-                                                                group p-3 rounded-xl cursor-pointer transition relative
-                                                                ${isActive
-                                                                        ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'
-                                                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent'
+                                                                    group p-3 rounded-xl cursor-pointer transition-all duration-200 relative
+                                                                    ${isActive
+                                                                        ? 'liquid-glass border-amber-300/50 dark:border-amber-700/50 shadow-md'
+                                                                        : 'hover:liquid-glass border border-transparent'
                                                                     }
-                                                                ${isConvLoading ? 'opacity-70' : ''}
-                                                            `}
+                                                                    ${isConvLoading ? 'opacity-70' : ''}
+                                                                `}
                                                             >
                                                                 {/* 时间线圆点 */}
                                                                 <div className={`
-                                                                absolute left-0 top-4 w-2 h-2 rounded-full -translate-x-[1px]
-                                                                ${isActive ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'}
-                                                            `} />
+                                                                    absolute left-0 top-4 w-2 h-2 rounded-full -translate-x-[1px]
+                                                                    ${isActive ? 'bg-amber-500 shadow-glow' : 'bg-gray-300 dark:bg-gray-600'}
+                                                                `} />
 
                                                                 {editingId === conv.id ? (
                                                                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -471,7 +477,7 @@ export const ConversationHistoryPanel = ({
                                                                             type="text"
                                                                             value={editingTitle}
                                                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTitle(e.currentTarget.value)}
-                                                                            className="flex-1 px-2 py-1 text-sm border border-amber-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                                            className="flex-1 px-2 py-1.5 text-sm liquid-glass-input rounded-lg focus:ring-2 focus:ring-amber-500"
                                                                             autoFocus
                                                                             onKeyDown={(e) => {
                                                                                 if (e.key === 'Enter') {
@@ -483,13 +489,13 @@ export const ConversationHistoryPanel = ({
                                                                         />
                                                                         <button
                                                                             onClick={(e) => handleSaveEdit(conv.id, e as any)}
-                                                                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                                                            className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition"
                                                                         >
                                                                             <Check className="w-4 h-4" />
                                                                         </button>
                                                                         <button
                                                                             onClick={handleCancelEdit}
-                                                                            className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                                                                            className="p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
                                                                         >
                                                                             <X className="w-4 h-4" />
                                                                         </button>
@@ -498,34 +504,34 @@ export const ConversationHistoryPanel = ({
                                                                     <>
                                                                         <div className="flex items-start justify-between gap-2">
                                                                             <div className="flex-1 min-w-0 pl-2">
-                                                                                <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                                                                                <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate leading-relaxed">
                                                                                     {conv.title || '未命名对话'}
                                                                                 </h3>
-                                                                                <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                                                                                <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-400">
                                                                                     <Clock className="w-3 h-3" />
                                                                                     <span>{formatTime(conv.updated_at)}</span>
-                                                                                    <span>·</span>
-                                                                                    <span>{conv.message_count} 条消息</span>
+                                                                                    <span className="text-gray-300">·</span>
+                                                                                    <span>{conv.message_count} 条</span>
                                                                                     {isConvLoading && (
                                                                                         <>
-                                                                                            <span>·</span>
+                                                                                            <span className="text-gray-300">·</span>
                                                                                             <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
                                                                                             <span className="text-amber-600 dark:text-amber-400">加载中</span>
                                                                                         </>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
-                                                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity touch-show-actions">
+                                                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity touch-show-actions">
                                                                                 <button
                                                                                     onClick={(e) => handleStartEdit(conv.id, conv.title, e)}
-                                                                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition btn-compact"
+                                                                                    className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 rounded-lg transition"
                                                                                     title="重命名"
                                                                                 >
                                                                                     <Edit2 className="w-3.5 h-3.5" />
                                                                                 </button>
                                                                                 <button
                                                                                     onClick={(e) => handleDelete(conv.id, e)}
-                                                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition btn-compact"
+                                                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-900/20 rounded-lg transition"
                                                                                     title="删除"
                                                                                 >
                                                                                     <Trash2 className="w-3.5 h-3.5" />
@@ -546,7 +552,7 @@ export const ConversationHistoryPanel = ({
                         </div>
                     )}
                     {!useLocalHistory && conversationListTotal > conversationListPageSize && (
-                        <div className="sticky bottom-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur py-2">
+                        <div className="sticky bottom-0 liquid-glass mt-4 py-2 px-1">
                             <Pagination
                                 page={conversationListPage}
                                 pageSize={conversationListPageSize}

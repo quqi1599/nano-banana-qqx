@@ -459,6 +459,19 @@
   border-color: rgba(255, 255, 255, 0.15);
 }
 
+/* ===== 发光效果 ===== */
+.shadow-glow {
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), 0 0 20px rgba(245, 158, 11, 0.3);
+}
+
+.shadow-glow-sm {
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.dark .shadow-glow {
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4), 0 0 20px rgba(245, 158, 11, 0.2);
+}
+
 /* ===== 光泽/高光效果 ===== */
 .glossy {
   position: relative;
@@ -592,6 +605,7 @@
 }
 
 /* ===== 滚动条优化 ===== */
+/* 细滚动条 - 默认 */
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
@@ -617,6 +631,129 @@
 
 .dark .scrollbar-thin::-webkit-scrollbar-thumb {
   background-color: rgba(75, 85, 99, 0.5);
+}
+
+/* 隐藏滚动条 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 优雅的滚动条 - 带悬停效果 */
+.scrollbar-elegant {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+}
+
+.scrollbar-elegant::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-elegant::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.scrollbar-elegant::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(156, 163, 175, 0.3) 0%,
+    rgba(156, 163, 175, 0.5) 50%,
+    rgba(156, 163, 175, 0.3) 100%
+  );
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: all 0.3s ease;
+}
+
+.scrollbar-elegant::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 158, 11, 0.4) 0%,
+    rgba(245, 158, 11, 0.6) 50%,
+    rgba(245, 158, 11, 0.4) 100%
+  );
+  background-clip: content-box;
+}
+
+.dark .scrollbar-elegant {
+  scrollbar-color: rgba(75, 85, 99, 0.3) transparent;
+}
+
+.dark .scrollbar-elegant::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(75, 85, 99, 0.3) 0%,
+    rgba(75, 85, 99, 0.5) 50%,
+    rgba(75, 85, 99, 0.3) 100%
+  );
+  background-clip: content-box;
+}
+
+.dark .scrollbar-elegant::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 158, 11, 0.4) 0%,
+    rgba(245, 158, 11, 0.6) 50%,
+    rgba(245, 158, 11, 0.4) 100%
+  );
+  background-clip: content-box;
+}
+
+/* 液态玻璃风格滚动条 */
+.scrollbar-glass {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.scrollbar-glass::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scrollbar-glass::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 10px;
+  margin: 4px;
+}
+
+.scrollbar-glass::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(4px);
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.scrollbar-glass::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.6);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.dark .scrollbar-glass {
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.dark .scrollbar-glass::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dark .scrollbar-glass::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .scrollbar-glass::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.5);
 }
 
 /* ===== 减少动效偏好 ===== */

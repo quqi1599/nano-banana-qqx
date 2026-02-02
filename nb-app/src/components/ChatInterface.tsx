@@ -1150,7 +1150,7 @@ export const ChatInterface: React.FC = () => {
     <div className="flex flex-col h-full bg-white dark:bg-dark-bg transition-colors duration-200 relative">
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-2 xs:px-3 sm:px-4 lg:px-6 py-3 xs:py-4 sm:py-6 space-y-4 xs:space-y-6 sm:space-y-8 overscroll-y-contain scroll-touch scrollbar-hide"
+        className="flex-1 overflow-y-auto px-2 xs:px-3 sm:px-4 lg:px-6 py-3 xs:py-4 sm:py-6 space-y-4 xs:space-y-6 sm:space-y-8 overscroll-y-contain scroll-touch scrollbar-elegant"
       >
         {/* Batch Progress Indicator */}
         {batchProgress.total > 0 && (

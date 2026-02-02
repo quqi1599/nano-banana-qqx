@@ -396,13 +396,13 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
           </div>
         )}
 
-        {/* Preview Area - 附件预览 */}
+        {/* Preview Area - 附件预览 - 移动端优化 */}
         {attachments.length > 0 && (
-          <div className="flex gap-2.5 overflow-x-auto py-3 px-1 mb-2 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto py-2 px-1 mb-2 scrollbar-hide">
             {attachments.map((att, i) => (
               <div 
                 key={i} 
-                className="relative h-18 w-18 xs:h-20 xs:w-20 shrink-0 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group overflow-hidden shadow-sm hover:shadow-md transition-all duration-200"
+                className="relative h-16 w-16 xs:h-18 xs:w-18 sm:h-20 sm:w-20 shrink-0 rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group overflow-hidden shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <img
                   src={att.preview}
@@ -411,15 +411,15 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
                 />
                 {/* 悬停遮罩 */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                {/* 删除按钮 */}
+                {/* 删除按钮 - 移动端更大触摸区域 */}
                 <button
                   onClick={() => removeAttachment(i)}
-                  className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 hover:scale-110 transition-all duration-200 active:scale-90"
+                  className="absolute -right-1 -top-1 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600 hover:scale-110 transition-all duration-200 active:scale-90"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
                 {/* 序号标签 */}
-                <div className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-black/40 backdrop-blur-sm text-white text-[9px] font-medium">
+                <div className="absolute bottom-1 left-1 px-1 py-0.5 rounded bg-black/40 backdrop-blur-sm text-white text-[8px] sm:text-[9px] font-medium">
                   {i + 1}
                 </div>
               </div>
@@ -428,9 +428,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             {attachments.length < MAX_ATTACHMENTS && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-18 w-18 xs:h-20 xs:w-20 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-cream-400 hover:text-cream-500 transition-colors"
+                className="flex h-16 w-16 xs:h-18 xs:w-18 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-cream-400 hover:text-cream-500 transition-colors"
               >
-                <ImagePlus className="h-6 w-6" />
+                <ImagePlus className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             )}
           </div>
@@ -462,7 +462,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
         </div>
 
         <div
-          className={`relative flex flex-wrap md:flex-nowrap items-end gap-1 rounded-2xl bg-white dark:bg-gray-800/80 p-2 shadow-lg ring-1 transition-all duration-300 ${isDragging
+          className={`relative flex flex-wrap md:flex-nowrap items-end gap-1 rounded-xl sm:rounded-2xl bg-white dark:bg-gray-800/80 p-1.5 sm:p-2 shadow-lg ring-1 transition-all duration-300 ${isDragging
             ? 'ring-2 ring-cream-400 shadow-cream-500/20 bg-cream-50/50 dark:bg-cream-900/10'
             : 'ring-gray-200 dark:ring-gray-700/50 focus-within:ring-2 focus-within:ring-cream-400 focus-within:shadow-cream-500/10'
             }`}
@@ -506,39 +506,39 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled || attachments.length >= 14}
-            className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 hover:bg-cream-50 dark:hover:bg-cream-900/20 hover:text-cream-500 transition-all duration-200 disabled:opacity-40 hover:scale-105 active:scale-95"
+            className="hidden sm:flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl text-gray-400 hover:bg-cream-50 dark:hover:bg-cream-900/20 hover:text-cream-500 transition-all duration-200 disabled:opacity-40 hover:scale-105 active:scale-95"
             title="上传图片 (最多14张)"
           >
-            <ImagePlus className="h-5 w-5" />
+            <ImagePlus className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           {/* 快速提示词按钮 */}
           <button
             onClick={() => setIsQuickPickerOpen(true)}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${isQuickPickerOpen
+            className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl transition-all duration-200 ${isQuickPickerOpen
               ? 'bg-gradient-to-br from-cream-400 to-amber-500 text-white shadow-md shadow-cream-500/30'
               : 'text-gray-400 hover:bg-cream-50 dark:hover:bg-cream-900/20 hover:text-cream-500 hover:scale-105 active:scale-95'
               }`}
             title="快速选择提示词 (输入 /t)"
           >
-            <Sparkles className="h-5 w-5" />
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           {/* Arcade 游戏按钮 */}
           {onOpenArcade && (
             <button
               onClick={onOpenArcade}
-              className={`hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${isArcadeOpen
+              className={`hidden sm:flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl transition-all duration-200 ${isArcadeOpen
                 ? 'bg-gradient-to-br from-purple-400 to-pink-500 text-white shadow-md shadow-purple-500/30'
                 : 'text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-500 hover:scale-105 active:scale-95'
                 }`}
               title={isArcadeOpen ? "关闭 Arcade" : "打开 Arcade"}
             >
-              <Gamepad2 className="h-5 w-5" />
+              <Gamepad2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           )}
 
-          {/* 文本输入框 */}
+          {/* 文本输入框 - 移动端优化 */}
           <textarea
             ref={textareaRef}
             value={inputText}
@@ -546,33 +546,33 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             onKeyDown={handleKeyDown}
             disabled={disabled}
             enterKeyHint="send"
-            placeholder={attachments.length > 0 ? "描述你对图片的要求..." : "描述一张图片，例如：一只可爱的猫咪在花园里玩耍..."}
-            className="max-h-[160px] min-h-[44px] w-full resize-none bg-transparent py-2.5 px-2 text-[15px] leading-relaxed text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
+            placeholder={attachments.length > 0 ? "描述你对图片的要求..." : "描述一张图片，例如：一只可爱的猫咪..."}
+            className="max-h-[120px] sm:max-h-[160px] min-h-[40px] sm:min-h-[44px] w-full resize-none bg-transparent py-2 px-1.5 sm:py-2.5 sm:px-2 text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
             rows={1}
-            style={{ height: '44px' }}
+            style={{ height: 'auto' }}
           />
 
-          {/* 发送/停止按钮 */}
+          {/* 发送/停止按钮 - 移动端优化 */}
           {disabled ? (
             <button
               onClick={onStop}
-              className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30 hover:shadow-red-500/40 hover:scale-105 active:scale-95 transition-all duration-200 animate-pulse"
+              className="ml-auto flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30 hover:shadow-red-500/40 hover:scale-105 active:scale-95 transition-all duration-200 animate-pulse"
               title="停止生成"
             >
-              <Square className="h-4 w-4 fill-current" />
+              <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />
             </button>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={!inputText.trim() && attachments.length === 0}
-              className={`ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${
+              className={`ml-auto flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl transition-all duration-200 ${
                 inputText.trim() || attachments.length > 0
                   ? 'bg-gradient-to-br from-cream-400 to-amber-500 text-white shadow-lg shadow-cream-500/30 hover:shadow-cream-500/40 hover:scale-105 active:scale-95'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
               }`}
               title="发送"
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           )}
         </div>
