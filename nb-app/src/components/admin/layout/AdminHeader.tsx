@@ -20,7 +20,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ title, onToggleSidebar
     };
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(event.target.value);
+        setSearchTerm((event.target as HTMLInputElement).value);
     };
 
     const toggleTheme = () => {

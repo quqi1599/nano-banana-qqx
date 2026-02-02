@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Bot } from 'lucide-react';
-import { AdminUserType } from '../../../services/conversationService';
+import { AdminUserType } from '../../../../services/conversationService';
 
 export const USER_TYPE_META: Record<AdminUserType, { label: string; badge: string }> = {
     user: {

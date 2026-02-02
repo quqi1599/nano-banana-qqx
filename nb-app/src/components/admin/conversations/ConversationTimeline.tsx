@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarDays, Calendar, Trash2 } from 'lucide-react';
+import { CalendarDays, Calendar, Trash2, Loader2, Globe } from 'lucide-react';
 import { AdminConversation } from '../../../services/conversationService';
 import { UserTypeBadge, getInputValue } from './utils/constants';
 import { formatFullDate, formatTime } from '../../../utils/formatters';

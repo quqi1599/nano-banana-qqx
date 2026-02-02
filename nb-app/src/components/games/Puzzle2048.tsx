@@ -134,11 +134,11 @@ export const Puzzle2048: React.FC = () => {
   }, [move, gameOver, initGame]);
 
   // Touch
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
       touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
   
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
       const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
       const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
       

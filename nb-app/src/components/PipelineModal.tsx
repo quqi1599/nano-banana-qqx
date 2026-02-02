@@ -3,7 +3,7 @@ import { X, Plus, Trash2, ImagePlus, ChevronUp, ChevronDown, Layers, GitBranch, 
 import { Attachment, PipelineTemplate, PipelineStep } from '../types';
 import { loadPipelineTemplates, filterTemplatesByMode } from '../services/pipelineTemplateService';
 import { useUiStore } from '../store/useUiStore';
-import { validateAndCompressImage } from '../utils/imageValidation';
+import { validateAndCompressImage, type ImageValidationError } from '../utils/imageValidation';
 import { getImageValidationMessage } from '../utils/validationMessages';
 import { useAppStore } from '../store/useAppStore';
 import { convertMessagesToHistory } from '../utils/messageUtils';
@@ -165,7 +165,7 @@ export const PipelineModal: React.FC<Props> = ({ isOpen, onClose, onExecute }) =
         try {
           const validation = await validateAndCompressImage(file, totalBytes);
           if (!validation.ok) {
-            const errorMsg = getImageValidationMessage(validation.error);
+            const errorMsg = getImageValidationMessage((validation as { error: ImageValidationError }).error);
             // 只有无法压缩的错误才弹窗
             showDialog({
               type: 'alert',

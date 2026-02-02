@@ -1,7 +1,7 @@
 import React from 'react';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { AdminConversation } from '../../../services/conversationService';
-import { ConversationItem } from '../components/ConversationItem';
+import { ConversationItem } from './components/ConversationItem';
 import { formatDate } from '../../../utils/formatters';
 
 interface ConversationListProps {

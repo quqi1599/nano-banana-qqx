@@ -35,7 +35,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
         return () => clearInterval(interval);
     }, []);
 
-    const navItems = [
+    const navItems: Array<{ id: TabType; label: string; icon: React.ElementType; showBadge?: boolean }> = [
         { id: 'dashboard', label: '总览', icon: LayoutDashboard },
         { id: 'tokens', label: 'Token 管理', icon: Key },
         { id: 'pricing', label: '模型与灵感值', icon: Coins },
@@ -45,7 +45,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
         { id: 'conversations', label: '会话查看', icon: MessageCircle },
         { id: 'queue', label: '队列监控', icon: Layers },
         { id: 'email', label: '邮件配置', icon: Mail },
-    ] as const;
+    ];
 
     return (
         <aside className={`

@@ -141,7 +141,7 @@ export const LifeGame: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [initGrid]);
 
-  const handleInteract = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleInteract = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -152,8 +152,8 @@ export const LifeGame: React.FC = () => {
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
     } else {
-      clientX = (e as React.MouseEvent).clientX;
-      clientY = (e as React.MouseEvent).clientY;
+      clientX = (e as React.MouseEvent<HTMLCanvasElement>).clientX;
+      clientY = (e as React.MouseEvent<HTMLCanvasElement>).clientY;
     }
 
     const x = Math.floor((clientX - rect.left) / CELL_SIZE);

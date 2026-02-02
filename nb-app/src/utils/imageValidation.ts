@@ -103,7 +103,8 @@ export const validateAndCompressImage = async (
         if (result.blob.size > maxAllowedSize) {
           return { ok: false, error: 'file_too_large' };
         }
-        return { ok: true, file: result.blob, compressed: result.compressed };
+        const compressedFile = new File([result.blob], file.name, { type: result.blob.type, lastModified: Date.now() });
+        return { ok: true, file: compressedFile, compressed: result.compressed };
       } catch {
         return { ok: false, error: 'dimension_too_large' };
       }
@@ -113,7 +114,8 @@ export const validateAndCompressImage = async (
       // 像素过多，需要压缩
       try {
         const result = await compressImage(file, maxAllowedSize);
-        return { ok: true, file: result.blob, compressed: result.compressed };
+        const compressedFile = new File([result.blob], file.name, { type: result.blob.type, lastModified: Date.now() });
+        return { ok: true, file: compressedFile, compressed: result.compressed };
       } catch {
         return { ok: false, error: 'pixels_too_large' };
       }
@@ -132,7 +134,8 @@ export const validateAndCompressImage = async (
       return { ok: false, error: 'file_too_large' };
     }
 
-    return { ok: true, file: result.blob, compressed: true };
+    const compressedFile = new File([result.blob], file.name, { type: result.blob.type, lastModified: Date.now() });
+    return { ok: true, file: compressedFile, compressed: true };
   } catch (error) {
     console.error('图片压缩失败:', error);
     return { ok: false, error: 'file_too_large' };

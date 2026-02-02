@@ -7,6 +7,10 @@ interface ConversationFiltersResult {
     updateFilter: (key: keyof ConversationFilters, value: any) => void;
     clearFilters: () => void;
     hasActiveFilters: boolean;
+    searchQuery: string;
+    setSearchQuery: (query: string) => void;
+    showFilters: boolean;
+    setShowFilters: (show: boolean) => void;
 }
 
 export const useConversationFilters = (

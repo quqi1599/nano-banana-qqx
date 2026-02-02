@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 
 import 'react';
 
@@ -10,4 +11,16 @@ declare module 'react' {
         // Explicitly add to TextareaHTMLAttributes as well to satisfy stricter checks
         enterKeyHint?: 'search' | 'enter' | 'done' | 'go' | 'next' | 'previous' | 'send';
     }
+}
+
+// Vite 环境变量类型声明
+interface ImportMetaEnv {
+    readonly VITE_API_BASE_URL?: string;
+    readonly DEV: boolean;
+    readonly PROD: boolean;
+    readonly MODE: string;
+}
+
+interface ImportMeta {
+    readonly env: ImportMetaEnv;
 }

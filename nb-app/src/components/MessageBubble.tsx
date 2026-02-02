@@ -320,8 +320,9 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
   const handleDownloadDataset = async () => {
     try {
+      type DatasetPart = { mimeType: string; data: string; prompt?: string };
       const datasetParts = await Promise.all(
-        imageParts.map(async (p) => {
+        imageParts.map(async (p): Promise<DatasetPart | null> => {
           const resolved = await resolveMessageImageData(p);
           if (!resolved?.data) return null;
           return {
@@ -332,7 +333,7 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
         })
       );
 
-      const validParts = datasetParts.filter((p): p is { mimeType: string; data: string; prompt?: string } => !!p);
+      const validParts = datasetParts.filter((p): p is DatasetPart => p !== null);
       if (validParts.length === 0) {
         addToast('没有可下载的图片', 'error');
         return;

@@ -937,7 +937,7 @@ export interface EmailSettingsSummary {
     providers: ProviderInfo[];
 }
 
-export interface SmtpConfigCreate extends Partial<SmtpConfigBase>, SmtpConfigRequired { }
+export type SmtpConfigCreate = Partial<SmtpConfigBase> & SmtpConfigRequired;
 
 export interface SmtpConfigUpdate extends Partial<SmtpConfigBase> { }
 
