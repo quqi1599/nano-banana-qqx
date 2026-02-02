@@ -97,3 +97,6 @@ class AdminConversationResponse(ConversationResponse):
 class AdminConversationDetailResponse(AdminConversationResponse):
     """管理员对话详情响应（含消息）"""
     messages: List[MessageResponse] = []
+    message_total: int = 0
+    message_page: int = 1
+    message_page_size: int = 50

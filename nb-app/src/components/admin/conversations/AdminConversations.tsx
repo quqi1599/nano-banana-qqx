@@ -62,6 +62,7 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
         timeline,
         timelineLoading,
         timelineTotal,
+        total,
     } = useConversationData(filters, searchQuery, userId, page, pageSize, viewMode);
 
     // Local state for modal visibility (separate from the hook's selectedConversation)
@@ -322,11 +323,23 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                             </div>
                         )}
 
+                        {/* 分页信息 */}
+                        <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 flex items-center justify-between">
+                            <span>
+                                显示 {conversations.length} 条 / 共 {total} 条对话
+                            </span>
+                            {total > pageSize && (
+                                <span>
+                                    第 {page} 页 / 共 {Math.ceil(total / pageSize)} 页
+                                </span>
+                            )}
+                        </div>
+
                         {/* 分页 */}
                         <Pagination
                             page={page}
                             pageSize={pageSize}
-                            total={conversations.length}
+                            total={total}
                             onPageChange={(p) => setPage(p)}
                             itemLabel="条对话"
                         />
@@ -419,6 +432,18 @@ export const AdminConversations: React.FC<AdminConversationsProps> = ({
                                 ))}
                             </div>
                         )}
+
+                        {/* 分页信息 */}
+                        <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 flex items-center justify-between">
+                            <span>
+                                显示 {timeline.length} 天 / 共 {timelineTotal} 天
+                            </span>
+                            {timelineTotal > pageSize && (
+                                <span>
+                                    第 {page} 页 / 共 {Math.ceil(timelineTotal / pageSize)} 页
+                                </span>
+                            )}
+                        </div>
 
                         {/* 分页 */}
                         <Pagination

@@ -149,6 +149,9 @@ export interface AdminConversation extends Conversation {
 
 export interface AdminConversationDetail extends AdminConversation {
     messages: ConversationMessage[];
+    message_total: number;
+    message_page: number;
+    message_page_size: number;
 }
 
 // ============ 管理员对话筛选和统计类型 ============
@@ -340,10 +343,39 @@ export async function adminGetConversations(
 }
 
 /**
- * 管理员获取对话详情
+ * 管理员获取对话详情（支持消息分页）
  */
-export async function adminGetConversation(id: string): Promise<AdminConversationDetail> {
-    return adminRequest<AdminConversationDetail>(`/api/admin/conversations/${id}`);
+export async function adminGetConversation(
+    id: string,
+    messagePage: number = 1,
+    messagePageSize: number = 50
+): Promise<AdminConversationDetail> {
+    const params = new URLSearchParams({
+        message_page: String(messagePage),
+        message_page_size: String(messagePageSize),
+    });
+    return adminRequest<AdminConversationDetail>(`/api/admin/conversations/${id}?${params}`);
+}
+
+/**
+ * 管理员加载更多对话消息
+ */
+export async function adminLoadMoreMessages(
+    conversationId: string,
+    page: number,
+    pageSize: number = 50
+): Promise<{ messages: ConversationMessage[]; total: number; page: number; page_size: number }> {
+    const params = new URLSearchParams({
+        message_page: String(page),
+        message_page_size: String(pageSize),
+    });
+    const response = await adminRequest<AdminConversationDetail>(`/api/admin/conversations/${conversationId}?${params}`);
+    return {
+        messages: response.messages,
+        total: response.message_total,
+        page: response.message_page,
+        page_size: response.message_page_size,
+    };
 }
 
 /**

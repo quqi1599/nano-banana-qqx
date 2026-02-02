@@ -287,14 +287,18 @@ async def list_conversations(
 @router.get("/conversations/{conversation_id}", response_model=AdminConversationDetailResponse)
 async def get_conversation_detail(
     conversation_id: str,
+    message_page: int = Query(1, ge=1, description="消息页码"),
+    message_page_size: int = Query(50, ge=1, le=200, description="每页消息数量"),
     admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    管理员查看对话详情
+    管理员查看对话详情（支持消息分页）
 
     Args:
         conversation_id: 对话ID
+        message_page: 消息页码
+        message_page_size: 每页消息数量
 
     Returns:
         对话详情响应
@@ -305,7 +309,6 @@ async def get_conversation_detail(
     result = await db.execute(
         select(Conversation, User.email, User.nickname, User.tags)
         .outerjoin(User, Conversation.user_id == User.id)
-        .options(selectinload(Conversation.messages))
         .where(Conversation.id == conversation_id)
     )
     row = result.first()
@@ -317,9 +320,32 @@ async def get_conversation_detail(
         )
 
     conversation, user_email, user_nickname, user_tags = row
-    messages = [_serialize_admin_message(msg) for msg in conversation.messages]
+
+    # 分页获取消息
+    count_result = await db.execute(
+        select(func.count(ConversationMessage.id)).where(
+            ConversationMessage.conversation_id == conversation_id
+        )
+    )
+    total_messages = count_result.scalar() or 0
+
+    result_messages = await db.execute(
+        select(ConversationMessage)
+        .where(ConversationMessage.conversation_id == conversation_id)
+        .order_by(ConversationMessage.created_at.asc())
+        .offset((message_page - 1) * message_page_size)
+        .limit(message_page_size)
+    )
+    messages = [_serialize_admin_message(msg) for msg in result_messages.scalars().all()]
+
     base = _build_admin_conversation_response(conversation, user_email, user_nickname, user_tags).model_dump()
-    return AdminConversationDetailResponse(**base, messages=messages)
+    return AdminConversationDetailResponse(
+        **base,
+        messages=messages,
+        message_total=total_messages,
+        message_page=message_page,
+        message_page_size=message_page_size,
+    )
 
 
 @router.delete("/conversations/{conversation_id}")

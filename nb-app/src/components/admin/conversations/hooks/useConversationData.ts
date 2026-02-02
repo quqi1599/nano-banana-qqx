@@ -26,6 +26,7 @@ interface ConversationDataResult {
     timeline: ConversationTimelineItem[];
     timelineLoading: boolean;
     timelineTotal: number;
+    total: number;  // 对话总数（用于分页）
 }
 
 export const useConversationData = (
@@ -41,6 +42,7 @@ export const useConversationData = (
     const [loading, setLoading] = useState(false);
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [error, setError] = useState('');
+    const [total, setTotal] = useState(0);  // 对话总数
 
     const [timeline, setTimeline] = useState<ConversationTimelineItem[]>([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
@@ -57,6 +59,7 @@ export const useConversationData = (
 
             const result = await adminGetConversationsFiltered(currentFilters, page, pageSize);
             setConversations(result.conversations);
+            setTotal(result.total);  // 保存总数
         } catch (err) {
             setError((err as Error).message);
         } finally {
@@ -136,5 +139,6 @@ export const useConversationData = (
         timeline,
         timelineLoading,
         timelineTotal,
+        total,
     };
 };
