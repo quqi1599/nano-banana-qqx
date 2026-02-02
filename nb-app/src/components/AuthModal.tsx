@@ -306,71 +306,81 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                     <div key={isAuthenticated ? 'account' : activeTab} className="animate-fade-in">
                         {isAuthenticated && user ? (
                             // 已登录 - 显示用户信息和兑换码
-                            <div className="space-y-4">
-                                <div className="text-center">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                                        <User className="w-8 h-8 text-white" />
+                            <div className="space-y-5">
+                                {/* 用户信息卡片 */}
+                                <div className="text-center py-2">
+                                    <div className="w-20 h-20 bg-gradient-to-br from-cream-400 via-amber-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-cream-500/20 ring-4 ring-cream-100 dark:ring-cream-900/20">
+                                        <User className="w-10 h-10 text-white" />
                                     </div>
-                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                                        {user.nickname || user.email}
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                                        {user.nickname || user.email.split('@')[0]}
                                     </h3>
-                                    <p className="text-sm text-gray-500">{user.email}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
                                 </div>
 
-                                <div className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 rounded-xl p-4 text-center">
-                                    <p className="text-sm text-amber-700 dark:text-amber-300">当前灵感余额</p>
-                                    <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
-                                        {user.credit_balance}
-                                    </p>
+                                {/* 余额卡片 */}
+                                <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-rose-900/10 rounded-2xl p-5 text-center border border-amber-100 dark:border-amber-800/30 shadow-sm">
+                                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-2 font-medium">当前灵感余额</p>
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500">
+                                            {user.credit_balance}
+                                        </span>
+                                        <span className="text-sm text-amber-600 dark:text-amber-400">次</span>
+                                    </div>
                                 </div>
 
                                 {/* 兑换码 */}
                                 <form onSubmit={handleRedeem} className="space-y-3">
-                                    <div className="relative">
-                                        <Gift className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <div className="relative group">
+                                        <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
                                         <input
                                             type="text"
                                             value={redeemCodeInput}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRedeemCodeInput(e.currentTarget.value.toUpperCase())}
-                                            placeholder="输入兑换码"
-                                            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                            placeholder="输入兑换码获取灵感"
+                                            className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
                                         />
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={isLoading || !redeemCodeInput.trim()}
-                                        className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="w-full py-3.5 bg-gradient-to-r from-cream-400 to-amber-500 text-white font-semibold rounded-xl hover:from-cream-500 hover:to-amber-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cream-500/25 hover:shadow-cream-500/40 hover:-translate-y-0.5 active:translate-y-0"
                                     >
                                         {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gift className="w-5 h-5" />}
                                         兑换灵感
                                     </button>
                                 </form>
 
+                                {/* 状态提示 */}
                                 {error && (
-                                    <p className="text-sm text-red-500 text-center">{error}</p>
+                                    <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-sm text-red-600 dark:text-red-400 text-center">
+                                        {error}
+                                    </div>
                                 )}
                                 {success && (
-                                    <p className="text-sm text-green-500 text-center">{success}</p>
+                                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-sm text-green-600 dark:text-green-400 text-center">
+                                        {success}
+                                    </div>
                                 )}
                             </div>
                         ) : (
                             <>
                                 {/* Tabs */}
-                                <div className="flex gap-2 mb-6">
+                                <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-700/50 rounded-2xl mb-6">
                                     <button
                                         onClick={() => switchTab('login')}
-                                        className={`flex-1 py-2 rounded-lg font-medium transition-colors ${activeTab === 'login'
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                        className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === 'login'
+                                            ? 'bg-white dark:bg-gray-600 text-cream-600 dark:text-cream-400 shadow-md'
+                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                                             }`}
                                     >
                                         登录
                                     </button>
                                     <button
                                         onClick={() => switchTab('register')}
-                                        className={`flex-1 py-2 rounded-lg font-medium transition-colors ${activeTab === 'register'
-                                            ? 'bg-blue-500 text-white'
-                                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                                        className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === 'register'
+                                            ? 'bg-white dark:bg-gray-600 text-cream-600 dark:text-cream-400 shadow-md'
+                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                                             }`}
                                     >
                                         注册
@@ -456,32 +466,32 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                     </form>
                                 ) : (
                                     <form onSubmit={activeTab === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <div className="relative group">
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
                                             <input
                                                 type="email"
                                                 value={email}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)}
                                                 placeholder="邮箱地址"
                                                 required
-                                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
                                             />
                                         </div>
 
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <div className="relative group">
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
                                             <input
                                                 type={showPassword ? 'text' : 'password'}
                                                 value={password}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
                                                 placeholder="密码"
                                                 required
-                                                className="w-full pl-10 pr-12 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                                             >
                                                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                             </button>
@@ -512,14 +522,14 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                         )}
 
                                         {activeTab === 'login' && (
-                                            <div className="flex justify-end">
+                                            <div className="flex justify-end -mt-2">
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         setResetEmail(email);
                                                         switchTab('reset');
                                                     }}
-                                                    className="text-xs text-gray-500 hover:text-blue-600 transition-colors"
+                                                    className="text-xs text-gray-500 hover:text-cream-600 dark:hover:text-cream-400 transition-colors font-medium"
                                                 >
                                                     忘记密码？
                                                 </button>
@@ -527,47 +537,52 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                         )}
 
                                         {activeTab === 'register' && (
-                                            <div className="flex gap-2">
-                                                <div className="relative flex-1">
-                                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <div className="flex gap-3">
+                                                <div className="relative flex-1 group">
+                                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
                                                     <input
                                                         type="text"
                                                         value={registerCode}
                                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegisterCode(e.currentTarget.value)}
                                                         placeholder="验证码"
                                                         required
-                                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
                                                     />
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={initiateRegisterCode}
                                                     disabled={registerCodeSending || registerCodeCooldown > 0 || !email.trim()}
-                                                    className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[100px]"
+                                                    className="px-4 py-3.5 rounded-xl bg-cream-100 dark:bg-cream-900/30 text-cream-600 dark:text-cream-400 font-semibold text-sm hover:bg-cream-200 dark:hover:bg-cream-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[100px]"
                                                 >
                                                     {registerCodeSending
                                                         ? '发送中...'
                                                         : registerCodeCooldown > 0
                                                             ? `${registerCodeCooldown}s`
-                                                            : '发送验证码'}
+                                                            : '获取验证码'}
                                                 </button>
                                             </div>
                                         )}
 
+                                        {/* 状态提示 */}
                                         {error && (
-                                            <p className="text-sm text-red-500 text-center">{error}</p>
+                                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-sm text-red-600 dark:text-red-400 text-center">
+                                                {error}
+                                            </div>
                                         )}
                                         {success && (
-                                            <p className="text-sm text-green-500 text-center">{success}</p>
+                                            <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-sm text-green-600 dark:text-green-400 text-center">
+                                                {success}
+                                            </div>
                                         )}
 
                                         <button
                                             type="submit"
                                             disabled={isLoading}
-                                            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                            className="w-full py-3.5 bg-gradient-to-r from-cream-400 to-amber-500 text-white font-semibold rounded-xl hover:from-cream-500 hover:to-amber-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cream-500/25 hover:shadow-cream-500/40 hover:-translate-y-0.5 active:translate-y-0"
                                         >
                                             {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
-                                            {activeTab === 'login' ? '登录' : '注册'}
+                                            {activeTab === 'login' ? '安全登录' : '立即注册'}
                                         </button>
                                     </form>
                                 )}
