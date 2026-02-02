@@ -262,26 +262,42 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     };
 
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-[90%] md:w-full max-w-sm md:max-w-md overflow-hidden relative flex flex-col max-h-[90dvh] transition-all duration-200 transform ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        {isAuthenticated
-                            ? '账户中心'
-                            : activeTab === 'login'
-                                ? '登录'
-                                : activeTab === 'register'
-                                    ? '注册'
-                                    : activeTab === 'reset'
-                                        ? '重置密码'
-                                        : '兑换码'}
-                    </h2>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <div className={`bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative flex flex-col max-h-[90dvh] transition-all duration-300 transform ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}>
+                {/* Header with gradient background */}
+                <div className="relative flex items-center justify-between px-6 py-5 bg-gradient-to-r from-cream-50 to-amber-50 dark:from-gray-800 dark:to-gray-750 shrink-0 border-b border-gray-100 dark:border-gray-700/50">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cream-400 to-amber-500 flex items-center justify-center shadow-lg shadow-cream-500/25">
+                            {isAuthenticated ? (
+                                <User className="w-5 h-5 text-white" />
+                            ) : activeTab === 'login' ? (
+                                <Lock className="w-5 h-5 text-white" />
+                            ) : activeTab === 'register' ? (
+                                <Mail className="w-5 h-5 text-white" />
+                            ) : (
+                                <Lock className="w-5 h-5 text-white" />
+                            )}
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                                {isAuthenticated
+                                    ? '账户中心'
+                                    : activeTab === 'login'
+                                        ? '欢迎回来'
+                                        : activeTab === 'register'
+                                            ? '创建账户'
+                                            : '重置密码'}
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {isAuthenticated ? '管理您的账户信息' : activeTab === 'login' ? '登录以继续使用' : activeTab === 'register' ? '注册开始创作之旅' : '找回您的账户密码'}
+                            </p>
+                        </div>
+                    </div>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        className="p-2 rounded-xl hover:bg-white/50 dark:hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-gray-600"
                     >
-                        <X className="w-5 h-5 text-gray-500" />
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 

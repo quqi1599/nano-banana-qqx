@@ -213,7 +213,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                     <button
                         type="button"
                         onClick={onReloadLoginFailures}
-                        className="text-xs font-semibold text-cream-600 hover:text-cream-700"
+                        className="text-xs font-semibold text-cream-600 dark:text-cream-400 hover:text-cream-700 dark:hover:text-cream-300"
                     >
                         刷新
                     </button>

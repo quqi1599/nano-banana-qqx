@@ -91,7 +91,7 @@ export const AdminRedeemCodes = () => {
     const handleDeleteUsed = async () => {
         setDeleteLoading(true);
         try {
-            const result = await deleteUsedRedeemCodes();
+            await deleteUsedRedeemCodes();
             setDeleteDialog(null);
             loadData();
         } catch (err) {
@@ -104,7 +104,7 @@ export const AdminRedeemCodes = () => {
     const handleDeleteUnused = async () => {
         setDeleteLoading(true);
         try {
-            const result = await deleteUnusedRedeemCodes();
+            await deleteUnusedRedeemCodes();
             setDeleteDialog(null);
             loadData();
         } catch (err) {
@@ -222,7 +222,7 @@ export const AdminRedeemCodes = () => {
                     </div>
                     <button
                         onClick={loadData}
-                        className="text-xs font-semibold text-cream-600 hover:text-brand-700"
+                        className="text-xs font-semibold text-cream-600 dark:text-cream-400 hover:text-brand-700 dark:hover:text-cream-300"
                     >
                         刷新
                     </button>

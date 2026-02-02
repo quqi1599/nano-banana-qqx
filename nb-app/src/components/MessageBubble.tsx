@@ -275,21 +275,28 @@ const ThinkingBlock: React.FC<{ parts: Part[], duration?: number, isFinished: bo
   }, [isFinished]);
 
   return (
-    <div className="my-2 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-900/30">
+    <div className="my-3 overflow-hidden rounded-xl border border-purple-200/50 dark:border-purple-800/30 bg-gradient-to-br from-purple-50/80 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/10">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2 bg-gray-100 dark:bg-gray-900/50 px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-300 transition"
+        className="flex w-full items-center gap-2.5 px-4 py-3 text-xs font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-800/20 transition-all duration-200 group"
       >
-        {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-        <BrainCircuit className="h-3 w-3" />
-        <span>思考过程</span>
+        <div className={`
+          flex items-center justify-center w-5 h-5 rounded-full bg-purple-200/50 dark:bg-purple-800/40
+          transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}
+        `}>
+          <ChevronDown className="h-3 w-3" />
+        </div>
+        <BrainCircuit className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
+        <span className="font-semibold">思考过程</span>
         {duration !== undefined && duration > 0 && (
-          <span className="ml-auto opacity-70">({duration.toFixed(1)}s)</span>
+          <span className="ml-auto px-2 py-0.5 rounded-full bg-purple-200/50 dark:bg-purple-800/40 text-purple-600 dark:text-purple-300">
+            {duration.toFixed(1)}s
+          </span>
         )}
       </button>
 
       {isExpanded && (
-        <div className="border-t border-gray-200 dark:border-gray-700/30 px-3 py-3 text-sm text-gray-600 dark:text-gray-400 italic">
+        <div className="border-t border-purple-200/50 dark:border-purple-800/20 px-4 py-4">
           {parts.map((part, i) => <ThinkingContentItem key={i} part={part} />)}
         </div>
       )}
@@ -435,41 +442,49 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
   return (
     <div
-      className={`flex w-full gap-4 ${isUser ? 'justify-end' : 'justify-start'} group`}
+      className={`flex w-full gap-3 ${isUser ? 'justify-end' : 'justify-start'} group message-bubble`}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
 
       {!isUser && (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cream-500 to-cream-400 shadow-amber-500/20 mt-1">
-          <Sparkles className="h-4 w-4 text-white" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cream-400 via-amber-500 to-orange-500 shadow-lg shadow-amber-500/25 mt-1 ring-2 ring-white dark:ring-gray-800">
+          <Sparkles className="h-4 w-4 text-white drop-shadow-sm" />
         </div>
       )}
 
-      <div className={`flex max-w-[85%] md:max-w-[75%] flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
+      <div className={`flex max-w-[88%] sm:max-w-[80%] md:max-w-[75%] flex-col gap-1.5 ${isUser ? 'items-end' : 'items-start'}`}>
         <div
-          className={`relative rounded-2xl px-5 py-3.5 shadow-sm w-full transition-colors duration-200 ${isUser
-            ? 'bg-cream-500 text-white rounded-tr-sm'
-            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200 dark:border-gray-700'
+          className={`relative rounded-2xl px-5 py-4 shadow-sm w-full transition-all duration-200 ${isUser
+            ? 'bg-gradient-to-br from-cream-400 to-amber-500 text-white rounded-tr-sm shadow-amber-500/20'
+            : 'bg-white dark:bg-gray-800/80 text-gray-900 dark:text-gray-100 rounded-tl-sm border border-gray-200/80 dark:border-gray-700/50 shadow-sm'
             }`}
         >
           {groupedParts.map((item, i) => renderContent(item, i))}
 
           {message.isError && (
-            <div className="mt-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30">
-              <div className="text-sm text-red-600 dark:text-red-300 font-medium mb-1">
-                😔 非常抱歉，图片生成失败了
-              </div>
-              <div className="text-xs text-red-500 dark:text-red-400 mb-3">
-                可能是网络波动或服务暂时繁忙，给您带来不便深表歉意。
+            <div className="mt-4 p-5 rounded-2xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/10 border border-red-200/80 dark:border-red-800/30 shadow-sm">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                  <span className="text-xl">😔</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-300 mb-1">
+                    图片生成失败
+                  </div>
+                  <div className="text-xs text-red-500/80 dark:text-red-400/80 leading-relaxed">
+                    可能是网络波动或服务暂时繁忙，给您带来不便深表歉意
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setShowWeChatQR(true)}
-                className="w-full flex items-center justify-center gap-1.5 xs:gap-2 px-3 xs:px-4 py-2 xs:py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium text-xs xs:text-sm shadow-md hover:shadow-lg transition-all touch-feedback"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium text-sm shadow-lg shadow-green-500/25 hover:shadow-green-500/40 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
               >
-                <MessageCircle className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
-                <span className="hidden xs:inline">点击加入交流群，有技术支持在线解答 💬</span>
-                <span className="xs:hidden">加入交流群 💬</span>
+                <MessageCircle className="h-4 w-4" />
+                <span className="hidden xs:inline">加入交流群获取技术支持</span>
+                <span className="xs:hidden">加入交流群</span>
+                <span className="text-lg">💬</span>
               </button>
             </div>
           )}
@@ -479,44 +494,46 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
 
           {/* 数据集下载按钮 */}
           {isDatasetMessage && !actionsDisabled && (
-            <div className="mt-3 xs:mt-4 pt-2 xs:pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-4 pt-4 border-t border-gray-200/80 dark:border-gray-700/50">
               <button
                 onClick={handleDownloadDataset}
-                className="w-full flex items-center justify-center gap-1.5 xs:gap-2 px-3 xs:px-4 py-2 xs:py-2.5 rounded-lg bg-gradient-to-r from-cream-400 to-amber-500 hover:from-cream-500 hover:to-cream-600 text-white font-medium text-xs xs:text-sm shadow-md hover:shadow-lg transition-all touch-feedback"
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-gradient-to-r from-cream-400 via-amber-500 to-orange-500 hover:from-cream-500 hover:via-amber-600 hover:to-orange-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 group"
               >
-                <PackageOpen className="h-3.5 w-3.5 xs:h-4 xs:w-4" />
-                <span className="hidden xs:inline">下载 AI-Toolkit 数据集 (ZIP)</span>
-                <span className="xs:hidden">下载数据集 (ZIP)</span>
-                <span className="text-[10px] xs:text-xs opacity-90">({imageParts.length} 张)</span>
+                <div className="p-1.5 rounded-lg bg-white/20 group-hover:bg-white/30 transition-colors">
+                  <PackageOpen className="h-4 w-4" />
+                </div>
+                <span className="hidden xs:inline">下载 AI-Toolkit 训练数据集</span>
+                <span className="xs:hidden">下载数据集</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-xs">{imageParts.length} 张</span>
               </button>
-              <p className="mt-1.5 xs:mt-2 text-[9px] xs:text-[10px] text-center text-gray-500 dark:text-gray-400">
-                包含图片及对应的文本标注，可直接用于 AI-toolkit 训练
+              <p className="mt-2 text-[10px] text-center text-gray-500 dark:text-gray-400 leading-relaxed">
+                包含图片及对应文本标注，可直接用于 AI-toolkit 训练
               </p>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 xs:gap-2 px-1">
-          <span className="text-[9px] xs:text-[10px] text-gray-500 font-medium">
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium tracking-wide">
             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
 
           {/* Actions */}
           {!actionsDisabled && (
-            <div className={`flex items-center gap-0.5 xs:gap-1 transition-opacity duration-200 touch-show-actions ${showActions ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`flex items-center gap-0.5 transition-all duration-200 touch-show-actions ${showActions ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`}>
               <button
                 onClick={() => onRegenerate(message.id)}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-cream-600 dark:hover:text-cream-400"
-                title="从此重新生成"
+                className="p-1.5 rounded-lg hover:bg-cream-100 dark:hover:bg-cream-900/30 text-gray-400 hover:text-cream-600 dark:hover:text-cream-400 transition-colors"
+                title="重新生成"
               >
-                <RotateCcw className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
+                <RotateCcw className="h-3 w-3" />
               </button>
               <button
                 onClick={handleDelete}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                 title="删除消息"
               >
-                <Trash2 className="h-2.5 w-2.5 xs:h-3 xs:w-3" />
+                <Trash2 className="h-3 w-3" />
               </button>
             </div>
           )}
@@ -524,8 +541,8 @@ export const MessageBubble = React.memo<Props>(({ message, isLast, isGenerating,
       </div>
 
       {isUser && (
-        <div className="flex h-7 w-7 xs:h-8 xs:w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 mt-1">
-          <User className="h-3.5 w-3.5 xs:h-4 xs:w-4 text-gray-500 dark:text-gray-300" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 mt-1 ring-2 ring-white dark:ring-gray-800">
+          <User className="h-4 w-4 text-gray-600 dark:text-gray-300" />
         </div>
       )}
     </div>

@@ -108,7 +108,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, onChangeT
 
                             {/* 红点提醒（类似微信朋友圈） */}
                             {showBadge && (
-                                <span className={`flex items-center ${collapsed ? 'absolute top-1 right-1' : ''}`}>
+                                <span className={`relative flex items-center ${collapsed ? 'absolute top-1 right-1' : ''}`}>
                                     {/* 脉冲动画 */}
                                     <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping"></span>
                                     {/* 红点 */}

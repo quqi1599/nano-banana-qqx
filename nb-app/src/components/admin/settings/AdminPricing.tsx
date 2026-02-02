@@ -149,7 +149,7 @@ export const AdminPricing = () => {
                             </div>
                             <button
                                 onClick={() => handleUpdatePricing(item.id)}
-                                className="text-xs font-bold text-cream-600 hover:bg-cream-50 px-3 py-2 rounded-lg transition"
+                                className="text-xs font-bold text-cream-600 dark:text-cream-400 hover:bg-cream-50 dark:hover:bg-cream-900/20 px-3 py-2 rounded-lg transition"
                             >
                                 保存
                             </button>

@@ -73,8 +73,8 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
         return (
             <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAdmin
-                    ? 'bg-cream-100 text-cream-700'
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-cream-100 dark:bg-cream-900/30 text-cream-700 dark:text-cream-400'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                     }`}>
                     {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                 </div>

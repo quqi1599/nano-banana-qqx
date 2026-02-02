@@ -71,7 +71,7 @@ export const FiltersPanel: React.FC<FiltersPanelProps> = ({
             <div className="flex justify-end">
                 <button
                     onClick={clearFilters}
-                    className="text-sm text-cream-600 hover:text-brand-700 flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                    className="text-sm text-cream-600 dark:text-cream-400 hover:text-brand-700 dark:hover:text-cream-300 flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 >
                     <X className="w-3 h-3" />
                     清空筛选
