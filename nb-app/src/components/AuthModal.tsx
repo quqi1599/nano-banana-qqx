@@ -1,8 +1,8 @@
 /**
- * 登录/注册弹窗组件
+ * 登录/注册弹窗组件 - 优化版
  */
 import React, { useEffect, useState } from 'react';
-import { X, Mail, Lock, User, Loader2, Gift, Eye, EyeOff } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, Gift, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { login, register, redeemCode, resetPassword, sendCode } from '../services/authService';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '../store/useUiStore';
@@ -261,11 +261,85 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         setSuccess('');
     };
 
+    // 输入框组件 - Liquid Glass 风格
+    const InputField = ({
+        icon: Icon,
+        type = 'text',
+        value,
+        onChange,
+        placeholder,
+        required = false,
+        rightElement,
+        error: hasError,
+    }: {
+        icon: React.ElementType;
+        type?: string;
+        value: string;
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+        placeholder: string;
+        required?: boolean;
+        rightElement?: React.ReactNode;
+        error?: boolean;
+    }) => (
+        <div className={`relative group liquid-glass-input ${hasError ? 'ring-2 ring-red-400' : ''}`}>
+            <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors z-10" />
+            <input
+                type={type}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                required={required}
+                className={`w-full pl-12 ${rightElement ? 'pr-12' : 'pr-4'} py-4 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 outline-none relative z-10`}
+            />
+            {rightElement && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+                    {rightElement}
+                </div>
+            )}
+        </div>
+    );
+
+    // 密码输入框组件 - Liquid Glass 风格
+    const PasswordField = ({
+        value,
+        onChange,
+        placeholder,
+        showPassword: show,
+        setShowPassword: setShow,
+        hasError,
+    }: {
+        value: string;
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+        placeholder: string;
+        showPassword: boolean;
+        setShowPassword: (show: boolean) => void;
+        hasError?: boolean;
+    }) => (
+        <div className={`relative group liquid-glass-input ${hasError ? 'ring-2 ring-red-400' : ''}`}>
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors z-10" />
+            <input
+                type={show ? 'text' : 'password'}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                required
+                className="w-full pl-12 pr-12 py-4 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 outline-none relative z-10"
+            />
+            <button
+                type="button"
+                onClick={() => setShow(!show)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 z-10"
+            >
+                {show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+        </div>
+    );
+
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-            <div className={`bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative flex flex-col max-h-[90dvh] transition-all duration-300 transform ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}>
-                {/* Header with gradient background */}
-                <div className="relative flex items-center justify-between px-6 py-5 bg-gradient-to-r from-cream-50 to-amber-50 dark:from-gray-800 dark:to-gray-750 shrink-0 border-b border-gray-100 dark:border-gray-700/50">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xl p-4 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <div className={`liquid-glass-pro w-full max-w-md overflow-hidden relative flex flex-col max-h-[90dvh] transition-all duration-300 transform ${isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4'}`}>
+                {/* Header with liquid glass effect */}
+                <div className="relative flex items-center justify-between px-6 py-5 shrink-0 border-b border-white/20 dark:border-white/10 bg-gradient-to-r from-white/40 to-amber-50/40 dark:from-gray-800/40 dark:to-gray-700/40">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cream-400 to-amber-500 flex items-center justify-center shadow-lg shadow-cream-500/25">
                             {isAuthenticated ? (
@@ -302,49 +376,49 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                 </div>
 
                 {/* Content */}
-                <div className="p-4 md:p-6 flex-1 overflow-y-auto pb-safe">
+                <div className="p-6 md:p-8 flex-1 overflow-y-auto pb-safe">
                     <div key={isAuthenticated ? 'account' : activeTab} className="animate-fade-in">
                         {isAuthenticated && user ? (
                             // 已登录 - 显示用户信息和兑换码
-                            <div className="space-y-5">
+                            <div className="space-y-8">
                                 {/* 用户信息卡片 */}
-                                <div className="text-center py-2">
-                                    <div className="w-20 h-20 bg-gradient-to-br from-cream-400 via-amber-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-cream-500/20 ring-4 ring-cream-100 dark:ring-cream-900/20">
-                                        <User className="w-10 h-10 text-white" />
+                                <div className="text-center py-6">
+                                    <div className="w-24 h-24 bg-gradient-to-br from-cream-400 via-amber-500 to-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-xl shadow-cream-500/20 ring-4 ring-cream-100 dark:ring-cream-900/20">
+                                        <User className="w-12 h-12 text-white" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+                                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                                         {user.nickname || user.email.split('@')[0]}
                                     </h3>
                                     <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
                                 </div>
 
                                 {/* 余额卡片 */}
-                                <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-rose-900/10 rounded-2xl p-5 text-center border border-amber-100 dark:border-amber-800/30 shadow-sm">
-                                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-2 font-medium">当前灵感余额</p>
-                                    <div className="flex items-center justify-center gap-2">
-                                        <span className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500">
+                                <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-rose-900/10 rounded-3xl p-8 text-center border border-amber-100 dark:border-amber-800/30 shadow-sm">
+                                    <p className="text-sm text-amber-700 dark:text-amber-300 mb-3 font-medium">当前灵感余额</p>
+                                    <div className="flex items-center justify-center gap-3">
+                                        <span className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500">
                                             {user.credit_balance}
                                         </span>
-                                        <span className="text-sm text-amber-600 dark:text-amber-400">次</span>
+                                        <span className="text-base text-amber-600 dark:text-amber-400">次</span>
                                     </div>
                                 </div>
 
                                 {/* 兑换码 */}
-                                <form onSubmit={handleRedeem} className="space-y-3">
-                                    <div className="relative group">
-                                        <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
+                                <form onSubmit={handleRedeem} className="space-y-5">
+                                    <div className="relative liquid-glass-input">
+                                        <Gift className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors z-10" />
                                         <input
                                             type="text"
                                             value={redeemCodeInput}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRedeemCodeInput(e.currentTarget.value.toUpperCase())}
                                             placeholder="输入兑换码获取灵感"
-                                            className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
+                                            className="w-full pl-12 pr-4 py-4 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 outline-none relative z-10"
                                         />
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={isLoading || !redeemCodeInput.trim()}
-                                        className="w-full py-3.5 bg-gradient-to-r from-cream-400 to-amber-500 text-white font-semibold rounded-xl hover:from-cream-500 hover:to-amber-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cream-500/25 hover:shadow-cream-500/40 hover:-translate-y-0.5 active:translate-y-0"
+                                        className="w-full py-4 liquid-glass-btn text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gift className="w-5 h-5" />}
                                         兑换灵感
@@ -353,34 +427,35 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
                                 {/* 状态提示 */}
                                 {error && (
-                                    <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-sm text-red-600 dark:text-red-400 text-center">
+                                    <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-sm text-red-600 dark:text-red-400 text-center">
                                         {error}
                                     </div>
                                 )}
                                 {success && (
-                                    <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-sm text-green-600 dark:text-green-400 text-center">
+                                    <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-sm text-green-600 dark:text-green-400 text-center">
                                         {success}
                                     </div>
                                 )}
                             </div>
                         ) : (
                             <>
-                                {/* Tabs */}
-                                <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-700/50 rounded-2xl mb-6">
+                                {/* Tabs with liquid glass */}
+                                <div className="flex gap-2 p-1.5 liquid-glass rounded-2xl mb-8">
                                     <button
                                         onClick={() => switchTab('login')}
-                                        className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === 'login'
-                                            ? 'bg-white dark:bg-gray-600 text-cream-600 dark:text-cream-400 shadow-md'
-                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                                        className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === 'login'
+                                            ? 'bg-white/80 dark:bg-gray-600/80 text-cream-600 dark:text-cream-400 shadow-lg'
+                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/30'
                                             }`}
                                     >
+                                        <Sparkles className="w-4 h-4 inline mr-1.5" />
                                         登录
                                     </button>
                                     <button
                                         onClick={() => switchTab('register')}
-                                        className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === 'register'
-                                            ? 'bg-white dark:bg-gray-600 text-cream-600 dark:text-cream-400 shadow-md'
-                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                                        className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab === 'register'
+                                            ? 'bg-white/80 dark:bg-gray-600/80 text-cream-600 dark:text-cream-400 shadow-lg'
+                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/30'
                                             }`}
                                     >
                                         注册
@@ -389,36 +464,33 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
                                 {/* Form */}
                                 {activeTab === 'reset' ? (
-                                    <form onSubmit={handleResetPassword} className="space-y-4">
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="email"
-                                                value={resetEmail}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetEmail(e.currentTarget.value)}
-                                                placeholder="邮箱地址"
-                                                required
-                                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
+                                    <form onSubmit={handleResetPassword} className="space-y-5">
+                                        <InputField
+                                            icon={Mail}
+                                            type="email"
+                                            value={resetEmail}
+                                            onChange={(e) => setResetEmail(e.currentTarget.value)}
+                                            placeholder="邮箱地址"
+                                            required
+                                        />
 
-                                        <div className="flex gap-2">
-                                            <div className="relative flex-1">
-                                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <div className="flex gap-3">
+                                            <div className="relative flex-1 liquid-glass-input">
+                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors z-10" />
                                                 <input
                                                     type="text"
                                                     value={resetCode}
                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetCode(e.currentTarget.value)}
                                                     placeholder="验证码"
                                                     required
-                                                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                    className="w-full pl-12 pr-4 py-4 rounded-xl bg-transparent text-gray-900 dark:text-white placeholder-gray-400 outline-none relative z-10"
                                                 />
                                             </div>
                                             <button
                                                 type="button"
                                                 onClick={initiateResetCode}
                                                 disabled={codeSending || codeCooldown > 0 || !resetEmail.trim()}
-                                                className="px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[100px]"
+                                                className="px-5 py-4 liquid-glass-btn text-cream-600 dark:text-cream-400 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                             >
                                                 {codeSending
                                                     ? '发送中...'
@@ -428,17 +500,14 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                             </button>
                                         </div>
 
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                            <input
-                                                type="password"
-                                                value={resetNewPassword}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResetNewPassword(e.currentTarget.value)}
-                                                placeholder="新密码"
-                                                required
-                                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
+                                        <InputField
+                                            icon={Lock}
+                                            type="password"
+                                            value={resetNewPassword}
+                                            onChange={(e) => setResetNewPassword(e.currentTarget.value)}
+                                            placeholder="新密码"
+                                            required
+                                        />
 
                                         {error && (
                                             <p className="text-sm text-red-500 text-center">{error}</p>
@@ -450,7 +519,7 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                         <button
                                             type="submit"
                                             disabled={isLoading}
-                                            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                            className="w-full py-4 liquid-glass-btn text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                         >
                                             {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
                                             重置密码
@@ -459,83 +528,61 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                         <button
                                             type="button"
                                             onClick={() => switchTab('login')}
-                                            className="w-full text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                                            className="w-full text-sm text-gray-500 hover:text-cream-600 dark:hover:text-cream-400 transition-colors"
                                         >
                                             返回登录
                                         </button>
                                     </form>
                                 ) : (
-                                    <form onSubmit={activeTab === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                                        <div className="relative group">
-                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
-                                            <input
-                                                type="email"
-                                                value={email}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.currentTarget.value)}
-                                                placeholder="邮箱地址"
-                                                required
-                                                className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
-                                            />
-                                        </div>
+                                    <form onSubmit={activeTab === 'login' ? handleLogin : handleRegister} className="space-y-5">
+                                        {/* 邮箱 */}
+                                        <InputField
+                                            icon={Mail}
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.currentTarget.value)}
+                                            placeholder="邮箱地址"
+                                            required
+                                        />
 
-                                        <div className="relative group">
-                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-cream-500 transition-colors" />
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                value={password}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.currentTarget.value)}
-                                                placeholder="密码"
-                                                required
-                                                className="w-full pl-12 pr-12 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                                            >
-                                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                            </button>
-                                        </div>
+                                        {/* 密码 */}
+                                        <PasswordField
+                                            value={password}
+                                            onChange={(e) => setPassword(e.currentTarget.value)}
+                                            placeholder="密码"
+                                            showPassword={showPassword}
+                                            setShowPassword={setShowPassword}
+                                        />
 
+                                        {/* 确认密码 - 仅注册 */}
                                         {activeTab === 'register' && (
-                                            <div className="relative">
-                                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                                <input
-                                                    type={showConfirmPassword ? 'text' : 'password'}
-                                                    value={confirmPassword}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.currentTarget.value)}
-                                                    placeholder="确认密码"
-                                                    required
-                                                    className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 outline-none transition-colors ${confirmPassword && password !== confirmPassword
-                                                        ? 'border-red-300 dark:border-red-600 focus:ring-red-500'
-                                                        : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
-                                                        }`}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                                >
-                                                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                                </button>
-                                            </div>
+                                            <PasswordField
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.currentTarget.value)}
+                                                placeholder="确认密码"
+                                                showPassword={showConfirmPassword}
+                                                setShowPassword={setShowConfirmPassword}
+                                                hasError={confirmPassword.length > 0 && password !== confirmPassword}
+                                            />
                                         )}
 
+                                        {/* 忘记密码 - 仅登录 */}
                                         {activeTab === 'login' && (
-                                            <div className="flex justify-end -mt-2">
+                                            <div className="flex justify-end">
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         setResetEmail(email);
                                                         switchTab('reset');
                                                     }}
-                                                    className="text-xs text-gray-500 hover:text-cream-600 dark:hover:text-cream-400 transition-colors font-medium"
+                                                    className="text-sm text-gray-500 hover:text-cream-600 dark:hover:text-cream-400 transition-colors font-medium"
                                                 >
                                                     忘记密码？
                                                 </button>
                                             </div>
                                         )}
 
+                                        {/* 验证码 - 仅注册 */}
                                         {activeTab === 'register' && (
                                             <div className="flex gap-3">
                                                 <div className="relative flex-1 group">
@@ -546,14 +593,14 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
                                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegisterCode(e.currentTarget.value)}
                                                         placeholder="验证码"
                                                         required
-                                                        className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
+                                                        className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cream-400 focus:border-cream-400 outline-none transition-all"
                                                     />
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={initiateRegisterCode}
                                                     disabled={registerCodeSending || registerCodeCooldown > 0 || !email.trim()}
-                                                    className="px-4 py-3.5 rounded-xl bg-cream-100 dark:bg-cream-900/30 text-cream-600 dark:text-cream-400 font-semibold text-sm hover:bg-cream-200 dark:hover:bg-cream-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[100px]"
+                                                    className="px-5 py-4 liquid-glass-btn text-cream-600 dark:text-cream-400 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                                                 >
                                                     {registerCodeSending
                                                         ? '发送中...'
@@ -566,20 +613,21 @@ export const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
                                         {/* 状态提示 */}
                                         {error && (
-                                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-sm text-red-600 dark:text-red-400 text-center">
+                                            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-sm text-red-600 dark:text-red-400 text-center">
                                                 {error}
                                             </div>
                                         )}
                                         {success && (
-                                            <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-sm text-green-600 dark:text-green-400 text-center">
+                                            <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-sm text-green-600 dark:text-green-400 text-center">
                                                 {success}
                                             </div>
                                         )}
 
+                                        {/* 提交按钮 */}
                                         <button
                                             type="submit"
                                             disabled={isLoading}
-                                            className="w-full py-3.5 bg-gradient-to-r from-cream-400 to-amber-500 text-white font-semibold rounded-xl hover:from-cream-500 hover:to-amber-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cream-500/25 hover:shadow-cream-500/40 hover:-translate-y-0.5 active:translate-y-0"
+                                            className="w-full py-4 liquid-glass-btn text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                         >
                                             {isLoading && <Loader2 className="w-5 h-5 animate-spin" />}
                                             {activeTab === 'login' ? '安全登录' : '立即注册'}
