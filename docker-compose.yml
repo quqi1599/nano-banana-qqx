@@ -115,7 +115,7 @@ services:
     container_name: nbnb-celery-worker
     command: celery -A app.celery_app worker --loglevel=info --concurrency=2
     environment:
-      DATABASE_URL: postgresql+async://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/nbnb
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/nbnb
       REDIS_URL: ${REDIS_URL}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       CELERY_BROKER_URL: ${REDIS_URL}
