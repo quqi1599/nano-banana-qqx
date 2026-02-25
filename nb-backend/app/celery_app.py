@@ -1,5 +1,4 @@
-"""
-Celery 应用配置
+"""Celery 应用配置
 
 支持多个队列：
 - default: 默认队列
@@ -7,6 +6,7 @@ Celery 应用配置
 - cleanup: 数据清理队列
 - api: API 代理队列
 - low: 低优先级队列
+- batch: 批量生成队列
 """
 import os
 from celery import Celery
@@ -32,6 +32,7 @@ celery_app = Celery(
         "app.tasks.stats_tasks",
         "app.tasks.monitor",
         "app.tasks.queue_monitor_tasks",
+        "app.tasks.batch_generation_tasks",
     ]
 )
 
@@ -58,11 +59,13 @@ celery_app.conf.update(
         "app.tasks.api_tasks.*": {"queue": "api"},
         "app.tasks.stats_tasks.*": {"queue": "stats"},
         "app.tasks.low_priority_tasks.*": {"queue": "low"},
+        "app.tasks.batch_generation_tasks.*": {"queue": "batch"},
     },
     # 任务限流
     task_annotations={
         "app.tasks.email_tasks.send_email_task": {"rate_limit": "10/m"},
         "app.tasks.api_tasks.proxy_api_task": {"rate_limit": "30/m"},
+        "app.tasks.batch_generation_tasks.batch_image_generation_task": {"rate_limit": "5/m"},
     },
     # 失败任务处理
     task_reject_on_worker_lost=True,
@@ -102,6 +105,11 @@ celery_app.conf.update(
         "cleanup-old-alerts": {
             "task": "app.tasks.queue_monitor_tasks.cleanup_old_alerts_task",
             "schedule": crontab(hour=4, minute=0),
+        },
+        # 每10分钟清理过期的批量生成任务
+        "cleanup-stale-batch-tasks": {
+            "task": "app.tasks.batch_generation_tasks.cleanup_stale_batch_tasks",
+            "schedule": crontab(minute="*/10"),
         },
     },
 )

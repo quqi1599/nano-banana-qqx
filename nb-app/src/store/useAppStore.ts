@@ -1138,7 +1138,7 @@ export const useAppStore = create<AppState>()(
         const hasLocalConversations = state.localConversations && state.localConversations.length > 0;
 
         if (hasLocalConversations) {
-          // 有本地对话，恢复最后活动的对话
+          // 有本地对话，尝试恢复最后活动的对话
           if (state.localConversationId) {
             const activeConversation = state.localConversations.find(
               (conv) => conv.id === state.localConversationId
@@ -1146,14 +1146,20 @@ export const useAppStore = create<AppState>()(
             if (activeConversation) {
               state.localConversationId = activeConversation.id;
               state.messages = activeConversation.messages || [];
-              // 不清空 currentConversationId，如果已同步到服务器则保留
               return;
             }
           }
-          // Default to empty state (New Chat) if no valid localConversationId is found
-          state.localConversationId = null;
-          state.currentConversationId = null;
-          state.messages = [];
+          // 如果找不到当前对话，使用最新的对话
+          const latestConversation = state.localConversations[0];
+          if (latestConversation) {
+            state.localConversationId = latestConversation.id;
+            state.messages = latestConversation.messages || [];
+            state.currentConversationId = latestConversation.server_id || null;
+          } else {
+            state.localConversationId = null;
+            state.currentConversationId = null;
+            state.messages = [];
+          }
         } else {
           // 没有本地对话，清空状态
           state.localConversationId = null;

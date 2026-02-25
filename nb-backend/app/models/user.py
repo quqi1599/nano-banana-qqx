@@ -1,6 +1,4 @@
-"""
-用户模型
-"""
+"""用户模型"""
 import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, Integer, DateTime, JSON
@@ -34,5 +32,7 @@ class User(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+    # 关联关系
     tickets = relationship("Ticket", back_populates="user", cascade="all, delete-orphan")
     feedbacks = relationship("UserFeedback", foreign_keys="UserFeedback.user_id", back_populates="user")
+    batch_tasks = relationship("BatchGenerationTask", back_populates="user", cascade="all, delete-orphan")

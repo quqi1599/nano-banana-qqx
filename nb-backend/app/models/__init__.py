@@ -1,6 +1,4 @@
-"""
-数据库模型
-"""
+"""数据库模型"""
 from app.models.user import User
 from app.models.credit import CreditTransaction
 from app.models.redeem_code import RedeemCode
@@ -20,6 +18,7 @@ from app.models.notification_email import NotificationEmail
 from app.models.user_feedback import UserFeedback
 from app.models.queue_metrics import QueueMetrics
 from app.models.queue_alert import QueueAlert
+from app.models.batch_generation_task import BatchGenerationTask
 
 __all__ = [
     "User",
@@ -43,4 +42,5 @@ __all__ = [
     "UserFeedback",
     "QueueMetrics",
     "QueueAlert",
+    "BatchGenerationTask",
 ]
