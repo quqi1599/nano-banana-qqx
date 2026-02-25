@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, ImagePlus, X, Square, Gamepad2, Sparkles, Layers, Workflow, Camera } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
@@ -34,6 +34,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragCounter = useRef(0);
   const attachmentsRef = useRef<Attachment[]>([]);
+  const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const revokeAttachmentPreview = useCallback((attachment: Attachment) => {
     if (attachment.previewIsObjectUrl) {
@@ -88,6 +89,9 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
   useEffect(() => {
     return () => {
       attachmentsRef.current.forEach(revokeAttachmentPreview);
+      if (inputTimeoutRef.current) {
+        clearTimeout(inputTimeoutRef.current);
+      }
     };
   }, [revokeAttachmentPreview]);
 
@@ -96,7 +100,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      const newHeight = Math.min(textarea.scrollHeight, 200);
+      const isMobile = window.innerWidth < 768; const maxHeight = isMobile ? 120 : 400; const newHeight = Math.min(textarea.scrollHeight, maxHeight);
       textarea.style.height = `${newHeight}px`;
     }
   }, []);
@@ -315,15 +319,36 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
     setAttachments([]);
   };
 
-  // 监听输入变化，检测 /t 触发
+  // 优化：使用防抖减少状态更新频率
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.currentTarget.value;
-    setInputText(value);
+    
+    // 清除之前的定时器
+    if (inputTimeoutRef.current) {
+      clearTimeout(inputTimeoutRef.current);
+    }
+    
+    // 使用防抖更新状态，16ms 约等于 60fps
+    inputTimeoutRef.current = setTimeout(() => {
+      setInputText(value);
+      inputTimeoutRef.current = null;
+    }, 16);
 
     // 检测 /t 触发（结尾是 /t 或 /t 后面跟着空格）
     if (value.endsWith('/t') || value.match(/\/t\s*$/)) {
       setIsQuickPickerOpen(true);
     }
+    
+    // 立即调整高度，不等待 useEffect
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      const isMobile = window.innerWidth < 768;
+      const maxHeight = isMobile ? 120 : 400;
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+      textarea.style.height = newHeight + 'px';
+    });
   };
 
   // 处理快速选择器选择
@@ -402,7 +427,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             {attachments.map((att, i) => (
               <div 
                 key={i} 
-                className="relative h-16 w-16 xs:h-18 xs:w-18 sm:h-20 sm:w-20 shrink-0 rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group overflow-hidden shadow-sm hover:shadow-md transition-all duration-200"
+                className="relative h-16 w-16 xs:h-18 xs:w-18 sm:h-20 sm:w-20 shrink-0 rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group overflow-y-auto overflow-x-hidden shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <img
                   src={att.preview}
@@ -547,7 +572,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             disabled={disabled}
             enterKeyHint="send"
             placeholder={attachments.length > 0 ? "描述你对图片的要求..." : "描述一张图片，例如：一只可爱的猫咪..."}
-            className="max-h-[120px] sm:max-h-[160px] min-h-[40px] sm:min-h-[44px] w-full resize-none bg-transparent py-2 px-1.5 sm:py-2.5 sm:px-2 text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-hidden"
+            className="max-h-[120px] sm:max-h-[200px] md:max-h-[400px] min-h-[40px] sm:min-h-[44px] w-full resize-none bg-transparent py-2 px-1.5 sm:py-2.5 sm:px-2 text-sm sm:text-[15px] leading-relaxed text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none disabled:opacity-50 overflow-y-auto overflow-x-hidden"
             rows={1}
             style={{ height: 'auto' }}
           />

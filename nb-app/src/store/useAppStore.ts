@@ -601,6 +601,10 @@ export const useAppStore = create<AppState>()(
           messages: [],
           messagesTotal: 0,
           messagesPage: 1,
+          // 修复 Bug: 同时清空对话列表相关字段
+          conversationList: [],
+          conversationListTotal: 0,
+          conversationListPage: 1,
         });
       },
 

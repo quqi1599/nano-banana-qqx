@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/* ===== Tailwind CSS 4 主题配置 ===== */
+@theme {
+  /* Cream 色系 */
+  --color-cream-50: #fffef9;
+  --color-cream-100: #fffef0;
+  --color-cream-200: #fffbe0;
+  --color-cream-300: #fff5c2;
+  --color-cream-400: #ffeb94;
+  --color-cream-500: #fdd849;
+  --color-cream-600: #eac02b;
+  --color-cream-700: #c29a18;
+  --color-cream-800: #9c7a18;
+  --color-cream-900: #7d6217;
+  --color-cream-950: #433209;
+  
+  /* Dark 色系 */
+  --color-dark-bg: #0a0a0a;
+  --color-dark-text: #f5f5f5;
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 /* 自定义 xs 断点 (375px - 介于默认和 sm 之间) */

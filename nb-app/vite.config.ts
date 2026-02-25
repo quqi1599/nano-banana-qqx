@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         selfDestroying: false, // 保留旧 SW 直到新版本激活，避免更新失败时丢失离线功能
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         manifest: {
           name: 'nbnb',
           short_name: 'nbnb',
