@@ -10,7 +10,7 @@ import { streamGeminiResponse, generateContent } from '../services/geminiService
 import { streamContentViaProxy, generateContentViaProxy } from '../services/proxyService';
 import { formatCost } from '../services/balanceService';
 import { convertMessagesToHistory, convertMessagesToHistoryAsync } from '../utils/messageUtils';
-import { ChatMessage, Attachment, Part } from '../types';
+import { ChatMessage, Attachment, Part, AppSettings } from '../types';
 import { lazyWithRetry } from '../utils/lazyLoadUtils';
 import { calculateHistoryImageSize, checkConversationLimit } from '../utils/historyUtils';
 import { Pagination } from './Pagination';
@@ -18,6 +18,8 @@ import { getCsrfToken } from '../utils/csrf';
 import { fileToBase64 } from '../utils/imageUtils';
 import { resolveMessageImageData } from '../utils/messageImageUtils';
 import { evaluateMemoryPressure, shouldShowMemoryAlert, formatMemoryAlertMessage, formatMemoryAlertTitle, getMemoryPressureProgress, formatMemoryPressureLabel } from '../utils/memoryGuard';
+import { BANANA_PRO_MODEL_NAME, normalizeImageModelName } from '../constants/modelProfiles';
+import { isBanana31AccessDeniedError } from '../utils/modelPermission';
 
 // Lazy load components
 const ThinkingIndicator = lazyWithRetry(() => import('./ThinkingIndicator').then(m => ({ default: m.ThinkingIndicator })));
@@ -49,6 +51,7 @@ export const ChatInterface: React.FC = () => {
     syncCurrentMessage,
     offloadMessageImages,
     clearHistory,
+    updateSettings,
     loadConversation,
     isConversationLoading,
   } = useAppStore();
@@ -81,6 +84,72 @@ export const ChatInterface: React.FC = () => {
       return [];
     }
     return convertMessagesToHistoryAsync(sourceMessages);
+  };
+
+  const createFallbackSettings = (error: unknown, sourceSettings: AppSettings): AppSettings | null => {
+    const normalizedModelName = normalizeImageModelName(sourceSettings.modelName);
+    if (!isBanana31AccessDeniedError(error, normalizedModelName)) {
+      return null;
+    }
+    if (normalizedModelName === BANANA_PRO_MODEL_NAME) {
+      return null;
+    }
+    return { ...sourceSettings, modelName: BANANA_PRO_MODEL_NAME };
+  };
+
+  const generateOnce = async (
+    history: any[],
+    prompt: string,
+    imagesPayload: { base64Data: string; mimeType: string }[],
+    requestSettings: AppSettings,
+    signal?: AbortSignal
+  ) => {
+    const useProxy = isAuthenticated || hasCookieAuth;
+    const apiKeyValue = apiKey || '';
+    return useProxy
+      ? generateContentViaProxy(
+        history,
+        prompt,
+        imagesPayload,
+        requestSettings,
+        signal
+      )
+      : generateContent(
+        apiKeyValue,
+        history,
+        prompt,
+        imagesPayload,
+        requestSettings,
+        signal
+      );
+  };
+
+  const generateWithAutoFallback = async (
+    history: any[],
+    prompt: string,
+    imagesPayload: { base64Data: string; mimeType: string }[],
+    requestSettings: AppSettings,
+    signal?: AbortSignal,
+    contextLabel?: string
+  ): Promise<{ result: any; effectiveSettings: AppSettings }> => {
+    try {
+      const result = await generateOnce(history, prompt, imagesPayload, requestSettings, signal);
+      return { result, effectiveSettings: requestSettings };
+    } catch (error) {
+      const fallbackSettings = createFallbackSettings(error, requestSettings);
+      if (!fallbackSettings) {
+        throw error;
+      }
+
+      const fallbackHint = contextLabel
+        ? `${contextLabel}当前令牌无 Banana 2（3.1模型）权限，已自动切换到 Banana Pro (3.0模型) 重试。`
+        : '当前令牌无 Banana 2（3.1模型）权限，已自动切换到 Banana Pro (3.0模型) 重试。';
+      addToast(fallbackHint, 'info');
+      updateSettings({ modelName: BANANA_PRO_MODEL_NAME });
+
+      const result = await generateOnce(history, prompt, imagesPayload, fallbackSettings, signal);
+      return { result, effectiveSettings: fallbackSettings };
+    }
   };
 
   const showMemoryAlert = React.useCallback((pendingUploadBytes: number = 0) => {
@@ -362,77 +431,74 @@ export const ChatInterface: React.FC = () => {
       }));
 
       abortControllerRef.current = new AbortController();
+      let finalSettings: AppSettings = effectiveSettings;
 
-      const startTime = Date.now();
-      let thinkingDuration = 0;
-      let isThinking = false;
-
-      if (effectiveSettings.streamResponse) {
+      const runStreamAttempt = async (attemptSettings: AppSettings) => {
+        const startTime = Date.now();
+        let thinkingDuration = 0;
+        let isThinking = false;
         const stream = useProxy
           ? streamContentViaProxy(
             history,
             text,
             imagesPayload,
-            effectiveSettings,
-            abortControllerRef.current.signal
+            attemptSettings,
+            abortControllerRef.current?.signal
           )
           : streamGeminiResponse(
             apiKeyValue,
             history,
             text,
             imagesPayload,
-            effectiveSettings,
-            abortControllerRef.current.signal
+            attemptSettings,
+            abortControllerRef.current?.signal
           );
 
         for await (const chunk of stream) {
-          // Check if currently generating thought
           const lastPart = chunk.modelParts[chunk.modelParts.length - 1];
           if (lastPart && lastPart.thought) {
             isThinking = true;
             thinkingDuration = (Date.now() - startTime) / 1000;
           } else if (isThinking && lastPart && !lastPart.thought) {
-            // Just finished thinking
             isThinking = false;
           }
 
           updateLastMessage(chunk.modelParts, false, isThinking ? thinkingDuration : undefined);
         }
 
-        // Final update to ensure duration is set if ended while thinking (unlikely but possible)
-        // or to set the final duration if the whole response was a thought
         if (isThinking) {
           thinkingDuration = (Date.now() - startTime) / 1000;
           updateLastMessage(useAppStore.getState().messages.slice(-1)[0].parts, false, thinkingDuration);
         }
+      };
+
+      if (effectiveSettings.streamResponse) {
+        try {
+          await runStreamAttempt(effectiveSettings);
+        } catch (streamError) {
+          const fallbackSettings = createFallbackSettings(streamError, effectiveSettings);
+          if (!fallbackSettings) {
+            throw streamError;
+          }
+
+          addToast('当前令牌无 Banana 2（3.1模型）权限，已自动切换到 Banana Pro (3.0模型) 重试。', 'info');
+          updateSettings({ modelName: BANANA_PRO_MODEL_NAME });
+          finalSettings = fallbackSettings;
+          await runStreamAttempt(fallbackSettings);
+        }
       } else {
-        const result = useProxy
-          ? await generateContentViaProxy(
-            history,
-            text,
-            imagesPayload,
-            effectiveSettings,
-            abortControllerRef.current.signal
-          )
-          : await generateContent(
-            apiKeyValue,
-            history,
-            text,
-            imagesPayload,
-            effectiveSettings,
-            abortControllerRef.current.signal
-          );
+        const startTime = Date.now();
+        const { result, effectiveSettings: resolvedSettings } = await generateWithAutoFallback(
+          history,
+          text,
+          imagesPayload,
+          effectiveSettings,
+          abortControllerRef.current.signal
+        );
+        finalSettings = resolvedSettings;
 
-        // Calculate thinking duration for non-streaming response
-        let totalDuration = (Date.now() - startTime) / 1000;
-        // In non-streaming, we can't easily separate thinking time from generation time precisely
-        // unless the model metadata provides it (which it currently doesn't in a standardized way exposed here).
-        // But we can check if there are thinking parts and attribute some time or just show total time?
-        // The UI expects thinkingDuration to show beside the "Thinking Process" block.
-        // If we have thought parts, we can pass the total duration as a fallback, or 0 if we don't want to guess.
-        // However, existing UI logic in MessageBubble uses `thinkingDuration` prop on the message.
-
-        const hasThought = result.modelParts.some(p => p.thought);
+        const totalDuration = (Date.now() - startTime) / 1000;
+        const hasThought = result.modelParts.some((p: Part) => p.thought);
         updateLastMessage(result.modelParts, false, hasThought ? totalDuration : undefined);
       }
 
@@ -452,7 +518,7 @@ export const ChatInterface: React.FC = () => {
               base64Data: part.inlineData.data,
               prompt: text || '图片生成',
               timestamp: Date.now(),
-              modelName: effectiveSettings.modelName,
+              modelName: finalSettings.modelName,
             });
           }
         });
@@ -765,9 +831,6 @@ export const ChatInterface: React.FC = () => {
     setBatchProgress({ current: 0, total: steps.length });
     addToast(`开始并行编排，共 ${steps.length} 个任务`, 'info');
 
-    const useProxy = isAuthenticated || hasCookieAuth;
-    const apiKeyValue = apiKey || '';
-
     // 1. 创建用户消息（显示并行编排信息）
     const userMsgId = Date.now().toString();
     const userParts: Part[] = [];
@@ -842,22 +905,14 @@ export const ChatInterface: React.FC = () => {
         }));
 
         // 执行生成
-        const result = useProxy
-          ? await generateContentViaProxy(
-            history,
-            step.prompt,
-            imagesPayload,
-            stepSettings,
-            signal
-          )
-          : await generateContent(
-            apiKeyValue,
-            history,
-            step.prompt,
-            imagesPayload,
-            stepSettings,
-            signal
-          );
+        const { result, effectiveSettings: resolvedSettings } = await generateWithAutoFallback(
+          history,
+          step.prompt,
+          imagesPayload,
+          stepSettings,
+          signal,
+          `步骤 ${index + 1}: `
+        );
 
         if (signal.aborted) return;
 
@@ -890,7 +945,7 @@ export const ChatInterface: React.FC = () => {
                 base64Data: part.inlineData.data,
                 prompt: step.prompt,
                 timestamp: Date.now(),
-                modelName: step.modelName || settings.modelName,
+                modelName: resolvedSettings.modelName,
               });
             }
           });
@@ -946,9 +1001,6 @@ export const ChatInterface: React.FC = () => {
     const totalTasks = initialAttachments.length * steps.length;
     setBatchProgress({ current: 0, total: totalTasks });
     addToast(`开始批量组合生成，共 ${initialAttachments.length} 图 × ${steps.length} 词 = ${totalTasks} 张`, 'info');
-
-    const useProxy = isAuthenticated || hasCookieAuth;
-    const apiKeyValue = apiKey || '';
 
     // 1. 创建用户消息
     const userMsgId = Date.now().toString();
@@ -1037,22 +1089,14 @@ export const ChatInterface: React.FC = () => {
             }];
 
             // 执行生成
-            const result = useProxy
-              ? await generateContentViaProxy(
-                history,
-                step.prompt,
-                imagesPayload,
-                stepSettings,
-                signal
-              )
-              : await generateContent(
-                apiKeyValue,
-                history,
-                step.prompt,
-                imagesPayload,
-                stepSettings,
-                signal
-              );
+            const { result, effectiveSettings: resolvedSettings } = await generateWithAutoFallback(
+              history,
+              step.prompt,
+              imagesPayload,
+              stepSettings,
+              signal,
+              `图片${imgIndex + 1} × 提示词${stepIndex + 1}: `
+            );
 
             if (signal.aborted) return;
 
@@ -1085,7 +1129,7 @@ export const ChatInterface: React.FC = () => {
                     base64Data: part.inlineData.data,
                     prompt: step.prompt,
                     timestamp: Date.now(),
-                    modelName: step.modelName || settings.modelName,
+                    modelName: resolvedSettings.modelName,
                   });
                 }
               });

@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useUiStore } from '../store/useUiStore';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { get as getItem } from 'idb-keyval';
-import { X, Download, Trash2, ImageIcon, Search, Copy, ArrowRight, ArrowLeft, RefreshCw, Loader2, Edit } from 'lucide-react';
+import { X, Download, Trash2, Search, Copy, ArrowRight, ArrowLeft, RefreshCw, Loader2, Edit } from 'lucide-react';
 import { ImageHistoryItem } from '../types';
 import { downloadImage } from '../utils/imageUtils';
 
@@ -245,7 +245,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         <div className="flex flex-col border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-10">
           <div className="flex items-center justify-between p-4 pb-2">
             <div className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-cream-600 dark:text-cream-400" />
+              <img src="/logo.png?v=2" alt="Banana" className="h-5 w-5 object-contain" />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">图片历史</h2>
               <span className="text-sm text-gray-500 dark:text-gray-400">({filteredHistory.length})</span>
             </div>
@@ -295,7 +295,7 @@ export const ImageHistoryPanel: React.FC<Props> = ({ isOpen, onClose }) => {
         <div className="flex-1 overflow-y-auto p-4 scroll-smooth-touch pb-safe">
           {filteredHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 dark:text-gray-500">
-              <ImageIcon className="h-16 w-16 mb-4 opacity-20" />
+              <img src="/logo.png?v=2" alt="Banana" className="h-16 w-16 mb-4 object-contain opacity-40" />
               <p className="text-sm">
                 {searchTerm ? '未找到匹配的图片' : '还没有生成过图片'}
               </p>

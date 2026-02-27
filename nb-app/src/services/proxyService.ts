@@ -8,6 +8,7 @@ import { compressHistoryImages } from '../utils/historyUtils';
 import { buildRequestOptions } from '../utils/request';
 import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';
 import { DEFAULT_MODEL_NAME, sanitizeImageConfigForModel } from '../constants/modelProfiles';
+import { BANANA_31_PERMISSION_HINT, isModelAccessDeniedMessage } from '../utils/modelPermission';
 
 const API_BASE = `${getBackendUrl()}/api`;
 
@@ -17,7 +18,9 @@ const formatProxyError = (error: any): Error => {
     const errorMsg = error?.message || error?.detail || error?.toString() || "";
     const noChargeHint = "温馨提示：本次请求失败，不会扣除积分。";
 
-    if (errorMsg.includes("402") || errorMsg.includes("次数不足") || errorMsg.includes("积分不足")) {
+    if (isModelAccessDeniedMessage(errorMsg)) {
+        message = BANANA_31_PERMISSION_HINT;
+    } else if (errorMsg.includes("402") || errorMsg.includes("次数不足") || errorMsg.includes("积分不足")) {
         message = errorMsg.includes("次数不足") ? errorMsg : "次数不足，请充值后重试。";
     } else if (errorMsg.includes("401") || errorMsg.includes("认证")) {
         message = "登录已过期，请重新登录。";

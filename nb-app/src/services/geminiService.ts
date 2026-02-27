@@ -3,6 +3,7 @@ import { resolveApiBaseUrl } from '../utils/endpointUtils';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';
 import { DEFAULT_MODEL_NAME, sanitizeImageConfigForModel } from '../constants/modelProfiles';
+import { BANANA_31_PERMISSION_HINT, isModelAccessDeniedMessage } from '../utils/modelPermission';
 
 const MAX_EMPTY_CONTENT_RETRIES = 1;
 const BLOCKED_REASONS = new Set(['SAFETY', 'BLOCKLIST', 'PROHIBITED_CONTENT']);
@@ -10,6 +11,7 @@ const BLOCKED_REASONS = new Set(['SAFETY', 'BLOCKLIST', 'PROHIBITED_CONTENT']);
 // 错误码常量
 const ERROR_CODES = {
   MODEL_NOT_FOUND: 'MODEL_NOT_FOUND',
+  MODEL_ACCESS_DENIED: 'MODEL_ACCESS_DENIED',
   INVALID_API_KEY: 'INVALID_API_KEY',
   QUOTA_EXCEEDED: 'QUOTA_EXCEEDED',
   THINKING_NOT_SUPPORTED: 'THINKING_NOT_SUPPORTED',
@@ -28,6 +30,7 @@ const ERROR_CODES = {
 // 错误码到中文消息的映射
 const ERROR_MESSAGES: Record<string, string> = {
   [ERROR_CODES.MODEL_NOT_FOUND]: "当前模型暂时不可用 (503)。可能是该模型在您的分组下无权访问，请在设置中切换模型（如 Banana 2（3.1））重试。",
+  [ERROR_CODES.MODEL_ACCESS_DENIED]: BANANA_31_PERMISSION_HINT,
   [ERROR_CODES.INVALID_API_KEY]: "API Key 无效或过期，请检查您的设置。",
   [ERROR_CODES.QUOTA_EXCEEDED]: "API 额度不足，请充值后重试。",
   [ERROR_CODES.THINKING_NOT_SUPPORTED]: '当前模型不支持思考过程。请在设置中关闭"显示思考过程"，或切换到支持思考的模型。',
@@ -45,6 +48,9 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 // Helper to identify error code from error message
 const identifyErrorCode = (errorMsg: string): string => {
+  if (isModelAccessDeniedMessage(errorMsg)) {
+    return ERROR_CODES.MODEL_ACCESS_DENIED;
+  }
   if (errorMsg.includes("model_not_found") || (errorMsg.includes("503") && errorMsg.includes("无可用渠道"))) {
     return ERROR_CODES.MODEL_NOT_FOUND;
   }

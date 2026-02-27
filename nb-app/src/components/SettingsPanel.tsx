@@ -308,6 +308,11 @@ export const SettingsPanel: React.FC = () => {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-2">
+                      <img
+                        src="/logo.png?v=2"
+                        alt="Banana"
+                        className="h-4 w-4 sm:h-5 sm:w-5 object-contain flex-shrink-0"
+                      />
                       <span>{model.label}</span>
                       {model.recommended && (
                         <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 text-[10px] sm:text-xs font-semibold">

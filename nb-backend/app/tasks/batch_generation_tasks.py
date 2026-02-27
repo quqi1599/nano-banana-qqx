@@ -27,8 +27,7 @@ CANCEL_SIGNAL_KEY = "batch_task:cancel:{task_id}"
 PROGRESS_KEY = "batch_task:progress:{task_id}"
 
 MODEL_ALIASES = {
-    "gemini-2.5-flash-image": "gemini-3.1-flash-image-preview",
-    "gemini-2.5-flash-image-preview": "gemini-3.1-flash-image-preview",
+    "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
 }
 
 COMMON_ASPECT_RATIOS = {
@@ -47,11 +46,13 @@ COMMON_ASPECT_RATIOS = {
 MODEL_IMAGE_SIZES = {
     "gemini-3-pro-image-preview": ("1K", "2K", "4K"),
     "gemini-3.1-flash-image-preview": ("512", "1K", "2K", "4K"),
+    "gemini-2.5-flash-image": ("1K", "2K"),
 }
 
 MODEL_ASPECT_RATIOS = {
     "gemini-3-pro-image-preview": COMMON_ASPECT_RATIOS,
     "gemini-3.1-flash-image-preview": COMMON_ASPECT_RATIOS | {"1:4", "1:8", "4:1", "8:1"},
+    "gemini-2.5-flash-image": COMMON_ASPECT_RATIOS,
 }
 
 

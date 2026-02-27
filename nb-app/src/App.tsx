@@ -16,7 +16,7 @@ import { formatBalance } from './services/balanceService';
 import { preloadPrompts } from './services/promptService';
 import { getUnreadCount, getAdminUnreadCount } from './services/ticketService';
 import { getAvailableGuideFlows } from './data/guideFlows';
-import { Settings, Sun, Moon, ImageIcon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, MoreVertical } from 'lucide-react';
+import { Settings, Sun, Moon, DollarSign, Download, Sparkles, Key, MessageCircle, Plus, User, LogOut, Coins, ShieldCheck, MessageSquare, MoreVertical } from 'lucide-react';
 import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
@@ -611,7 +611,11 @@ const App: React.FC = () => {
                 className="relative hidden sm:flex items-center justify-center h-10 w-10 xs:h-auto xs:w-auto rounded-md xs:rounded-lg xs:p-2 text-gray-500 dark:text-gray-400 transition hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 touch-feedback"
                 title="图片历史"
               >
-                <ImageIcon className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6" />
+                <img
+                  src="/logo.png?v=2"
+                  alt="Banana"
+                  className="h-5 w-5 xs:h-5 xs:w-5 sm:h-6 sm:w-6 object-contain"
+                />
                 {imageHistory.length > 0 && (
                   <span className="absolute top-2 xs:top-1 right-2 xs:right-1 flex h-1.5 xs:h-2 w-1.5 xs:w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -737,7 +741,7 @@ const App: React.FC = () => {
                     onClick={handleOpenImageHistory}
                     className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                   >
-                    <ImageIcon className="h-4 w-4" />
+                    <img src="/logo.png?v=2" alt="Banana" className="h-4 w-4 object-contain" />
                     图片历史
                   </button>
                   <button

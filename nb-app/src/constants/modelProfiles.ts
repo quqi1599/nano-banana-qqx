@@ -62,6 +62,10 @@ const BANANA_25_PROFILE: ImageModelProfile = {
   summary: '经典 2.5 版本，速度稳定，适合日常快速生成。',
 };
 
+export const BANANA_PRO_MODEL_NAME = BANANA_PRO_PROFILE.name;
+export const BANANA_2_MODEL_NAME = BANANA_2_PROFILE.name;
+export const BANANA_25_MODEL_NAME = BANANA_25_PROFILE.name;
+
 const IMAGE_MODEL_ALIASES: Record<string, string> = {
   'gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image',
 };
