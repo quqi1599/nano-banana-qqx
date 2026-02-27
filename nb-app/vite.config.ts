@@ -59,7 +59,20 @@ export default defineConfig(({ mode }) => {
           short_name: 'nbnb',
           description: 'DEAI - AI 图像生成平台',
           theme_color: '#ffffff',
-          icons: []
+          icons: [
+            {
+              src: '/logo.png?v=4',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any maskable',
+            },
+            {
+              src: '/logo.png?v=4',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable',
+            },
+          ]
         }
       }),
     ],

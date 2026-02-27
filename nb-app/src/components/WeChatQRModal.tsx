@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { X, MessageCircle } from 'lucide-react';
 
+/**
+ * 二维码周更「无痛方案」：
+ * 1) 仅替换文件：`nb-app/src/assets/wechat-group.jpg`
+ * 2) 重新构建并发布前端
+ *
+ * 说明：这里使用打包导入而不是 /public + ?v=版本号。
+ * 每次图片文件变化会生成新的 hash 资源地址，浏览器会自动拉新，避免缓存导致旧二维码继续显示。
+ */
+import wechatGroupQR from '../assets/wechat-group.jpg';
+
 interface WeChatQRModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -52,14 +62,16 @@ export const WeChatQRModal: React.FC<WeChatQRModalProps> = ({ isOpen, onClose })
 
                 <div className="flex justify-center">
                     <img
-                        src="/wechat-group.jpg?v=2"
+                        // 同事只需每周替换 src/assets/wechat-group.jpg，这里无需改代码。
+                        src={wechatGroupQR}
                         alt="微信群二维码"
-                        className="w-64 h-64 rounded-lg object-cover"
+                        className="w-full max-w-[320px] max-h-[70vh] h-auto rounded-lg object-contain bg-white p-1"
+                        loading="lazy"
                     />
                 </div>
 
                 <p className="text-center text-xs text-gray-500 mt-4">
-                    二维码有效期 7 天，过期后请刷新页面获取最新
+                    二维码有效期 7 天，过期后请联系管理员更新（已启用版本防缓存）
                 </p>
             </div>
         </div>

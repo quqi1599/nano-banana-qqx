@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <!-- 主页 - AI 图像生成工具 -->
   <url>
     <loc>https://banana2.peacedejiai.cc/</loc>
-    <lastmod>2026-01-08</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2025-02-27</lastmod>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://banana2.peacedejiai.cc/og-image.png?v=2</image:loc>
+      <image:title>Nano Banana2 - 免费 AI 画图工具</image:title>
+      <image:caption>基于 Gemini 的文生图与图生图平台</image:caption>
+    </image:image>
+  </url>
+  <!-- 管理后台 - 低优先级 -->
+  <url>
+    <loc>https://banana2.peacedejiai.cc/admin/</loc>
+    <lastmod>2025-02-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>
