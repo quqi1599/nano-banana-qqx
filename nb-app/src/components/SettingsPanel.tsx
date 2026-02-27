@@ -307,7 +307,14 @@ export const SettingsPanel: React.FC = () => {
                     }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span>{model.label}</span>
+                    <span className="inline-flex items-center gap-2">
+                      <span>{model.label}</span>
+                      {model.recommended && (
+                        <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 text-[10px] sm:text-xs font-semibold">
+                          推荐
+                        </span>
+                      )}
+                    </span>
                     {isAuthenticated && modelPrice !== null && (
                       <span className="text-[10px] sm:text-xs opacity-80">{modelPrice} 灵感/次</span>
                     )}

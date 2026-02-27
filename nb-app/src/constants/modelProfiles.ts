@@ -12,6 +12,12 @@ export interface ImageModelProfile {
   summary: string;
 }
 
+interface ImageModelOption {
+  name: string;
+  label: string;
+  recommended?: boolean;
+}
+
 const COMMON_ASPECT_RATIOS: readonly SupportedAspectRatio[] = [
   '1:1',
   '2:3',
@@ -48,31 +54,39 @@ const BANANA_2_PROFILE: ImageModelProfile = {
   summary: '支持 512/1K/2K/4K 和更宽比例，适合快速创作与高并发场景。',
 };
 
-const IMAGE_MODEL_ALIASES: Record<string, string> = {
-  'gemini-2.5-flash-image': 'gemini-3.1-flash-image-preview',
-  'gemini-2.5-flash-image-preview': 'gemini-3.1-flash-image-preview',
+const BANANA_25_PROFILE: ImageModelProfile = {
+  name: 'gemini-2.5-flash-image',
+  label: 'Banana（2.5模型）',
+  imageSizes: ['1K', '2K'],
+  aspectRatios: COMMON_ASPECT_RATIOS,
+  summary: '经典 2.5 版本，速度稳定，适合日常快速生成。',
 };
 
-export const IMAGE_MODEL_OPTIONS = [
+const IMAGE_MODEL_ALIASES: Record<string, string> = {
+  'gemini-2.5-flash-image-preview': 'gemini-2.5-flash-image',
+};
+
+export const IMAGE_MODEL_OPTIONS: readonly ImageModelOption[] = [
+  { name: BANANA_2_PROFILE.name, label: BANANA_2_PROFILE.label, recommended: true },
   { name: BANANA_PRO_PROFILE.name, label: BANANA_PRO_PROFILE.label },
-  { name: BANANA_2_PROFILE.name, label: BANANA_2_PROFILE.label },
+  { name: BANANA_25_PROFILE.name, label: BANANA_25_PROFILE.label },
 ] as const;
 
 const PROFILE_BY_NAME: Record<string, ImageModelProfile> = {
   [BANANA_PRO_PROFILE.name]: BANANA_PRO_PROFILE,
   [BANANA_2_PROFILE.name]: BANANA_2_PROFILE,
-  'gemini-2.5-flash-image-preview': BANANA_2_PROFILE,
-  'gemini-2.5-flash-image': BANANA_2_PROFILE,
+  [BANANA_25_PROFILE.name]: BANANA_25_PROFILE,
+  'gemini-2.5-flash-image-preview': BANANA_25_PROFILE,
 };
 
 export const IMAGE_MODEL_LABEL_MAP: Record<string, string> = {
   [BANANA_PRO_PROFILE.name]: BANANA_PRO_PROFILE.label,
   [BANANA_2_PROFILE.name]: BANANA_2_PROFILE.label,
-  'gemini-2.5-flash-image-preview': 'Banana 2（3.1模型，兼容ID）',
-  'gemini-2.5-flash-image': 'Banana 2（3.1模型，兼容ID）',
+  [BANANA_25_PROFILE.name]: BANANA_25_PROFILE.label,
+  'gemini-2.5-flash-image-preview': 'Banana（2.5模型，兼容ID）',
 };
 
-export const DEFAULT_MODEL_NAME = BANANA_PRO_PROFILE.name;
+export const DEFAULT_MODEL_NAME = BANANA_2_PROFILE.name;
 export const DEFAULT_RESOLUTION: ModelResolution = '1K';
 export const DEFAULT_ASPECT_RATIO: ModelAspectRatio = 'Auto';
 const DEFAULT_ASPECT_RATIO_OPTIONS: readonly ModelAspectRatio[] = ['Auto', ...COMMON_ASPECT_RATIOS];
