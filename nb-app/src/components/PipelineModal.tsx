@@ -9,6 +9,7 @@ import { useAppStore } from '../store/useAppStore';
 import { convertMessagesToHistory } from '../utils/messageUtils';
 import { calculateHistoryImageSize } from '../utils/historyUtils';
 import { evaluateMemoryPressure, shouldShowMemoryAlert, formatMemoryAlertMessage, formatMemoryAlertTitle, getMemoryPressureProgress, formatMemoryPressureLabel } from '../utils/memoryGuard';
+import { IMAGE_MODEL_OPTIONS } from '../constants/modelProfiles';
 
 interface Props {
   isOpen: boolean;
@@ -16,10 +17,10 @@ interface Props {
   onExecute: (mode: 'serial' | 'parallel' | 'combination', steps: PipelineStep[], attachments: Attachment[]) => void;
 }
 
-const AVAILABLE_MODELS = [
-  { value: 'gemini-3-pro-image-preview', label: 'Banana Pro (3.0模型)' },
-  { value: 'gemini-2.5-flash-image', label: 'Banana (2.5模型)' }
-] as const;
+const AVAILABLE_MODELS = IMAGE_MODEL_OPTIONS.map((model) => ({
+  value: model.name,
+  label: model.label,
+}));
 
 
 

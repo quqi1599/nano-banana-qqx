@@ -26,6 +26,54 @@ settings = get_settings()
 CANCEL_SIGNAL_KEY = "batch_task:cancel:{task_id}"
 PROGRESS_KEY = "batch_task:progress:{task_id}"
 
+MODEL_ALIASES = {
+    "gemini-2.5-flash-image": "gemini-3.1-flash-image-preview",
+    "gemini-2.5-flash-image-preview": "gemini-3.1-flash-image-preview",
+}
+
+COMMON_ASPECT_RATIOS = {
+    "1:1",
+    "2:3",
+    "3:2",
+    "3:4",
+    "4:3",
+    "4:5",
+    "5:4",
+    "9:16",
+    "16:9",
+    "21:9",
+}
+
+MODEL_IMAGE_SIZES = {
+    "gemini-3-pro-image-preview": ("1K", "2K", "4K"),
+    "gemini-3.1-flash-image-preview": ("512", "1K", "2K", "4K"),
+}
+
+MODEL_ASPECT_RATIOS = {
+    "gemini-3-pro-image-preview": COMMON_ASPECT_RATIOS,
+    "gemini-3.1-flash-image-preview": COMMON_ASPECT_RATIOS | {"1:4", "1:8", "4:1", "8:1"},
+}
+
+
+def _normalize_model_name(model_name: str) -> str:
+    return MODEL_ALIASES.get(model_name, model_name)
+
+
+def _sanitize_image_config(model_name: str, aspect_ratio: str, resolution: str) -> tuple[str, dict]:
+    normalized_model_name = _normalize_model_name(model_name)
+    image_config: Dict[str, str] = {}
+
+    allowed_sizes = MODEL_IMAGE_SIZES.get(normalized_model_name)
+    if allowed_sizes:
+        image_config["imageSize"] = resolution if resolution in allowed_sizes else allowed_sizes[0]
+
+    if aspect_ratio and aspect_ratio != "Auto":
+        allowed_ratios = MODEL_ASPECT_RATIOS.get(normalized_model_name, COMMON_ASPECT_RATIOS)
+        if aspect_ratio in allowed_ratios:
+            image_config["aspectRatio"] = aspect_ratio
+
+    return normalized_model_name, image_config
+
 
 class BatchGenerationContext:
     """批量生成任务上下文管理器"""
@@ -124,10 +172,11 @@ async def generate_single_image(
     use_grounding: bool = False,
 ) -> Dict[str, Any]:
     """生成单张图片"""
-    target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:generateContent"
+    normalized_model_name, image_config = _sanitize_image_config(model_name, aspect_ratio, resolution)
+    target_url = f"{settings.newapi_base_url}/v1beta/models/{normalized_model_name}:generateContent"
     
     request_body = {
-        "model": model_name,
+        "model": normalized_model_name,
         "contents": [*history, {
             "role": "user",
             "parts": [
@@ -136,10 +185,7 @@ async def generate_single_image(
             ]
         }],
         "config": {
-            "imageConfig": {
-                **({"imageSize": resolution} if 'gemini-3' in model_name else {}),
-                **({"aspectRatio": aspect_ratio} if aspect_ratio != 'Auto' else {}),
-            },
+            "imageConfig": image_config,
             "tools": [{"googleSearch": {}}] if use_grounding else [],
             "responseModalities": ["TEXT", "IMAGE"],
         },
@@ -198,7 +244,7 @@ def batch_image_generation_task(self, task_id: str):
             prompts = config.get("prompts", [])
             model_name = config.get("model_name", "gemini-3-pro-image-preview")
             aspect_ratio = config.get("aspect_ratio", "Auto")
-            resolution = config.get("resolution", "1024x1024")
+            resolution = config.get("resolution", "1K")
             use_grounding = config.get("use_grounding", False)
             initial_images = task_record.initial_images or []
             

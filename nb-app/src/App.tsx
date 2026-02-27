@@ -21,6 +21,9 @@ import { lazyWithRetry, preloadComponents } from './utils/lazyLoadUtils';
 import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
 import { SessionManager } from './components/SessionManager';
+import { normalizeImageModelName } from './constants/modelProfiles';
+
+const RELEASE_NOTICE_KEY = 'nbnb_release_notice_3_1_seen';
 
 // Lazy load components
 const ApiKeyModal = lazyWithRetry(() => import('./components/ApiKeyModal').then(module => ({ default: module.ApiKeyModal })));
@@ -206,13 +209,13 @@ const App: React.FC = () => {
     localStorage.setItem('nbnb_wechat_bubble_dismissed', '1');
   };
 
-  // 首次访问检测
+  // 3.1 升级公告：每个浏览器仅显示一次
   useEffect(() => {
     if (!hasHydrated) return;
-    const hasVisited = localStorage.getItem('deai_has_visited');
-    if (!hasVisited) {
+    const hasSeenReleaseNotice = localStorage.getItem(RELEASE_NOTICE_KEY);
+    if (!hasSeenReleaseNotice) {
       setShowWelcome(true);
-      localStorage.setItem('deai_has_visited', 'true');
+      localStorage.setItem(RELEASE_NOTICE_KEY, 'true');
     }
   }, [hasHydrated]);
 
@@ -299,7 +302,7 @@ const App: React.FC = () => {
     const urlModel = params.get('model');
 
     if (urlModel) {
-      updateSettings({ modelName: urlModel });
+      updateSettings({ modelName: normalizeImageModelName(urlModel) });
     }
 
     if (urlEndpoint) {
@@ -908,7 +911,7 @@ const App: React.FC = () => {
       )}
       <WeChatQRModal isOpen={showFloatingWeChatQR} onClose={() => setShowFloatingWeChatQR(false)} />
 
-      {/* 首次访问欢迎弹窗 */}
+      {/* 3.1 升级公告弹窗（每个浏览器仅显示一次） */}
       <WelcomeModal isOpen={showWelcome} onClose={() => setShowWelcome(false)} />
 
       {/* 新手引导系统 */}

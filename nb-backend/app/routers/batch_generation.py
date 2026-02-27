@@ -31,7 +31,7 @@ class BatchGenerationRequest(BaseModel):
     prompts: List[str] = Field(..., min_items=1, max_items=50, description="提示词列表")
     model_name: str = Field(default="gemini-3-pro-image-preview", description="模型名称")
     aspect_ratio: str = Field(default="Auto", description="宽高比")
-    resolution: str = Field(default="1024x1024", description="分辨率")
+    resolution: str = Field(default="1K", description="分辨率(如 512/1K/2K/4K)")
     use_grounding: bool = Field(default=False, description="是否使用联网搜索")
     initial_images: List[dict] = Field(default=[], description="初始图片列表 [{mime_type, data, name}]")
 

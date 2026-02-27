@@ -117,6 +117,87 @@ def _has_candidate_content(payload: Any) -> bool:
     return bool(_extract_candidate_parts(payload))
 
 
+_BLOCKED_FINISH_REASONS = {"SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT"}
+_BLOCKED_PROMPT_REASONS = {"SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT"}
+
+
+def _extract_finish_reason(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        return ""
+    candidate = candidates[0]
+    if not isinstance(candidate, dict):
+        return ""
+    reason = candidate.get("finishReason")
+    if isinstance(reason, str):
+        return reason.strip().upper()
+    return ""
+
+
+def _extract_prompt_block_reason(payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    prompt_feedback = payload.get("promptFeedback")
+    if not isinstance(prompt_feedback, dict):
+        return ""
+    block_reason = prompt_feedback.get("blockReason")
+    if isinstance(block_reason, str):
+        return block_reason.strip().upper()
+    return ""
+
+
+def _has_blocked_safety_rating(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+
+    def _ratings_blocked(container: Any) -> bool:
+        if not isinstance(container, dict):
+            return False
+        ratings = container.get("safetyRatings")
+        if not isinstance(ratings, list):
+            return False
+        return any(
+            isinstance(rating, dict) and bool(rating.get("blocked")) is True
+            for rating in ratings
+        )
+
+    if _ratings_blocked(payload.get("promptFeedback")):
+        return True
+
+    candidates = payload.get("candidates")
+    if isinstance(candidates, list):
+        for candidate in candidates:
+            if _ratings_blocked(candidate):
+                return True
+    return False
+
+
+def _is_safety_blocked_empty_response(payload: Any) -> bool:
+    finish_reason = _extract_finish_reason(payload)
+    if finish_reason in _BLOCKED_FINISH_REASONS:
+        return True
+
+    prompt_block_reason = _extract_prompt_block_reason(payload)
+    if prompt_block_reason in _BLOCKED_PROMPT_REASONS:
+        return True
+
+    return _has_blocked_safety_rating(payload)
+
+
+def _describe_empty_response(payload: Any) -> str:
+    prompt_block_reason = _extract_prompt_block_reason(payload)
+    if prompt_block_reason:
+        return f"No content generated (prompt blocked: {prompt_block_reason})"
+
+    finish_reason = _extract_finish_reason(payload)
+    if finish_reason:
+        return f"No content generated (finish reason: {finish_reason})"
+
+    return "No content generated"
+
+
 _QUOTA_ERROR_HINTS = (
     "quota",
     "insufficient",
@@ -478,6 +559,8 @@ async def proxy_generate(
                     continue
 
                 if not _has_candidate_content(data):
+                    empty_detail = _describe_empty_response(data)
+                    is_safety_blocked = _is_safety_blocked_empty_response(data)
                     usage_log = UsageLog(
                         user_id=current_user.id,
                         model_name=model_name,
@@ -486,30 +569,34 @@ async def proxy_generate(
                         request_type="generate",
                         prompt_preview=prompt_preview,
                         is_success=False,
-                        error_message="No content generated",
+                        error_message=empty_detail,
                     )
                     await _apply_token_update(
                         db,
                         token,
                         now,
                         update_request_counters=True,
-                        mark_success=True,
+                        mark_failure=not is_safety_blocked,
+                        mark_success=is_safety_blocked,
                         key_updates=key_updates,
                         usage_log=usage_log,
                     )
-                    if reserved:
-                        await refund_user_credits(
-                            db,
-                            current_user.id,
-                            credits_to_use,
-                            model_name,
-                            "生成内容为空退款",
+                    if is_safety_blocked:
+                        if reserved:
+                            await refund_user_credits(
+                                db,
+                                current_user.id,
+                                credits_to_use,
+                                model_name,
+                                "生成内容为空退款",
+                            )
+                            await _commit_changes(db)
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=empty_detail,
                         )
-                        await _commit_changes(db)
-                    raise HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail="No content generated",
-                    )
+                    last_error_detail = empty_detail
+                    continue
 
                 usage_log = UsageLog(
                     user_id=current_user.id,
@@ -591,9 +678,13 @@ async def proxy_generate(
             "请求失败退款",
         )
         await _commit_changes(db)
+    if last_error_detail and last_error_detail.startswith("No content generated"):
+        detail_message = last_error_detail
+    else:
+        detail_message = f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip()
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail=f"暂无可用的 API Token，请稍后重试。{last_error_detail or ''}".strip(),
+        detail=detail_message,
     )
 
 
@@ -789,6 +880,7 @@ async def proxy_generate_stream(
     async def stream_response_with_cleanup():
         """使用 async context manager 确保连接正确关闭"""
         has_content = False
+        last_payload: Any = None
         stream_error = None
         try:
             buffer = b""
@@ -804,6 +896,7 @@ async def proxy_generate_stream(
                                 if decoded.startswith(b"data:"):
                                     decoded = decoded[5:].strip()
                                 payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                                last_payload = payload
                                 has_content = _has_candidate_content(payload)
                             except ValueError:
                                 pass
@@ -816,6 +909,7 @@ async def proxy_generate_stream(
                         if decoded.startswith(b"data:"):
                             decoded = decoded[5:].strip()
                         payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                        last_payload = payload
                         has_content = _has_candidate_content(payload)
                     except ValueError:
                         pass
@@ -833,6 +927,12 @@ async def proxy_generate_stream(
         if selected_token is None:
             return
 
+        empty_detail = _describe_empty_response(last_payload) if not has_content else None
+        is_safety_blocked = (
+            _is_safety_blocked_empty_response(last_payload)
+            if not has_content
+            else False
+        )
         usage_log = UsageLog(
             user_id=current_user.id,
             model_name=model_name,
@@ -841,14 +941,15 @@ async def proxy_generate_stream(
             request_type="generate_stream",
             prompt_preview=prompt_preview,
             is_success=has_content,
-            error_message=None if has_content else "No content generated",
+            error_message=empty_detail,
         )
         await _apply_token_update(
             db,
             selected_token,
             datetime.utcnow(),
             update_request_counters=True,
-            mark_success=True,
+            mark_failure=not has_content and not is_safety_blocked,
+            mark_success=has_content or is_safety_blocked,
             key_updates=selected_key_updates,
             usage_log=usage_log,
         )

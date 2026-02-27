@@ -160,7 +160,7 @@ export const guideFlows: Record<string, GuideFlow> = {
       {
         id: 'settings-3',
         title: '🤖 模型选择',
-        content: '选择不同的 AI 模型：Gemini 3 Pro 质量更高，2.5 Flash 速度更快。',
+        content: 'Banana Pro（3.0）支持最高 4K；Banana 2（3.1）支持 512/1K/2K/4K 与更多长宽比，适合多轮创作。',
         target: '[data-guide="model-setting"]',
         position: 'left',
       },

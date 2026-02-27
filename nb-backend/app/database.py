@@ -146,6 +146,8 @@ async def seed_model_pricing():
 
     default_pricing = {
         "gemini-3-pro-image-preview": settings.credits_gemini_3_pro,
+        "gemini-3.1-flash-image-preview": settings.credits_gemini_25_flash,
+        "gemini-2.5-flash-image-preview": settings.credits_gemini_25_flash,
         "gemini-2.5-flash-image": settings.credits_gemini_25_flash,
     }
 

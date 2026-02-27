@@ -6,14 +6,15 @@ import { ErrorAlert, InlineLoading } from '../common';
 // 模型名称友好显示映射
 const MODEL_NAME_MAP: Record<string, string> = {
     'gemini-3-pro-image-preview': 'Banana Pro (3.0模型)',
-    'gemini-2.5-flash-image': 'Banana (2.5模型)',
-    'gemini-2.5-flash-image-preview': 'Gemini 2.5 Flash Image Preview',
+    'gemini-3.1-flash-image-preview': 'Banana 2（3.1模型）',
+    'gemini-2.5-flash-image-preview': 'Banana 2（3.1模型，兼容ID）',
+    'gemini-2.5-flash-image': 'Banana 2（3.1模型，兼容ID）',
 };
 
 // 快速选择常用模型
 const QUICK_MODELS = [
     { name: 'gemini-3-pro-image-preview', label: 'Banana Pro (3.0模型)' },
-    { name: 'gemini-2.5-flash-image', label: 'Banana (2.5模型)' },
+    { name: 'gemini-3.1-flash-image-preview', label: 'Banana 2（3.1模型）' },
 ];
 
 export const AdminPricing = () => {

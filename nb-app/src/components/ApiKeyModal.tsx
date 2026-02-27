@@ -4,6 +4,7 @@ import { useUiStore } from '../store/useUiStore';
 import { Key, ChevronDown, ChevronRight, Settings2, X, MessageCircle, Globe, AlertTriangle } from 'lucide-react';
 import { WeChatQRModal } from './WeChatQRModal';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
+import { DEFAULT_MODEL_NAME, normalizeImageModelName } from '../constants/modelProfiles';
 
 interface ApiKeyModalProps {
   onClose?: () => void;
@@ -16,7 +17,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
   const [inputKey, setInputKey] = useState('');
   const [isVisible, setIsVisible] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [model, setModel] = useState(settings.modelName || 'gemini-3-pro-image-preview');
+  const [model, setModel] = useState(normalizeImageModelName(settings.modelName || DEFAULT_MODEL_NAME));
   const [showWeChatQR, setShowWeChatQR] = useState(false);
   const [customEndpoint, setCustomEndpoint] = useState(settings.customEndpoint || DEFAULT_API_ENDPOINT);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
@@ -27,7 +28,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
 
   // Sync local state with store settings (e.g. when updated via URL params)
   useEffect(() => {
-    if (settings.modelName) setModel(settings.modelName);
+    if (settings.modelName) setModel(normalizeImageModelName(settings.modelName));
   }, [settings.modelName]);
 
   useEffect(() => {
@@ -94,7 +95,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
 
     // 更新设置
     updateSettings({
-      modelName: model,
+      modelName: normalizeImageModelName(model),
       customEndpoint: isCustomEndpoint ? newEndpoint : undefined,
     });
     setApiKey(effectiveKey);
@@ -113,7 +114,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ onClose, onSkip }) => 
     const isCustomEndpoint = newEndpoint !== DEFAULT_API_ENDPOINT;
 
     updateSettings({
-      modelName: model,
+      modelName: normalizeImageModelName(model),
       customEndpoint: isCustomEndpoint ? newEndpoint : undefined,
     });
     setApiKey(effectiveKey);

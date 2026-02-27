@@ -7,6 +7,7 @@ import { getBackendUrl } from '../utils/backendUrl';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { buildRequestOptions } from '../utils/request';
 import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';
+import { DEFAULT_MODEL_NAME, sanitizeImageConfigForModel } from '../constants/modelProfiles';
 
 const API_BASE = `${getBackendUrl()}/api`;
 
@@ -20,6 +21,8 @@ const formatProxyError = (error: any): Error => {
         message = errorMsg.includes("次数不足") ? errorMsg : "次数不足，请充值后重试。";
     } else if (errorMsg.includes("401") || errorMsg.includes("认证")) {
         message = "登录已过期，请重新登录。";
+    } else if (errorMsg.includes("SAFETY") || errorMsg.includes("BLOCKLIST") || errorMsg.includes("PROHIBITED_CONTENT")) {
+        message = "内容被安全策略拦截。请尝试修改提示词或更换图片。";
     } else if (errorMsg.includes("503") || errorMsg.includes("Token")) {
         message = "服务暂时不可用，请稍后重试。";
     } else if (errorMsg.includes("504") || errorMsg.includes("超时")) {
@@ -69,16 +72,18 @@ export const generateContentViaProxy = async (
     const compressedHistory = await compressHistoryImages(cleanHistory);
 
     const currentUserContent = constructUserContent(prompt, images);
+    const { normalizedModelName, imageConfig } = sanitizeImageConfigForModel({
+        modelName: settings.modelName || DEFAULT_MODEL_NAME,
+        resolution: settings.resolution,
+        aspectRatio: settings.aspectRatio,
+    });
 
     // 构建请求体
     const requestBody = {
-        model: settings.modelName || "gemini-3-pro-image-preview",
+        model: normalizedModelName,
         contents: [...compressedHistory, currentUserContent],
         config: {
-            imageConfig: {
-                ...(settings.modelName?.includes('gemini-3') ? { imageSize: settings.resolution } : {}),
-                ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
-            },
+            imageConfig,
             tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
             responseModalities: ["TEXT", "IMAGE"],
         },
@@ -155,15 +160,17 @@ export const streamContentViaProxy = async function* (
     const compressedHistory = await compressHistoryImages(cleanHistory);
 
     const currentUserContent = constructUserContent(prompt, images);
+    const { normalizedModelName, imageConfig } = sanitizeImageConfigForModel({
+        modelName: settings.modelName || DEFAULT_MODEL_NAME,
+        resolution: settings.resolution,
+        aspectRatio: settings.aspectRatio,
+    });
 
     const requestBody = {
-        model: settings.modelName || "gemini-3-pro-image-preview",
+        model: normalizedModelName,
         contents: [...compressedHistory, currentUserContent],
         config: {
-            imageConfig: {
-                ...(settings.modelName?.includes('gemini-3') ? { imageSize: settings.resolution } : {}),
-                ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
-            },
+            imageConfig,
             tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
             responseModalities: ["TEXT", "IMAGE"],
         },
@@ -193,6 +200,7 @@ export const streamContentViaProxy = async function* (
         let buffer = '';
         let currentParts: Part[] = [];
         let lastParseWarnAt = 0;
+        let lastPayload: any = null;
 
         while (true) {
             if (signal?.aborted) {
@@ -221,6 +229,7 @@ export const streamContentViaProxy = async function* (
 
                 try {
                     const data = JSON.parse(line);
+                    lastPayload = data;
                     const candidates = data.candidates;
                     if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
                         continue;
@@ -254,6 +263,7 @@ export const streamContentViaProxy = async function* (
             if (line && line !== '[DONE]') {
                 try {
                     const data = JSON.parse(line);
+                    lastPayload = data;
                     const candidates = data.candidates;
                     if (candidates && Array.isArray(candidates) && candidates.length > 0) {
                         const newParts = candidates[0].content?.parts || [];
@@ -270,6 +280,18 @@ export const streamContentViaProxy = async function* (
                     console.warn('Proxy API JSON 解析失败，忽略尾部数据:', parseError, line.substring(0, 120));
                 }
             }
+        }
+
+        if (currentParts.length === 0) {
+            const blockReason = lastPayload?.promptFeedback?.blockReason;
+            const finishReason = lastPayload?.candidates?.[0]?.finishReason;
+            if (blockReason) {
+                throw new Error(`No content generated (prompt blocked: ${blockReason})`);
+            }
+            if (finishReason) {
+                throw new Error(`No content generated (finish reason: ${finishReason})`);
+            }
+            throw new Error('No content generated');
         }
     } catch (error) {
         if ((error as Error).name === 'AbortError') {

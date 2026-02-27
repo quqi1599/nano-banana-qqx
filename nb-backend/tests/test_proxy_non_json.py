@@ -33,9 +33,9 @@ class FakeDB:
 
 
 class FakeToken:
-    def __init__(self) -> None:
-        self.id = "token-1"
-        self.api_key = "plain-key"
+    def __init__(self, token_id: str = "token-1", api_key: str = "plain-key") -> None:
+        self.id = token_id
+        self.api_key = api_key
         self.api_key_hash = None
         self.api_key_prefix = None
         self.api_key_suffix = None
@@ -67,6 +67,23 @@ class FakeEmptyResponse:
         return {"candidates": []}
 
 
+class FakeSuccessResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "ok"}
+                        ]
+                    }
+                }
+            ]
+        }
+
+
 class FakeClient:
     async def __aenter__(self):
         return self
@@ -87,6 +104,23 @@ class FakeEmptyClient:
 
     async def post(self, *args, **kwargs):
         return FakeEmptyResponse()
+
+
+class FakeRetryClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def post(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return FakeEmptyResponse()
+        return FakeSuccessResponse()
 
 
 def build_request(payload: dict) -> Request:
@@ -176,3 +210,42 @@ async def test_proxy_generate_refunds_on_empty_content(monkeypatch):
     assert exc.value.status_code == 503
     assert "No content generated" in str(exc.value.detail)
     assert refund_called is True
+
+
+@pytest.mark.anyio
+async def test_proxy_generate_retries_next_token_after_empty_content(monkeypatch):
+    db = FakeDB()
+    user = FakeUser()
+    token1 = FakeToken(token_id="token-1", api_key="key-1")
+    token2 = FakeToken(token_id="token-2", api_key="key-2")
+    retry_client = FakeRetryClient()
+    refund_called = False
+
+    async def fake_get_credits_for_model(_db, _model_name):
+        return 1
+
+    async def fake_get_available_tokens(_db, lock=False):
+        return [token1, token2]
+
+    async def fake_reserve_user_credits(_db, _user_id, _credits, _model_name):
+        return None
+
+    async def fake_refund_user_credits(_db, _user_id, _credits, _model_name, _reason):
+        nonlocal refund_called
+        refund_called = True
+        return None
+
+    monkeypatch.setattr(proxy_module, "get_credits_for_model", fake_get_credits_for_model)
+    monkeypatch.setattr(proxy_module, "get_available_tokens", fake_get_available_tokens)
+    monkeypatch.setattr(proxy_module, "reserve_user_credits", fake_reserve_user_credits)
+    monkeypatch.setattr(proxy_module, "refund_user_credits", fake_refund_user_credits)
+    monkeypatch.setattr(proxy_module, "decrypt_api_key", lambda key: key)
+    monkeypatch.setattr(proxy_module.httpx, "AsyncClient", lambda timeout=120.0: retry_client)
+    monkeypatch.setattr(proxy_module.settings, "token_encryption_key", "")
+
+    request = build_request({"model": "gemini-3-pro-image-preview", "contents": []})
+    data = await proxy_module.proxy_generate(request, current_user=user, db=db)
+
+    assert retry_client.calls == 2
+    assert data["candidates"][0]["content"]["parts"][0]["text"] == "ok"
+    assert refund_called is False

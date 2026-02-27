@@ -18,6 +18,12 @@ import {
   convertAttachmentsToApiFormat,
 } from '../services/batchGenerationService';
 import { useUiStore } from '../store/useUiStore';
+import {
+  DEFAULT_MODEL_NAME,
+  ModelAspectRatio,
+  ModelResolution,
+  sanitizeImageConfigForModel,
+} from '../constants/modelProfiles';
 
 interface SubmitOptions {
   mode: BatchMode;
@@ -80,13 +86,23 @@ export function useBatchGeneration(): UseBatchGenerationReturn {
         throw new Error('批量组合模式需要至少上传一张图片');
       }
 
+      const {
+        normalizedModelName,
+        effectiveAspectRatio,
+        effectiveResolution,
+      } = sanitizeImageConfigForModel({
+        modelName: options.modelName || DEFAULT_MODEL_NAME,
+        resolution: (options.resolution || '1K') as ModelResolution,
+        aspectRatio: (options.aspectRatio || 'Auto') as ModelAspectRatio,
+      });
+
       // 准备请求
       const request: SubmitBatchRequest = {
         mode: options.mode,
         prompts: options.prompts,
-        model_name: options.modelName,
-        aspect_ratio: options.aspectRatio,
-        resolution: options.resolution,
+        model_name: normalizedModelName,
+        aspect_ratio: effectiveAspectRatio,
+        resolution: effectiveResolution,
         use_grounding: options.useGrounding,
         initial_images: apiImages,
       };
@@ -117,7 +133,7 @@ export function useBatchGeneration(): UseBatchGenerationReturn {
         if (finalTask.status === 'completed') {
           addToast('批量生成完成！', 'success');
         } else if (finalTask.status === 'partial') {
-          addToast(`批量生成部分完成（${finalTask.progress.completed}/${finalTask.progress.total}）`, 'warning');
+          addToast(`批量生成部分完成（${finalTask.progress.completed}/${finalTask.progress.total}）`, 'info');
         } else if (finalTask.status === 'cancelled') {
           addToast('批量生成已取消', 'info');
         } else if (finalTask.status === 'failed') {
@@ -146,12 +162,12 @@ export function useBatchGeneration(): UseBatchGenerationReturn {
    */
   const cancelTask = useCallback(async (): Promise<void> => {
     if (!currentTask?.id) {
-      addToast('没有进行中的任务', 'warning');
+      addToast('没有进行中的任务', 'info');
       return;
     }
 
-    if (!currentTask.can_cancel && !['pending', 'queued', 'running'].includes(currentTask.status)) {
-      addToast('当前任务状态无法取消', 'warning');
+    if (!['pending', 'queued', 'running'].includes(currentTask.status)) {
+      addToast('当前任务状态无法取消', 'info');
       return;
     }
 

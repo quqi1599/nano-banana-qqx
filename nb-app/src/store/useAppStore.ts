@@ -18,6 +18,7 @@ import { createThumbnail } from '../utils/imageUtils';
 import { offloadMessageParts, resolveMessageImageData } from '../utils/messageImageUtils';
 import { deleteMessageImage } from '../utils/messageImageStore';
 import { DEFAULT_API_ENDPOINT } from '../config/api';
+import { DEFAULT_ASPECT_RATIO, DEFAULT_MODEL_NAME, DEFAULT_RESOLUTION } from '../constants/modelProfiles';
 import { useUiStore } from './useUiStore';
 import { getCsrfToken } from '../utils/csrf';
 
@@ -164,14 +165,14 @@ export const useAppStore = create<AppState>()(
       apiKey: null,
       visitorId: getOrGenerateVisitorId(),
       settings: {
-        resolution: '1K',
-        aspectRatio: 'Auto',
+        resolution: DEFAULT_RESOLUTION,
+        aspectRatio: DEFAULT_ASPECT_RATIO,
         useGrounding: false,
         enableThinking: false,
         streamResponse: true,
         sendHistory: false,
         customEndpoint: DEFAULT_API_ENDPOINT,
-        modelName: 'gemini-2.5-flash-image',
+        modelName: DEFAULT_MODEL_NAME,
         theme: 'light',
       },
       messages: [],

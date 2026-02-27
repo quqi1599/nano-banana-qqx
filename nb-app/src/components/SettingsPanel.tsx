@@ -6,6 +6,18 @@ import { X, LogOut, Trash2, Share2, Bookmark, DollarSign, RefreshCw, Download, M
 import { formatBalance } from '../services/balanceService';
 import { getModelPricing, ModelPricingInfo } from '../services/modelPricingService';
 import { WeChatQRModal } from './WeChatQRModal';
+import type { AppSettings } from '../types';
+import {
+  DEFAULT_MODEL_NAME,
+  getAspectRatioOptionsForModel,
+  getImageModelLabel,
+  getImageModelProfile,
+  getImageSizeOptionsForModel,
+  IMAGE_MODEL_OPTIONS,
+  isHighResolution,
+  normalizeImageModelName,
+  sanitizeImageConfigForModel,
+} from '../constants/modelProfiles';
 export const SettingsPanel: React.FC = () => {
   const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt, usageCount } = useAppStore();
   const { addToast, showDialog, setShowAuthModal } = useUiStore();
@@ -15,6 +27,27 @@ export const SettingsPanel: React.FC = () => {
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [showWeChatQR, setShowWeChatQR] = useState(false);
   const [modelPricing, setModelPricing] = useState<ModelPricingInfo[]>([]);
+  const activeModelName = normalizeImageModelName(settings.modelName || DEFAULT_MODEL_NAME);
+  const activeModelProfile = getImageModelProfile(activeModelName);
+  const resolutionOptions = getImageSizeOptionsForModel(activeModelName) ?? [settings.resolution];
+  const aspectRatioOptions = getAspectRatioOptionsForModel(activeModelName);
+  const ratioPreviewStyles: Record<AppSettings['aspectRatio'], string> = {
+    'Auto': 'w-6 h-6 border-dashed',
+    '1:1': 'w-6 h-6',
+    '2:3': 'w-4 h-6',
+    '3:2': 'w-6 h-4',
+    '3:4': 'w-5 h-7',
+    '4:3': 'w-7 h-5',
+    '4:5': 'w-5 h-6',
+    '5:4': 'w-6 h-5',
+    '9:16': 'w-4 h-7',
+    '16:9': 'w-7 h-4',
+    '21:9': 'w-8 h-3',
+    '1:4': 'w-3 h-8',
+    '1:8': 'w-2 h-8',
+    '4:1': 'w-8 h-3',
+    '8:1': 'w-8 h-2',
+  };
 
   // 获取模型定价（登录用户）
   useEffect(() => {
@@ -90,6 +123,25 @@ export const SettingsPanel: React.FC = () => {
     } finally {
       setLoadingCredits(false);
     }
+  };
+
+  const handleModelChange = (modelName: string) => {
+    const {
+      normalizedModelName,
+      effectiveResolution,
+      effectiveAspectRatio,
+    } = sanitizeImageConfigForModel({
+      modelName,
+      resolution: settings.resolution,
+      aspectRatio: settings.aspectRatio,
+    });
+
+    updateSettings({
+      modelName: normalizedModelName,
+      resolution: effectiveResolution,
+      aspectRatio: effectiveAspectRatio,
+      ...(settings.streamResponse && isHighResolution(effectiveResolution) ? { streamResponse: false } : {}),
+    });
   };
 
   const getBookmarkUrl = () => {
@@ -199,37 +251,33 @@ export const SettingsPanel: React.FC = () => {
         {/* Resolution */}
         <section>
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">图像分辨率</label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-            {(['1K', '2K', '4K'] as const).map((res) => {
-              // 只有 gemini-3-pro-image-preview 支持分辨率选择
-              const isResolutionSupported = (settings.modelName || 'gemini-3-pro-image-preview') === 'gemini-3-pro-image-preview';
-              const isDisabled = !isResolutionSupported;
-
-              return (
-                <button
-                  key={res}
-                  onClick={() => {
-                    if (isDisabled) return;
-                    if (res === '2K' || res === '4K') {
-                      updateSettings({ resolution: res, streamResponse: false });
-                    } else {
-                      updateSettings({ resolution: res });
-                    }
-                  }}
-                  disabled={isDisabled}
-                  className={`rounded-lg border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${settings.resolution === res
-                    ? 'border-cream-500 bg-cream-50 dark:bg-cream-500/10 text-cream-600 dark:text-cream-400'
-                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
-                    } ${isDisabled ? 'opacity-40 cursor-not-allowed hover:border-gray-200 dark:hover:border-gray-800' : ''}`}
-                >
-                  {res}
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {resolutionOptions.map((res) => (
+              <button
+                key={res}
+                onClick={() => {
+                  if (isHighResolution(res)) {
+                    updateSettings({ resolution: res, streamResponse: false });
+                  } else {
+                    updateSettings({ resolution: res });
+                  }
+                }}
+                className={`rounded-lg border px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${settings.resolution === res
+                  ? 'border-cream-500 bg-cream-50 dark:bg-cream-500/10 text-cream-600 dark:text-cream-400'
+                  : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
+                  }`}
+              >
+                {res}
+              </button>
+            ))}
           </div>
-          {(settings.modelName || 'gemini-3-pro-image-preview') !== 'gemini-3-pro-image-preview' && (
+          {activeModelProfile ? (
             <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
-              ⚠️ 当前模型不支持分辨率选择，仅 Gemini 3 Pro 支持此功能
+              {activeModelProfile.summary}
+            </p>
+          ) : (
+            <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
+              ⚠️ 当前是自定义模型，分辨率能力无法自动识别。
             </p>
           )}
         </section>
@@ -246,21 +294,24 @@ export const SettingsPanel: React.FC = () => {
             )}
           </div>
           <div className="space-y-2">
-            {([
-              { name: 'gemini-3-pro-image-preview', label: 'Banana Pro (3.0模型)' },
-              { name: 'gemini-2.5-flash-image', label: 'Banana (2.5模型)' }
-            ] as const).map((model) => {
-              const isActive = (settings.modelName || 'gemini-3-pro-image-preview') === model.name;
+            {IMAGE_MODEL_OPTIONS.map((model) => {
+              const isActive = activeModelName === model.name;
+              const modelPrice = getModelPrice(model.name);
               return (
                 <button
                   key={model.name}
-                  onClick={() => updateSettings({ modelName: model.name })}
+                  onClick={() => handleModelChange(model.name)}
                   className={`w-full rounded-lg border px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-medium text-left transition ${isActive
                     ? 'border-cream-500 bg-cream-50 dark:bg-cream-500/10 text-cream-600 dark:text-cream-400'
                     : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700'
                     }`}
                 >
-                  {model.label}
+                  <div className="flex items-center justify-between gap-2">
+                    <span>{model.label}</span>
+                    {isAuthenticated && modelPrice !== null && (
+                      <span className="text-[10px] sm:text-xs opacity-80">{modelPrice} 灵感/次</span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -270,18 +321,9 @@ export const SettingsPanel: React.FC = () => {
         {/* Aspect Ratio */}
         <section>
           <label className="block text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">长宽比</label>
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-            {(['Auto', '1:1', '3:4', '4:3', '9:16', '16:9', '21:9'] as const).map((ratio) => {
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {aspectRatioOptions.map((ratio) => {
               const isActive = settings.aspectRatio === ratio;
-              const ratioPreviewStyles: Record<string, string> = {
-                'Auto': 'w-6 h-6 border-dashed',
-                '1:1': 'w-6 h-6',
-                '3:4': 'w-5 h-7',
-                '4:3': 'w-7 h-5',
-                '9:16': 'w-4 h-7',
-                '16:9': 'w-7 h-4',
-                '21:9': 'w-8 h-3',
-              };
 
               return (
                 <button
@@ -294,13 +336,16 @@ export const SettingsPanel: React.FC = () => {
                 >
                   <div
                     className={`rounded-sm border-2 ${isActive ? 'border-cream-400 bg-cream-100 dark:bg-cream-400/20' : 'border-gray-400 dark:border-gray-600 bg-gray-200 dark:bg-gray-800'
-                      } ${ratioPreviewStyles[ratio]}`}
+                      } ${ratioPreviewStyles[ratio] || ratioPreviewStyles.Auto}`}
                   />
                   <span className="text-[10px] sm:text-xs font-medium">{ratio}</span>
                 </button>
               );
             })}
           </div>
+          <p className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500 mt-1.5 sm:mt-2">
+            {activeModelProfile ? `${activeModelProfile.label} 已适配当前比例列表。` : '自定义模型默认展示通用比例。'}
+          </p>
         </section>
 
         {/* Streaming */}
@@ -313,11 +358,11 @@ export const SettingsPanel: React.FC = () => {
                 checked={settings.streamResponse}
                 onChange={(e) => {
                   const checked = (e.target as HTMLInputElement).checked;
-                  if (checked && (settings.resolution === '2K' || settings.resolution === '4K')) {
+                  if (checked && isHighResolution(settings.resolution)) {
                     showDialog({
                       type: 'confirm',
                       title: '潜在问题',
-                      message: "警告：2K 或 4K 分辨率配合流式传输可能会导致内容不完整。是否继续？",
+                      message: "警告：高分辨率配合流式传输可能导致内容不完整。是否继续？",
                       confirmLabel: "仍然启用",
                       onConfirm: () => updateSettings({ streamResponse: true })
                     });
@@ -450,7 +495,7 @@ export const SettingsPanel: React.FC = () => {
 
         {/* Info */}
         <div className="mt-1 pb-2 sm:pb-4 text-center text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-600 space-y-0.5 sm:space-y-1">
-          <p>模型: {settings.modelName || 'gemini-3-pro-image-preview'}</p>
+          <p>模型: {getImageModelLabel(settings.modelName)}</p>
         </div>
 
         {/* 微信二维码弹窗 */}

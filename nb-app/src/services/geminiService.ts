@@ -2,6 +2,10 @@ import { AppSettings, Part, Content } from '../types';
 import { resolveApiBaseUrl } from '../utils/endpointUtils';
 import { compressHistoryImages } from '../utils/historyUtils';
 import { constructUserContent, processSdkParts, appendSdkPart } from '../utils/partUtils';
+import { DEFAULT_MODEL_NAME, sanitizeImageConfigForModel } from '../constants/modelProfiles';
+
+const MAX_EMPTY_CONTENT_RETRIES = 1;
+const BLOCKED_REASONS = new Set(['SAFETY', 'BLOCKLIST', 'PROHIBITED_CONTENT']);
 
 // 错误码常量
 const ERROR_CODES = {
@@ -23,7 +27,7 @@ const ERROR_CODES = {
 
 // 错误码到中文消息的映射
 const ERROR_MESSAGES: Record<string, string> = {
-  [ERROR_CODES.MODEL_NOT_FOUND]: "当前模型暂时不可用 (503)。可能是该模型在您的分组下无权访问，请在设置中切换模型 (如尝试 Gemini 2.5) 重试。",
+  [ERROR_CODES.MODEL_NOT_FOUND]: "当前模型暂时不可用 (503)。可能是该模型在您的分组下无权访问，请在设置中切换模型（如 Banana 2（3.1））重试。",
   [ERROR_CODES.INVALID_API_KEY]: "API Key 无效或过期，请检查您的设置。",
   [ERROR_CODES.QUOTA_EXCEEDED]: "API 额度不足，请充值后重试。",
   [ERROR_CODES.THINKING_NOT_SUPPORTED]: '当前模型不支持思考过程。请在设置中关闭"显示思考过程"，或切换到支持思考的模型。',
@@ -69,7 +73,7 @@ const identifyErrorCode = (errorMsg: string): string => {
       errorMsg.includes("ECONNREFUSED") || errorMsg.includes("timeout") || errorMsg.includes("ERR_CONNECTION")) {
     return ERROR_CODES.NETWORK_ERROR;
   }
-  if (errorMsg.includes("SAFETY")) {
+  if (errorMsg.includes("SAFETY") || errorMsg.includes("BLOCKLIST") || errorMsg.includes("PROHIBITED_CONTENT")) {
     return ERROR_CODES.SAFETY_FILTERED;
   }
   if (errorMsg.includes("No content generated")) {
@@ -85,6 +89,52 @@ const identifyErrorCode = (errorMsg: string): string => {
     return ERROR_CODES.INTERNAL_ERROR;
   }
   return 'UNKNOWN';
+};
+
+const extractCandidateFinishReason = (payload: any): string => {
+  const finishReason = payload?.candidates?.[0]?.finishReason;
+  return typeof finishReason === 'string' ? finishReason.toUpperCase() : '';
+};
+
+const extractPromptBlockReason = (payload: any): string => {
+  const blockReason = payload?.promptFeedback?.blockReason;
+  return typeof blockReason === 'string' ? blockReason.toUpperCase() : '';
+};
+
+const hasBlockedSafetyRating = (payload: any): boolean => {
+  const hasBlocked = (ratings: any) =>
+    Array.isArray(ratings) &&
+    ratings.some((rating) => typeof rating === 'object' && rating?.blocked === true);
+
+  if (hasBlocked(payload?.promptFeedback?.safetyRatings)) return true;
+  if (Array.isArray(payload?.candidates)) {
+    return payload.candidates.some((candidate: any) => hasBlocked(candidate?.safetyRatings));
+  }
+  return false;
+};
+
+const isSafetyBlockedPayload = (payload: any): boolean => {
+  const finishReason = extractCandidateFinishReason(payload);
+  if (finishReason && BLOCKED_REASONS.has(finishReason)) return true;
+
+  const blockReason = extractPromptBlockReason(payload);
+  if (blockReason && BLOCKED_REASONS.has(blockReason)) return true;
+
+  return hasBlockedSafetyRating(payload);
+};
+
+const buildNoContentErrorMessage = (payload: any): string => {
+  const blockReason = extractPromptBlockReason(payload);
+  if (blockReason) {
+    return `No content generated (prompt blocked: ${blockReason})`;
+  }
+
+  const finishReason = extractCandidateFinishReason(payload);
+  if (finishReason) {
+    return `No content generated (finish reason: ${finishReason})`;
+  }
+
+  return 'No content generated';
 };
 
 // Helper to format Gemini API errors
@@ -146,45 +196,56 @@ export const streamGeminiResponse = async function* (
 
   const currentUserContent = constructUserContent(prompt, images);
   const contentsPayload = [...compressedHistory, currentUserContent];
+  const { normalizedModelName, imageConfig } = sanitizeImageConfigForModel({
+    modelName: settings.modelName || DEFAULT_MODEL_NAME,
+    resolution: settings.resolution,
+    aspectRatio: settings.aspectRatio,
+  });
 
   try {
-    const responseStream = await ai.models.generateContentStream({
-      model: settings.modelName || "gemini-3-pro-image-preview",
-      contents: contentsPayload,
-      config: {
-        imageConfig: {
-          // imageSize 只有 Gemini 3 Pro 才支持
-          ...((settings.modelName || '').includes('gemini-3') ? { imageSize: settings.resolution } : {}),
-          ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
+    for (let attempt = 0; attempt <= MAX_EMPTY_CONTENT_RETRIES; attempt++) {
+      const responseStream = await ai.models.generateContentStream({
+        model: normalizedModelName,
+        contents: contentsPayload,
+        config: {
+          imageConfig,
+          tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
+          responseModalities: ["TEXT", "IMAGE"],
         },
-        tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
-        responseModalities: ["TEXT", "IMAGE"],
-      },
-    });
+      });
 
-    let currentParts: Part[] = [];
+      let currentParts: Part[] = [];
+      let lastChunk: any = null;
 
-    for await (const chunk of responseStream) {
-      if (signal?.aborted) {
-        break;
+      for await (const chunk of responseStream) {
+        if (signal?.aborted) {
+          break;
+        }
+        lastChunk = chunk;
+        const candidates = chunk.candidates;
+        if (!candidates || candidates.length === 0) continue;
+
+        const newParts = candidates[0].content?.parts || [];
+
+        for (const part of newParts) {
+          appendSdkPart(currentParts, part);
+        }
+
+        yield {
+          userContent: currentUserContent,
+          modelParts: currentParts // Yield the accumulated parts
+        };
       }
-      const candidates = chunk.candidates;
-      if (!candidates || candidates.length === 0) continue;
 
-      const newParts = candidates[0].content?.parts || [];
-
-      for (const part of newParts) {
-        appendSdkPart(currentParts, part);
+      if (currentParts.length > 0) {
+        return;
       }
 
-      yield {
-        userContent: currentUserContent,
-        modelParts: currentParts // Yield the accumulated parts
-      };
-    }
-
-    if (currentParts.length === 0) {
-      throw new Error("No content generated");
+      const noContentMessage = buildNoContentErrorMessage(lastChunk);
+      const safetyBlocked = isSafetyBlockedPayload(lastChunk);
+      if (safetyBlocked || attempt >= MAX_EMPTY_CONTENT_RETRIES) {
+        throw new Error(noContentMessage);
+      }
     }
   } catch (error) {
     console.error("Gemini API Stream Error:", error);
@@ -223,6 +284,11 @@ export const generateContent = async (
 
   const currentUserContent = constructUserContent(prompt, images);
   const contentsPayload = [...compressedHistory, currentUserContent];
+  const { normalizedModelName, imageConfig } = sanitizeImageConfigForModel({
+    modelName: settings.modelName || DEFAULT_MODEL_NAME,
+    resolution: settings.resolution,
+    aspectRatio: settings.aspectRatio,
+  });
 
   try {
     // If signal is aborted before we start, throw immediately
@@ -230,35 +296,39 @@ export const generateContent = async (
       throw new DOMException('Aborted', 'AbortError');
     }
 
-    const response = await ai.models.generateContent({
-      model: settings.modelName || "gemini-3-pro-image-preview",
-      contents: contentsPayload,
-      config: {
-        imageConfig: {
-          // imageSize 只有 Gemini 3 Pro 才支持
-          ...((settings.modelName || '').includes('gemini-3') ? { imageSize: settings.resolution } : {}),
-          ...(settings.aspectRatio !== 'Auto' ? { aspectRatio: settings.aspectRatio } : {}),
+    for (let attempt = 0; attempt <= MAX_EMPTY_CONTENT_RETRIES; attempt++) {
+      const response = await ai.models.generateContent({
+        model: normalizedModelName,
+        contents: contentsPayload,
+        config: {
+          imageConfig,
+          tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
+          responseModalities: ["TEXT", "IMAGE"],
         },
-        tools: settings.useGrounding ? [{ googleSearch: {} }] : [],
-        responseModalities: ["TEXT", "IMAGE"],
-      },
-    });
+      });
 
-    if (signal?.aborted) {
-      throw new DOMException('Aborted', 'AbortError');
+      if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+      }
+
+      const candidate = response.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+      if (parts.length > 0) {
+        const modelParts = processSdkParts(parts);
+        return {
+          userContent: currentUserContent,
+          modelParts: modelParts
+        };
+      }
+
+      const noContentMessage = buildNoContentErrorMessage(response);
+      const safetyBlocked = isSafetyBlockedPayload(response);
+      if (safetyBlocked || attempt >= MAX_EMPTY_CONTENT_RETRIES) {
+        throw new Error(noContentMessage);
+      }
     }
 
-    const candidate = response.candidates?.[0];
-    if (!candidate || !candidate.content || !candidate.content.parts) {
-      throw new Error("No content generated.");
-    }
-
-    const modelParts = processSdkParts(candidate.content.parts);
-
-    return {
-      userContent: currentUserContent,
-      modelParts: modelParts
-    };
+    throw new Error("No content generated.");
 
   } catch (error) {
     console.error("Gemini API Error:", error);
