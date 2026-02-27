@@ -71,8 +71,8 @@ const IMAGE_MODEL_ALIASES: Record<string, string> = {
 };
 
 export const IMAGE_MODEL_OPTIONS: readonly ImageModelOption[] = [
-  { name: BANANA_2_PROFILE.name, label: BANANA_2_PROFILE.label, recommended: true },
-  { name: BANANA_PRO_PROFILE.name, label: BANANA_PRO_PROFILE.label },
+  { name: BANANA_PRO_PROFILE.name, label: BANANA_PRO_PROFILE.label, recommended: true },
+  { name: BANANA_2_PROFILE.name, label: BANANA_2_PROFILE.label },
   { name: BANANA_25_PROFILE.name, label: BANANA_25_PROFILE.label },
 ] as const;
 
@@ -90,7 +90,7 @@ export const IMAGE_MODEL_LABEL_MAP: Record<string, string> = {
   'gemini-2.5-flash-image-preview': 'Banana（2.5模型，兼容ID）',
 };
 
-export const DEFAULT_MODEL_NAME = BANANA_2_PROFILE.name;
+export const DEFAULT_MODEL_NAME = BANANA_PRO_PROFILE.name;
 export const DEFAULT_RESOLUTION: ModelResolution = '1K';
 export const DEFAULT_ASPECT_RATIO: ModelAspectRatio = 'Auto';
 const DEFAULT_ASPECT_RATIO_OPTIONS: readonly ModelAspectRatio[] = ['Auto', ...COMMON_ASPECT_RATIOS];

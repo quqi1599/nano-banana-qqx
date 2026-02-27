@@ -3,17 +3,17 @@
 /* ===== Tailwind CSS 4 主题配置 ===== */
 @theme {
   /* Cream 色系 */
-  --color-cream-50: #fffef9;
-  --color-cream-100: #fffef0;
-  --color-cream-200: #fffbe0;
-  --color-cream-300: #fff5c2;
-  --color-cream-400: #ffeb94;
-  --color-cream-500: #fdd849;
-  --color-cream-600: #eac02b;
-  --color-cream-700: #c29a18;
-  --color-cream-800: #9c7a18;
-  --color-cream-900: #7d6217;
-  --color-cream-950: #433209;
+  --color-cream-50: #fffbeb;
+  --color-cream-100: #fef3c7;
+  --color-cream-200: #fde68a;
+  --color-cream-300: #fcd34d;
+  --color-cream-400: #fbbf24;
+  --color-cream-500: #d97706;
+  --color-cream-600: #b45309;
+  --color-cream-700: #92400e;
+  --color-cream-800: #78350f;
+  --color-cream-900: #5f2f0d;
+  --color-cream-950: #3b1d07;
   
   /* Dark 色系 */
   --color-dark-bg: #0a0a0a;
