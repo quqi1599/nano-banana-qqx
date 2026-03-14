@@ -259,12 +259,14 @@ export const ConversationHistoryPanel = ({
                 {/* 收起状态侧边栏 - Liquid Glass 效果 */}
                 <div
                     className={`
-                        fixed lg:relative z-50 h-full
-                        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                        ${isOpen ? 'fixed inset-y-0 left-0 flex' : 'hidden'}
+                        lg:relative lg:inset-y-auto lg:left-auto lg:flex
+                        z-50 h-full
+                        ${isOpen ? 'translate-x-0' : 'lg:translate-x-0'}
                         w-16 flex-shrink-0
                         liquid-glass border-r border-white/20 dark:border-white/10
                         transition-all duration-300
-                        flex flex-col items-center py-4
+                        flex-col items-center py-4
                     `}
                 >
                     {/* 展开/收起按钮 */}
@@ -314,12 +316,14 @@ export const ConversationHistoryPanel = ({
             {/* 侧边栏 - Liquid Glass 效果 */}
             <div
                 className={`
-                    fixed lg:relative z-50 h-full
-                    ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                    ${isOpen ? 'fixed inset-y-0 left-0 flex' : 'hidden'}
+                    lg:relative lg:inset-y-auto lg:left-auto lg:flex
+                    z-50 h-full
+                    ${isOpen ? 'translate-x-0' : 'lg:translate-x-0'}
                     w-72 sm:w-80 flex-shrink-0
                     liquid-glass border-r border-white/20 dark:border-white/10
                     transition-all duration-300
-                    flex flex-col
+                    flex-col
                 `}
             >
                 {/* 头部 - 玻璃效果 */}
