@@ -879,14 +879,14 @@ const App: React.FC = () => {
         {/* Settings Sidebar (Desktop/Mobile Overlay) */}
         <div
           className={`
-            absolute inset-0 z-20 flex justify-end
-            transition-all duration-300 ease-in-out
             ${isSettingsOpen
-              ? 'bg-black/50 backdrop-blur-sm pointer-events-auto'
-              : 'bg-transparent backdrop-blur-none pointer-events-none'
+              ? 'absolute inset-0 z-20 flex justify-end bg-black/50 backdrop-blur-sm pointer-events-auto'
+              : 'hidden'
             }
+            transition-all duration-300 ease-in-out
             
             md:static md:z-auto md:bg-transparent md:backdrop-blur-none md:pointer-events-auto md:overflow-hidden
+            md:flex md:justify-end
             md:transition-[width,border-color]
             ${isSettingsOpen
               ? 'md:w-80 md:border-l md:border-gray-200 dark:md:border-gray-800'

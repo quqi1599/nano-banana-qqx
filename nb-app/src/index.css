@@ -713,12 +713,14 @@
 /* ===== 基础样式 ===== */
 html {
   overscroll-behavior-y: none;
+  overflow-x: hidden;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', 'Roboto', sans-serif;
   @apply bg-cream-50 text-cream-900 dark:bg-dark-bg dark:text-dark-text transition-colors duration-200;
   overscroll-behavior-y: none;
+  overflow-x: hidden;
   touch-action: manipulation;
   -webkit-touch-callout: none;
   -webkit-font-smoothing: antialiased;
