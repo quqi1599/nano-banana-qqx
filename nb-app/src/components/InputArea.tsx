@@ -427,7 +427,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             {attachments.map((att, i) => (
               <div 
                 key={i} 
-                className="relative h-16 w-16 xs:h-18 xs:w-18 sm:h-20 sm:w-20 shrink-0 rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group overflow-y-auto overflow-x-hidden shadow-sm hover:shadow-md transition-all duration-200"
+                className="relative h-16 w-16 xs:h-[4.5rem] xs:w-[4.5rem] sm:h-20 sm:w-20 shrink-0 rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 group overflow-y-auto overflow-x-hidden shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <img
                   src={att.preview}
@@ -453,7 +453,7 @@ export const InputArea: React.FC<Props> = ({ onSend, onStop, onOpenArcade, isArc
             {attachments.length < MAX_ATTACHMENTS && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-16 w-16 xs:h-18 xs:w-18 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-cream-400 hover:text-cream-500 transition-colors"
+                className="flex h-16 w-16 xs:h-[4.5rem] xs:w-[4.5rem] sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-lg sm:rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-400 hover:border-cream-400 hover:text-cream-500 transition-colors"
               >
                 <ImagePlus className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
