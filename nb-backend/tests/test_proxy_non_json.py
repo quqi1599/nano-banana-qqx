@@ -84,6 +84,24 @@ class FakeSuccessResponse:
         }
 
 
+class FakeOpenAIResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "ok-from-openai"},
+                        ],
+                    }
+                }
+            ]
+        }
+
+
 class FakeClient:
     async def __aenter__(self):
         return self
@@ -121,6 +139,21 @@ class FakeRetryClient:
         if self.calls == 1:
             return FakeEmptyResponse()
         return FakeSuccessResponse()
+
+
+class FakeOpenAIClient:
+    def __init__(self) -> None:
+        self.calls = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def post(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        return FakeOpenAIResponse()
 
 
 def build_request(payload: dict) -> Request:
@@ -249,3 +282,53 @@ async def test_proxy_generate_retries_next_token_after_empty_content(monkeypatch
     assert retry_client.calls == 2
     assert data["candidates"][0]["content"]["parts"][0]["text"] == "ok"
     assert refund_called is False
+
+
+@pytest.mark.anyio
+async def test_proxy_generate_supports_openai_compatible_mode(monkeypatch):
+    db = FakeDB()
+    user = FakeUser()
+    token = FakeToken()
+    openai_client = FakeOpenAIClient()
+
+    async def fake_get_credits_for_model(_db, _model_name):
+        return 1
+
+    async def fake_get_available_tokens(_db, lock=False):
+        return [token]
+
+    async def fake_reserve_user_credits(_db, _user_id, _credits, _model_name):
+        return None
+
+    async def fake_refund_user_credits(_db, _user_id, _credits, _model_name, _reason):
+        return None
+
+    monkeypatch.setattr(proxy_module, "get_credits_for_model", fake_get_credits_for_model)
+    monkeypatch.setattr(proxy_module, "get_available_tokens", fake_get_available_tokens)
+    monkeypatch.setattr(proxy_module, "reserve_user_credits", fake_reserve_user_credits)
+    monkeypatch.setattr(proxy_module, "refund_user_credits", fake_refund_user_credits)
+    monkeypatch.setattr(proxy_module, "decrypt_api_key", lambda key: key)
+    monkeypatch.setattr(proxy_module.httpx, "AsyncClient", lambda timeout=120.0: openai_client)
+    monkeypatch.setattr(proxy_module.settings, "token_encryption_key", "")
+    monkeypatch.setattr(proxy_module.settings, "newapi_base_url", "https://unit.test")
+
+    request = build_request({
+        "model": "gemini-3-pro-image-preview",
+        "request_mode": "openai_compatible",
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": "hello"}],
+            }
+        ],
+    })
+
+    data = await proxy_module.proxy_generate(request, current_user=user, db=db)
+
+    assert data["candidates"][0]["content"]["parts"][0]["text"] == "ok-from-openai"
+    assert len(openai_client.calls) == 1
+
+    args, kwargs = openai_client.calls[0]
+    assert args[0] == "https://unit.test/v1/chat/completions"
+    assert kwargs["headers"]["Authorization"] == "Bearer plain-key"
+    assert kwargs["json"]["messages"][0]["content"] == "hello"

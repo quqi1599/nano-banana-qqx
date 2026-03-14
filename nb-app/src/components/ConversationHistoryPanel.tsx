@@ -13,9 +13,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { Conversation } from '../services/conversationService';
 import { Pagination } from './Pagination';
-
-// 默认中转接口地址
-const DEFAULT_API_ENDPOINT = 'https://nanobanana2.peacedejiai.cc/';
+import { isTrustedRelayEndpoint, normalizeRelayEndpoint } from '../config/api';
 
 interface ConversationHistoryPanelProps {
     isOpen: boolean;
@@ -93,27 +91,28 @@ function groupConversationsByUser(
     const groupLabels = new Map<string, string>();
 
     conversations.forEach(conv => {
-        const isDefaultUrl = !conv.custom_endpoint || conv.custom_endpoint === DEFAULT_API_ENDPOINT;
+        const normalizedEndpoint = conv.custom_endpoint ? normalizeRelayEndpoint(conv.custom_endpoint) : '';
+        const isOfficialRelay = !conv.custom_endpoint || isTrustedRelayEndpoint(conv.custom_endpoint);
         const apiKeyPrefix = conv.api_key_prefix;
 
         let groupKey: string;
         let groupLabel: string;
 
-        if (isDefaultUrl && !apiKeyPrefix) {
-            // 淘宝用户（使用默认URL，没有自定义API Key前缀）
+        if (isOfficialRelay && !apiKeyPrefix) {
+            // 官方线路用户（没有自定义 API Key 前缀）
             groupKey = 'taobao_users';
             groupLabel = '🛒 淘宝用户';
-        } else if (isDefaultUrl && apiKeyPrefix) {
-            // 有自定义API Key 但使用默认URL，显示完整前缀
-            groupKey = `api_${apiKeyPrefix}_default_url`;
+        } else if (isOfficialRelay && apiKeyPrefix) {
+            // 有自定义 API Key 且走官方线路，显示完整前缀
+            groupKey = `api_${apiKeyPrefix}_official_relay`;
             groupLabel = `🔑 ${apiKeyPrefix}`;
-        } else if (!isDefaultUrl && apiKeyPrefix) {
-            // 自定义URL + 自定义API Key，显示完整前缀
-            groupKey = `api_${apiKeyPrefix}_custom_url`;
+        } else if (!isOfficialRelay && apiKeyPrefix) {
+            // 非官方线路 + 自定义 API Key
+            groupKey = `api_${apiKeyPrefix}_${normalizedEndpoint || 'custom_url'}`;
             groupLabel = `🔑 ${apiKeyPrefix}`;
         } else {
-            // 自定义URL但没有API Key前缀（边缘情况）
-            groupKey = `custom_${conv.custom_endpoint}`;
+            // 非官方线路但没有 API Key 前缀（兼容旧数据）
+            groupKey = `custom_${normalizedEndpoint || 'unknown'}`;
             groupLabel = `🌐 自定义接口`;
         }
 

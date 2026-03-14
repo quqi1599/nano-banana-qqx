@@ -1,3 +1,5 @@
+export type RequestMode = 'google_native' | 'openai_compatible';
+
 export interface AppSettings {
   resolution: '512' | '1K' | '2K' | '4K';
   aspectRatio: 'Auto' | '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9' | '1:4' | '1:8' | '4:1' | '8:1';
@@ -5,6 +7,7 @@ export interface AppSettings {
   enableThinking: boolean;
   streamResponse: boolean;
   sendHistory: boolean;
+  requestMode: RequestMode;
   customEndpoint?: string;
   modelName?: string;
   theme: 'light' | 'dark' | 'system';

@@ -1,4 +1,9 @@
-import { ALLOWED_ENDPOINT_HOSTS, DEFAULT_API_ENDPOINT } from '../config/api';
+import {
+  ALLOWED_ENDPOINT_HOSTS,
+  DEFAULT_API_ENDPOINT,
+  getTrustedRelayEndpoint,
+  isTrustedRelayEndpoint,
+} from '../config/api';
 
 const parseEnvHosts = (): string[] => {
   const raw = import.meta.env?.VITE_ALLOWED_ENDPOINT_HOSTS;
@@ -42,25 +47,19 @@ export const validateEndpoint = (raw: string): { ok: boolean; reason?: string; n
     return { ok: false, reason: '仅允许 https 接口地址。' };
   }
 
-  // 不再强制域名白名单，允许用户自定义任意 https 域名
-
   if (url.search || url.hash) {
     return { ok: false, reason: '接口地址不允许包含查询参数或片段。' };
   }
 
-  return { ok: true, normalized: normalizeEndpoint(trimmed) };
+  if (!isTrustedRelayEndpoint(trimmed)) {
+    return { ok: false, reason: '当前仅支持平台提供的两套中转线路，请从下拉中选择。' };
+  }
+
+  return { ok: true, normalized: getTrustedRelayEndpoint(trimmed) };
 };
 
 export const getApiBaseUrl = (customEndpoint?: string): string => {
-  if (!customEndpoint || !customEndpoint.trim()) {
-    return DEFAULT_API_ENDPOINT;
-  }
-
-  const result = validateEndpoint(customEndpoint);
-  if (!result.ok) {
-    return DEFAULT_API_ENDPOINT;
-  }
-  return result.normalized || DEFAULT_API_ENDPOINT;
+  return getTrustedRelayEndpoint(customEndpoint);
 };
 
 const getProxyBaseUrl = (): string => {

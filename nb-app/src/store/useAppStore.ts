@@ -17,8 +17,9 @@ import { AppSettings, ChatMessage, Part, ImageHistoryItem } from '../types';
 import { createThumbnail } from '../utils/imageUtils';
 import { offloadMessageParts, resolveMessageImageData } from '../utils/messageImageUtils';
 import { deleteMessageImage } from '../utils/messageImageStore';
-import { DEFAULT_API_ENDPOINT } from '../config/api';
+import { DEFAULT_API_ENDPOINT, getTrustedRelayEndpoint } from '../config/api';
 import { DEFAULT_ASPECT_RATIO, DEFAULT_MODEL_NAME, DEFAULT_RESOLUTION } from '../constants/modelProfiles';
+import { DEFAULT_REQUEST_MODE } from '../constants/requestModes';
 import { useUiStore } from './useUiStore';
 import { getCsrfToken } from '../utils/csrf';
 
@@ -40,6 +41,17 @@ const getOrGenerateVisitorId = () => {
 const SYNC_MAX_ATTEMPTS = 5;
 let syncQueueTimer: ReturnType<typeof setTimeout> | null = null;
 const LOCAL_TITLE_MAX_LENGTH = 50;
+
+const sanitizeSettings = (settings: AppSettings): AppSettings => {
+  const customEndpoint = getTrustedRelayEndpoint(settings.customEndpoint);
+  const requestMode = settings.requestMode;
+
+  return {
+    ...settings,
+    customEndpoint,
+    enableThinking: requestMode === 'openai_compatible' ? false : settings.enableThinking,
+  };
+};
 
 const generateLocalTitle = (message: ChatMessage): string | null => {
   if (message.role !== 'user') return null;
@@ -171,6 +183,7 @@ export const useAppStore = create<AppState>()(
         enableThinking: false,
         streamResponse: true,
         sendHistory: false,
+        requestMode: DEFAULT_REQUEST_MODE,
         customEndpoint: DEFAULT_API_ENDPOINT,
         modelName: DEFAULT_MODEL_NAME,
         theme: 'light',
@@ -238,11 +251,11 @@ export const useAppStore = create<AppState>()(
 
       updateSettings: (newSettings) =>
         set((state) => {
-          const updatedSettings = { ...state.settings, ...newSettings };
+          const updatedSettings = sanitizeSettings({ ...state.settings, ...newSettings });
           // 同步 customEndpoint 到 localStorage，供 conversationService 使用
-          if (newSettings.customEndpoint !== undefined) {
-            if (newSettings.customEndpoint) {
-              localStorage.setItem(CUSTOM_ENDPOINT_STORAGE, newSettings.customEndpoint);
+          if (newSettings.customEndpoint !== undefined || updatedSettings.customEndpoint !== state.settings.customEndpoint) {
+            if (updatedSettings.customEndpoint) {
+              localStorage.setItem(CUSTOM_ENDPOINT_STORAGE, updatedSettings.customEndpoint);
             } else {
               localStorage.removeItem(CUSTOM_ENDPOINT_STORAGE);
             }
@@ -1131,6 +1144,12 @@ export const useAppStore = create<AppState>()(
           localStorage.removeItem(API_KEY_STORAGE);
         }
 
+        if (state.settings?.customEndpoint) {
+          localStorage.setItem(CUSTOM_ENDPOINT_STORAGE, state.settings.customEndpoint);
+        } else {
+          localStorage.removeItem(CUSTOM_ENDPOINT_STORAGE);
+        }
+
         if (!shouldPersistLocalHistory()) {
           return;
         }
@@ -1173,10 +1192,10 @@ export const useAppStore = create<AppState>()(
         return {
           ...currentState,
           ...persisted,
-          settings: {
+          settings: sanitizeSettings({
             ...currentState.settings,
             ...persisted.settings,
-          },
+          }),
         };
       },
       partialize: (state) => ({

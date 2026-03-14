@@ -22,6 +22,7 @@ import { validateEndpoint } from './utils/endpointUtils';
 import { DEFAULT_API_ENDPOINT } from './config/api';
 import { SessionManager } from './components/SessionManager';
 import { normalizeImageModelName } from './constants/modelProfiles';
+import { REQUEST_MODE_OPTIONS, normalizeRequestMode } from './constants/requestModes';
 
 const RELEASE_NOTICE_KEY = 'nbnb_release_notice_3_1_seen';
 
@@ -300,9 +301,17 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const urlEndpoint = params.get('endpoint')?.trim();
     const urlModel = params.get('model');
+    const urlRequestMode =
+      params.get('mode') ||
+      params.get('request_mode') ||
+      params.get('requestMode');
 
     if (urlModel) {
       updateSettings({ modelName: normalizeImageModelName(urlModel) });
+    }
+
+    if (urlRequestMode) {
+      updateSettings({ requestMode: normalizeRequestMode(urlRequestMode) });
     }
 
     if (urlEndpoint) {
@@ -311,7 +320,7 @@ const App: React.FC = () => {
       if (!result.ok) {
         showDialog({
           type: 'alert',
-          title: '无效接口地址',
+          title: '无效中转线路',
           message: result.reason || '接口地址格式不正确。',
           onConfirm: () => { }
         });
@@ -319,8 +328,8 @@ const App: React.FC = () => {
         const normalizedEndpoint = result.normalized || urlEndpoint;
         showDialog({
           type: 'confirm',
-          title: '应用自定义接口地址？',
-          message: `检测到 URL 中的接口地址：${normalizedEndpoint}\n仅在信任该地址时应用。`,
+          title: '应用中转线路？',
+          message: `检测到 URL 中的中转线路：${normalizedEndpoint}\n确认后会切换到这条官方线路。`,
           confirmLabel: '应用',
           cancelLabel: '忽略',
           onConfirm: () => updateSettings({ customEndpoint: normalizedEndpoint })
@@ -341,7 +350,7 @@ const App: React.FC = () => {
     const result = validateEndpoint(settings.customEndpoint);
     if (!result.ok) {
       updateSettings({ customEndpoint: DEFAULT_API_ENDPOINT });
-      addToast('接口地址已重置为默认值（仅支持 https 且不允许用户名/密码或参数）', 'info');
+      addToast('中转线路已重置为默认值（当前仅支持两条官方线路）', 'info');
       return;
     }
     if (result.normalized && result.normalized !== settings.customEndpoint) {
@@ -482,6 +491,26 @@ const App: React.FC = () => {
           )}
 
           {/* New Chat Button */}
+          <div className="hidden md:flex items-center rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-100/80 dark:bg-gray-900/70 p-1">
+            {REQUEST_MODE_OPTIONS.map((option) => {
+              const isActive = settings.requestMode === option.value;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => updateSettings({ requestMode: option.value })}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    isActive
+                      ? 'bg-white dark:bg-gray-800 text-amber-600 dark:text-amber-400 shadow-sm'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                  title={option.description}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
           <button
             onClick={() => {
               const handleClear = async () => {
@@ -734,6 +763,33 @@ const App: React.FC = () => {
                   {apiKey ? '更换 API Key' : '设置 API Key'}
                 </button>
               )}
+
+              <div className="px-3 py-2">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  请求模式
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {REQUEST_MODE_OPTIONS.map((option) => {
+                    const isActive = settings.requestMode === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          updateSettings({ requestMode: option.value });
+                          closeMobileMenu();
+                        }}
+                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                          isActive
+                            ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
+                            : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {(apiKey || isAuthenticated) && (
                 <>

@@ -412,6 +412,7 @@ export const getUserCreditHistory = async (
 export interface UsageLogItem {
     id: string;
     model_name: string;
+    request_mode: string;
     credits_used: number;
     request_type: string;
     prompt_preview: string | null;

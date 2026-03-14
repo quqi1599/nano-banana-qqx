@@ -34,6 +34,9 @@ router = APIRouter()
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+REQUEST_MODE_GOOGLE_NATIVE = "google_native"
+REQUEST_MODE_OPENAI_COMPATIBLE = "openai_compatible"
+
 _SECRET_KV_PATTERN = re.compile(
     r"(?i)(api[-_ ]?key|authorization|token)\s*[:=]\s*([A-Za-z0-9\-_=]{8,})"
 )
@@ -246,6 +249,394 @@ def _is_rate_limit_error(detail: str) -> bool:
     return _matches_any_hint(lowered, _RATE_LIMIT_HINTS)
 
 
+def _normalize_request_mode(raw_value: Any) -> str:
+    if raw_value is None:
+        return REQUEST_MODE_GOOGLE_NATIVE
+    if not isinstance(raw_value, str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="request_mode 必须是字符串",
+        )
+
+    normalized = raw_value.strip().lower().replace("-", "_")
+    if normalized in {"google", "native", "google_native", "gemini"}:
+        return REQUEST_MODE_GOOGLE_NATIVE
+    if normalized in {"openai", "openai_compatible", "openai_compat"}:
+        return REQUEST_MODE_OPENAI_COMPATIBLE
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"不支持的请求模式: {raw_value}",
+    )
+
+
+def _strip_request_mode(body: dict[str, Any]) -> dict[str, Any]:
+    sanitized = dict(body)
+    sanitized.pop("request_mode", None)
+    return sanitized
+
+
+def _append_gemini_text_part(parts: list[dict[str, Any]], text: str, *, thought: bool = False) -> None:
+    if not text:
+        return
+    if parts and "text" in parts[-1] and bool(parts[-1].get("thought")) is thought:
+        parts[-1]["text"] += text
+        return
+    part: dict[str, Any] = {"text": text}
+    if thought:
+        part["thought"] = True
+    parts.append(part)
+
+
+def _append_gemini_image_part(parts: list[dict[str, Any]], mime_type: str, data: str) -> None:
+    if not data:
+        return
+    parts.append({
+        "inlineData": {
+            "mimeType": mime_type or "image/png",
+            "data": data,
+        }
+    })
+
+
+def _append_gemini_image_url_part(parts: list[dict[str, Any]], url: str) -> None:
+    match = re.match(r"^data:(.+?);base64,(.+)$", url, re.IGNORECASE)
+    if match:
+        _append_gemini_image_part(parts, match.group(1), match.group(2))
+        return
+    _append_gemini_text_part(parts, url)
+
+
+def _append_openai_block_as_gemini_part(
+    parts: list[dict[str, Any]],
+    block: Any,
+    *,
+    thought: bool = False,
+) -> None:
+    if block is None:
+        return
+
+    if isinstance(block, str):
+        _append_gemini_text_part(parts, block, thought=thought)
+        return
+
+    if isinstance(block, list):
+        for item in block:
+            _append_openai_block_as_gemini_part(parts, item, thought=thought)
+        return
+
+    if not isinstance(block, dict):
+        return
+
+    reasoning_content = block.get("reasoning_content")
+    if isinstance(reasoning_content, str):
+        _append_gemini_text_part(parts, reasoning_content, thought=True)
+
+    block_type = block.get("type")
+    if block_type in {"reasoning", "thinking"}:
+        text = block.get("text") or block.get("value") or ""
+        if isinstance(text, str):
+            _append_gemini_text_part(parts, text, thought=True)
+        return
+
+    if block_type in {"text", "input_text", "output_text"}:
+        text = block.get("text") or block.get("value") or ""
+        if isinstance(text, str):
+            _append_gemini_text_part(parts, text, thought=thought)
+        return
+
+    if block_type in {"image_url", "input_image", "output_image"}:
+        if isinstance(block.get("b64_json"), str):
+            _append_gemini_image_part(
+                parts,
+                str(block.get("mime_type") or "image/png"),
+                block["b64_json"],
+            )
+            return
+
+        image_url = block.get("image_url")
+        if isinstance(image_url, dict):
+            image_url = image_url.get("url")
+        if not isinstance(image_url, str):
+            image_url = block.get("url")
+        if isinstance(image_url, str) and image_url:
+            _append_gemini_image_url_part(parts, image_url)
+        return
+
+    if isinstance(block.get("b64_json"), str):
+        _append_gemini_image_part(
+            parts,
+            str(block.get("mime_type") or "image/png"),
+            block["b64_json"],
+        )
+        return
+
+    text = block.get("text")
+    if isinstance(text, str):
+        _append_gemini_text_part(parts, text, thought=thought)
+
+
+def _extract_openai_image_parts(items: Any) -> list[dict[str, Any]]:
+    parts: list[dict[str, Any]] = []
+    if not isinstance(items, list):
+        return parts
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        b64_json = item.get("b64_json")
+        if isinstance(b64_json, str):
+            _append_gemini_image_part(
+                parts,
+                str(item.get("mime_type") or "image/png"),
+                b64_json,
+            )
+            continue
+        image_url = item.get("url")
+        if isinstance(image_url, str) and image_url:
+            _append_gemini_image_url_part(parts, image_url)
+    return parts
+
+
+def _extract_openai_message_parts(message: Any) -> list[dict[str, Any]]:
+    parts: list[dict[str, Any]] = []
+    if not isinstance(message, dict):
+        return parts
+
+    reasoning_content = message.get("reasoning_content")
+    if isinstance(reasoning_content, str):
+        _append_gemini_text_part(parts, reasoning_content, thought=True)
+
+    reasoning = message.get("reasoning")
+    if isinstance(reasoning, list):
+        for item in reasoning:
+            _append_openai_block_as_gemini_part(parts, item, thought=True)
+
+    _append_openai_block_as_gemini_part(parts, message.get("content"))
+    parts.extend(_extract_openai_image_parts(message.get("images")))
+    return parts
+
+
+def _normalize_openai_finish_reason(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    normalized = value.strip().upper()
+    if normalized == "CONTENT_FILTER":
+        return "SAFETY"
+    return normalized
+
+
+def _normalize_openai_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return {"candidates": []}
+
+    choices = payload.get("choices")
+    choice = choices[0] if isinstance(choices, list) and choices else {}
+    if not isinstance(choice, dict):
+        choice = {}
+
+    message_parts = _extract_openai_message_parts(choice.get("message"))
+    if not message_parts:
+        message_parts = _extract_openai_image_parts(payload.get("data"))
+
+    candidate: dict[str, Any] = {}
+    if message_parts:
+        candidate["content"] = {"parts": message_parts}
+
+    finish_reason = _normalize_openai_finish_reason(choice.get("finish_reason"))
+    if finish_reason:
+        candidate["finishReason"] = finish_reason
+
+    normalized: dict[str, Any] = {"candidates": [candidate] if candidate else []}
+    if finish_reason == "SAFETY":
+        normalized["promptFeedback"] = {"blockReason": "SAFETY"}
+    return normalized
+
+
+def _convert_native_part_to_openai_block(part: Any) -> list[dict[str, Any]]:
+    if not isinstance(part, dict):
+        return []
+
+    if isinstance(part.get("text"), str) and part["text"].strip():
+        return [{"type": "text", "text": part["text"]}]
+
+    inline_data = part.get("inlineData")
+    if isinstance(inline_data, dict):
+        mime_type = inline_data.get("mimeType") or "image/png"
+        data = inline_data.get("data")
+        if isinstance(data, str) and data:
+            return [{
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime_type};base64,{data}"},
+            }]
+    return []
+
+
+def _convert_native_contents_to_openai_messages(contents: Any) -> list[dict[str, Any]]:
+    messages: list[dict[str, Any]] = []
+    if not isinstance(contents, list):
+        return messages
+
+    for item in contents:
+        if not isinstance(item, dict):
+            continue
+
+        role = item.get("role")
+        if role == "model":
+            mapped_role = "assistant"
+        elif role == "user":
+            mapped_role = "user"
+        else:
+            mapped_role = "user"
+
+        blocks: list[dict[str, Any]] = []
+        parts = item.get("parts")
+        if isinstance(parts, list):
+            for part in parts:
+                blocks.extend(_convert_native_part_to_openai_block(part))
+
+        if not blocks:
+            continue
+
+        has_non_text = any(block.get("type") != "text" for block in blocks)
+        if has_non_text:
+            content: Any = blocks
+        else:
+            content = "\n\n".join(
+                block["text"]
+                for block in blocks
+                if isinstance(block.get("text"), str) and block["text"]
+            )
+
+        messages.append({
+            "role": mapped_role,
+            "content": content,
+        })
+
+    return messages
+
+
+def _build_google_target_url(model_name: str, *, stream: bool) -> str:
+    suffix = "streamGenerateContent" if stream else "generateContent"
+    base_url = settings.newapi_base_url.rstrip("/")
+    if base_url.endswith("/v1beta"):
+        return f"{base_url}/models/{model_name}:{suffix}"
+    return f"{base_url}/v1beta/models/{model_name}:{suffix}"
+
+
+def _build_openai_target_url() -> str:
+    base_url = settings.newapi_base_url.rstrip("/")
+    if base_url.endswith("/chat/completions"):
+        return base_url
+    if (
+        base_url.endswith("/v1")
+        or base_url.endswith("/openai")
+        or base_url.endswith("/v1beta/openai")
+    ):
+        return f"{base_url}/chat/completions"
+    return f"{base_url}/v1/chat/completions"
+
+
+def _build_openai_payload(body: dict[str, Any], model_name: str, *, stream: bool) -> dict[str, Any]:
+    config = body.get("config")
+    config_dict = config if isinstance(config, dict) else {}
+
+    payload: dict[str, Any] = {
+        "model": model_name,
+        "messages": _convert_native_contents_to_openai_messages(body.get("contents")),
+        "stream": stream,
+    }
+
+    response_modalities = config_dict.get("responseModalities")
+    if isinstance(response_modalities, list) and response_modalities:
+        payload["modalities"] = [str(item).lower() for item in response_modalities]
+
+    image_config = config_dict.get("imageConfig")
+    if isinstance(image_config, dict) and image_config:
+        payload["image_config"] = image_config
+
+    tools = config_dict.get("tools")
+    if isinstance(tools, list) and tools:
+        payload["tools"] = [{"type": "google_search"}]
+
+    return payload
+
+
+def _build_upstream_request(
+    body: dict[str, Any],
+    model_name: str,
+    request_mode: str,
+    plain_key: str,
+    *,
+    stream: bool,
+) -> tuple[str, dict[str, str], dict[str, Any]]:
+    sanitized_body = _strip_request_mode(body)
+
+    if request_mode == REQUEST_MODE_OPENAI_COMPATIBLE:
+        return (
+            _build_openai_target_url(),
+            {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {plain_key}",
+            },
+            _build_openai_payload(sanitized_body, model_name, stream=stream),
+        )
+
+    return (
+        _build_google_target_url(model_name, stream=stream),
+        {
+            "Content-Type": "application/json",
+            "x-goog-api-key": plain_key,
+        },
+        sanitized_body,
+    )
+
+
+def _normalize_success_payload(payload: Any, request_mode: str) -> dict[str, Any]:
+    if request_mode == REQUEST_MODE_OPENAI_COMPATIBLE:
+        return _normalize_openai_payload(payload)
+    if isinstance(payload, dict):
+        return payload
+    return {"candidates": []}
+
+
+def _normalize_openai_stream_line(line: bytes) -> dict[str, Any] | None:
+    decoded = line.strip()
+    if not decoded:
+        return None
+    if decoded.startswith(b"data:"):
+        decoded = decoded[5:].strip()
+    if not decoded or decoded == b"[DONE]":
+        return None
+    payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+    return _normalize_openai_payload(payload)
+
+
+def _build_usage_log(
+    *,
+    user_id: str,
+    model_name: str,
+    request_mode: str,
+    credits_used: int,
+    token_id: str | None,
+    request_type: str,
+    prompt_preview: str,
+    is_success: bool,
+    error_message: str | None,
+) -> UsageLog:
+    return UsageLog(
+        user_id=user_id,
+        model_name=model_name,
+        request_mode=request_mode,
+        credits_used=credits_used,
+        token_id=token_id,
+        request_type=request_type,
+        prompt_preview=prompt_preview,
+        is_success=is_success,
+        error_message=error_message,
+    )
+
+
 def _build_key_updates(token: TokenPool, plain_key: str) -> dict[str, str]:
     if not settings.token_encryption_key or token.api_key.startswith("enc:"):
         return {}
@@ -433,14 +824,11 @@ async def proxy_generate(
     4. 扣除用户次数
     5. 记录使用日志
     """
-    # 获取请求体
     body = await request.json()
     model_name = body.get("model", "gemini-3-pro-image-preview")
+    request_mode = _normalize_request_mode(body.get("request_mode"))
 
-    # 验证模型名称白名单
     validate_model_name(model_name)
-
-    # 计算消耗次数
     credits_to_use = await get_credits_for_model(db, model_name)
 
     reserved = False
@@ -451,7 +839,6 @@ async def proxy_generate(
     except HTTPException:
         raise
 
-    # 获取可用 Token 列表
     try:
         tokens = await get_available_tokens(db)
     except HTTPException:
@@ -466,7 +853,6 @@ async def proxy_generate(
             await _commit_changes(db)
         raise
 
-    # 提取 prompt 预览
     prompt_preview = ""
     contents = body.get("contents", [])
     if contents and len(contents) > 0:
@@ -480,11 +866,9 @@ async def proxy_generate(
     async with httpx.AsyncClient(timeout=120.0) as client:
         for token in tokens:
             now = datetime.utcnow()
-            target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:generateContent"
             try:
                 plain_key = decrypt_api_key(token.api_key)
             except RuntimeError as e:
-                # 记录详细错误信息以便调试加密配置问题
                 logger.error(
                     f"Token 解密失败: token_id={token.id}, "
                     f"error_type={type(e).__name__}, "
@@ -501,18 +885,21 @@ async def proxy_generate(
                 continue
 
             key_updates = _build_key_updates(token, plain_key)
-
-            headers = {
-                "Content-Type": "application/json",
-                "x-goog-api-key": plain_key,
-            }
+            target_url, headers, request_payload = _build_upstream_request(
+                body,
+                model_name,
+                request_mode,
+                plain_key,
+                stream=False,
+            )
 
             try:
-                response = await client.post(target_url, json=body, headers=headers)
+                response = await client.post(target_url, json=request_payload, headers=headers)
             except httpx.TimeoutException:
-                usage_log = UsageLog(
+                usage_log = _build_usage_log(
                     user_id=current_user.id,
                     model_name=model_name,
+                    request_mode=request_mode,
                     credits_used=0,
                     token_id=token.id,
                     request_type="generate",
@@ -534,11 +921,12 @@ async def proxy_generate(
 
             if response.status_code == 200:
                 try:
-                    data = response.json()
+                    raw_data = response.json()
                 except ValueError:
-                    usage_log = UsageLog(
+                    usage_log = _build_usage_log(
                         user_id=current_user.id,
                         model_name=model_name,
+                        request_mode=request_mode,
                         credits_used=0,
                         token_id=token.id,
                         request_type="generate",
@@ -558,12 +946,14 @@ async def proxy_generate(
                     last_error_detail = "上游响应格式错误"
                     continue
 
+                data = _normalize_success_payload(raw_data, request_mode)
                 if not _has_candidate_content(data):
                     empty_detail = _describe_empty_response(data)
                     is_safety_blocked = _is_safety_blocked_empty_response(data)
-                    usage_log = UsageLog(
+                    usage_log = _build_usage_log(
                         user_id=current_user.id,
                         model_name=model_name,
+                        request_mode=request_mode,
                         credits_used=0,
                         token_id=token.id,
                         request_type="generate",
@@ -598,9 +988,10 @@ async def proxy_generate(
                     last_error_detail = empty_detail
                     continue
 
-                usage_log = UsageLog(
+                usage_log = _build_usage_log(
                     user_id=current_user.id,
                     model_name=model_name,
+                    request_mode=request_mode,
                     credits_used=credits_to_use,
                     token_id=token.id,
                     request_type="generate",
@@ -630,9 +1021,10 @@ async def proxy_generate(
                 or rate_limit_error
             )
             disable_token = quota_error and not rate_limit_error
-            usage_log = UsageLog(
+            usage_log = _build_usage_log(
                 user_id=current_user.id,
                 model_name=model_name,
+                request_mode=request_mode,
                 credits_used=0,
                 token_id=token.id,
                 request_type="generate",
@@ -699,10 +1091,9 @@ async def proxy_generate_stream(
     """
     body = await request.json()
     model_name = body.get("model", "gemini-3-pro-image-preview")
+    request_mode = _normalize_request_mode(body.get("request_mode"))
 
-    # 验证模型名称白名单
     validate_model_name(model_name)
-
     credits_to_use = await get_credits_for_model(db, model_name)
 
     reserved = False
@@ -743,7 +1134,6 @@ async def proxy_generate_stream(
     try:
         for token in tokens:
             now = datetime.utcnow()
-            target_url = f"{settings.newapi_base_url}/v1beta/models/{model_name}:streamGenerateContent"
             try:
                 plain_key = decrypt_api_key(token.api_key)
             except RuntimeError:
@@ -758,19 +1148,22 @@ async def proxy_generate_stream(
                 continue
 
             key_updates = _build_key_updates(token, plain_key)
-
-            headers = {
-                "Content-Type": "application/json",
-                "x-goog-api-key": plain_key,
-            }
+            target_url, headers, request_payload = _build_upstream_request(
+                body,
+                model_name,
+                request_mode,
+                plain_key,
+                stream=True,
+            )
 
             try:
-                request_obj = client.build_request("POST", target_url, json=body, headers=headers)
+                request_obj = client.build_request("POST", target_url, json=request_payload, headers=headers)
                 response = await client.send(request_obj, stream=True)
             except httpx.TimeoutException:
-                usage_log = UsageLog(
+                usage_log = _build_usage_log(
                     user_id=current_user.id,
                     model_name=model_name,
+                    request_mode=request_mode,
                     credits_used=0,
                     token_id=token.id,
                     request_type="generate_stream",
@@ -809,9 +1202,10 @@ async def proxy_generate_stream(
                 or rate_limit_error
             )
             disable_token = quota_error and not rate_limit_error
-            usage_log = UsageLog(
+            usage_log = _build_usage_log(
                 user_id=current_user.id,
                 model_name=model_name,
+                request_mode=request_mode,
                 credits_used=0,
                 token_id=token.id,
                 request_type="generate_stream",
@@ -886,34 +1280,57 @@ async def proxy_generate_stream(
             buffer = b""
             async for chunk in selected_response.aiter_bytes():
                 buffer += chunk
-                # 按行分割 NDJSON
                 while b"\n" in buffer:
                     line, buffer = buffer.split(b"\n", 1)
-                    if line.strip():  # 跳过空行
-                        if not has_content:
-                            try:
-                                decoded = line.strip()
-                                if decoded.startswith(b"data:"):
-                                    decoded = decoded[5:].strip()
-                                payload = json.loads(decoded.decode("utf-8", errors="ignore"))
-                                last_payload = payload
-                                has_content = _has_candidate_content(payload)
-                            except ValueError:
-                                pass
-                        yield line + b"\n"
-            # 处理最后剩余的数据
-            if buffer.strip():
-                if not has_content:
-                    try:
-                        decoded = buffer.strip()
-                        if decoded.startswith(b"data:"):
-                            decoded = decoded[5:].strip()
-                        payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                    if not line.strip():
+                        continue
+
+                    if request_mode == REQUEST_MODE_OPENAI_COMPATIBLE:
+                        try:
+                            payload = _normalize_openai_stream_line(line)
+                        except ValueError:
+                            continue
+                        if payload is None:
+                            continue
                         last_payload = payload
-                        has_content = _has_candidate_content(payload)
+                        has_content = has_content or _has_candidate_content(payload)
+                        yield json.dumps(payload).encode("utf-8") + b"\n"
+                        continue
+
+                    if not has_content:
+                        try:
+                            decoded = line.strip()
+                            if decoded.startswith(b"data:"):
+                                decoded = decoded[5:].strip()
+                            payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                            last_payload = payload
+                            has_content = _has_candidate_content(payload)
+                        except ValueError:
+                            pass
+                    yield line + b"\n"
+
+            if buffer.strip():
+                if request_mode == REQUEST_MODE_OPENAI_COMPATIBLE:
+                    try:
+                        payload = _normalize_openai_stream_line(buffer)
                     except ValueError:
-                        pass
-                yield buffer
+                        payload = None
+                    if payload is not None:
+                        last_payload = payload
+                        has_content = has_content or _has_candidate_content(payload)
+                        yield json.dumps(payload).encode("utf-8") + b"\n"
+                else:
+                    if not has_content:
+                        try:
+                            decoded = buffer.strip()
+                            if decoded.startswith(b"data:"):
+                                decoded = decoded[5:].strip()
+                            payload = json.loads(decoded.decode("utf-8", errors="ignore"))
+                            last_payload = payload
+                            has_content = _has_candidate_content(payload)
+                        except ValueError:
+                            pass
+                    yield buffer
         except Exception as exc:
             stream_error = exc
         finally:
@@ -933,9 +1350,10 @@ async def proxy_generate_stream(
             if not has_content
             else False
         )
-        usage_log = UsageLog(
+        usage_log = _build_usage_log(
             user_id=current_user.id,
             model_name=model_name,
+            request_mode=request_mode,
             credits_used=credits_to_use if has_content else 0,
             token_id=selected_token.id,
             request_type="generate_stream",

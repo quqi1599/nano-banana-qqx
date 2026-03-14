@@ -1230,8 +1230,11 @@ export function UserManagementPanel({ apiBase, onViewConversations, initialSearc
                                                         <span className="text-xs font-bold text-gray-900 dark:text-white capitalize">{log.model_name.replace('gemini-', '')}</span>
                                                         <span className="font-mono text-xs font-bold text-rose-500">-{log.credits_used}</span>
                                                     </div>
-                                                    <div className="flex items-center justify-between text-[10px] text-gray-400">
-                                                        <span>{log.request_type}</span>
+                                                    <div className="flex items-center justify-between text-[10px] text-gray-400 gap-2">
+                                                        <span className="truncate">{log.request_type}</span>
+                                                        <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                                                            {log.request_mode === 'openai_compatible' ? 'OpenAI 兼容' : '谷歌原生'}
+                                                        </span>
                                                         <span>{formatShortDate(log.created_at)}</span>
                                                     </div>
                                                     {log.prompt_preview && (

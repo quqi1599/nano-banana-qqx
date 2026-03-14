@@ -84,6 +84,7 @@ export const generateContentViaProxy = async (
     // 构建请求体
     const requestBody = {
         model: normalizedModelName,
+        request_mode: settings.requestMode,
         contents: [...compressedHistory, currentUserContent],
         config: {
             imageConfig,
@@ -171,6 +172,7 @@ export const streamContentViaProxy = async function* (
 
     const requestBody = {
         model: normalizedModelName,
+        request_mode: settings.requestMode,
         contents: [...compressedHistory, currentUserContent],
         config: {
             imageConfig,

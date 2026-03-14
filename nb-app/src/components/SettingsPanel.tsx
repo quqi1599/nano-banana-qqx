@@ -18,6 +18,7 @@ import {
   normalizeImageModelName,
   sanitizeImageConfigForModel,
 } from '../constants/modelProfiles';
+import { DEFAULT_REQUEST_MODE, getRequestModeLabel } from '../constants/requestModes';
 export const SettingsPanel: React.FC = () => {
   const { apiKey, settings, updateSettings, toggleSettings, removeApiKey, clearHistory, isSettingsOpen, fetchBalance, balance, installPrompt, setInstallPrompt, usageCount } = useAppStore();
   const { addToast, showDialog, setShowAuthModal } = useUiStore();
@@ -148,6 +149,7 @@ export const SettingsPanel: React.FC = () => {
     const params = new URLSearchParams();
     if (settings.customEndpoint) params.set('endpoint', settings.customEndpoint);
     if (settings.modelName) params.set('model', settings.modelName);
+    if (settings.requestMode !== DEFAULT_REQUEST_MODE) params.set('mode', settings.requestMode);
     const query = params.toString();
     return `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ''}`;
   };
@@ -508,6 +510,7 @@ export const SettingsPanel: React.FC = () => {
         {/* Info */}
         <div className="mt-1 pb-2 sm:pb-4 text-center text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-600 space-y-0.5 sm:space-y-1">
           <p>模型: {getImageModelLabel(settings.modelName)}</p>
+          <p>请求模式: {getRequestModeLabel(settings.requestMode)}</p>
         </div>
 
         {/* 微信二维码弹窗 */}

@@ -19,6 +19,7 @@ class UsageLog(Base):
         String(36), ForeignKey("users.id"), index=True
     )
     model_name: Mapped[str] = mapped_column(String(100), index=True)
+    request_mode: Mapped[str] = mapped_column(String(32), default="google_native", index=True)
     credits_used: Mapped[int] = mapped_column(Integer)
     token_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("token_pool.id"), nullable=True

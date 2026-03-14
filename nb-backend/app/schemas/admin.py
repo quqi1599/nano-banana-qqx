@@ -295,6 +295,7 @@ class UsageLogItem(BaseModel):
     """用户积分消耗明细项"""
     id: str
     model_name: str
+    request_mode: str
     credits_used: int
     request_type: str
     prompt_preview: Optional[str]
